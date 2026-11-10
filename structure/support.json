@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.2",
+  "version": "1.3",
   "sujet": "SUPPORT",
   "description": "Demandes des utilisateurs, lien vers la page concernée, fil d'échanges et archivage.",
   "tables": [
@@ -112,11 +112,6 @@
           "label": "Assigné à",
           "type": "Ref:Utilisateurs",
           "visibleCol": "Email"
-        },
-        {
-          "id": "Reponse",
-          "label": "Réponse",
-          "type": "Text"
         },
         {
           "id": "Url_page",

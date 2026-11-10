@@ -1,8 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "1.1",
+  "version": "1.2",
   "sujet": "UTILISATEURS",
-  "description": "Annuaire, rôles (dont AdminTerritoire / AdminRPROG avec périmètre), arborescence des services ; base des droits.",
+  "description": "Annuaire, rôles (dont AdminTerritoire avec périmètre), arborescence des services ; base des droits.",
   "tables": [
     {
       "tableId": "Entites",
@@ -164,12 +164,6 @@
           "visibleCol": "Nom"
         },
         {
-          "id": "Programmes",
-          "label": "Programmes (périmètre)",
-          "type": "RefList:Programmes",
-          "visibleCol": "Code"
-        },
-        {
           "id": "Courriel_valide",
           "label": "Courriel valide",
           "type": "Bool",
@@ -215,7 +209,6 @@
     }
   ],
   "dependances": [
-    "REFERENTIEL_TERRITOIRES",
-    "REFERENTIEL_PROGRAMMES"
+    "REFERENTIEL_TERRITOIRES"
   ]
 }
