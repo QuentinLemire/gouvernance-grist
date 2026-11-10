@@ -58,7 +58,7 @@ Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une imag
 
 ## Créer ou mettre à la norme une application
 
-- **Nouvelle application** : dupliquer le Grist « Modèle DGOM ».
+- **Nouvelle application** : ouvrir le Grist « Modèle DGOM » (document de type *Modèle* : il s'ouvre en bac à sable) puis « Enregistrer une copie ».
 - **Application existante** : poser le widget Administration, onglet **Structure** : « Installer » sur chaque table standard manquante ou incomplète,
   puis « Créer les pages standard » (Accueil, Documentation, Support, Utilisateurs, Boîte à outils) qui range aussi le menu.
 - **Par script** : console du navigateur (F12) sur le document, coller `scripts/installer-gouvernance.js` puis
