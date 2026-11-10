@@ -1,0 +1,95 @@
+{
+  "format": "grist-structure",
+  "version": "1.1",
+  "sujet": "REFERENTIEL_TERRITOIRES",
+  "description": "Les 13 territoires ultramarins (code COG, statut, bassin). Données de référence fournies avec le modèle.",
+  "tables": [
+    {
+      "tableId": "Territoires",
+      "columns": [
+        {
+          "id": "Code_COG",
+          "label": "Code COG",
+          "type": "Text"
+        },
+        {
+          "id": "Nom",
+          "label": "Nom",
+          "type": "Text"
+        },
+        {
+          "id": "Statut",
+          "label": "Statut",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "DROM",
+              "COM",
+              "Collectivité sui generis",
+              "TAAF",
+              "Domaine public de l'État"
+            ],
+            "choiceOptions": {
+              "DROM": {
+                "fillColor": "#000091",
+                "textColor": "#FFFFFF"
+              },
+              "COM": {
+                "fillColor": "#6A6AF4",
+                "textColor": "#FFFFFF"
+              },
+              "Collectivité sui generis": {
+                "fillColor": "#C3FAD5",
+                "textColor": "#000000"
+              },
+              "TAAF": {
+                "fillColor": "#E3E3FD",
+                "textColor": "#000000"
+              },
+              "Domaine public de l'État": {
+                "fillColor": "#EEEEEE",
+                "textColor": "#000000"
+              }
+            }
+          }
+        },
+        {
+          "id": "Bassin",
+          "label": "Bassin",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Atlantique",
+              "Océan Indien",
+              "Pacifique",
+              "Austral"
+            ],
+            "choiceOptions": {
+              "Atlantique": {
+                "fillColor": "#CADDFB",
+                "textColor": "#000000"
+              },
+              "Océan Indien": {
+                "fillColor": "#C3FAD5",
+                "textColor": "#000000"
+              },
+              "Pacifique": {
+                "fillColor": "#FEECC2",
+                "textColor": "#000000"
+              },
+              "Austral": {
+                "fillColor": "#EEEEEE",
+                "textColor": "#000000"
+              }
+            }
+          }
+        },
+        {
+          "id": "Chef_lieu",
+          "label": "Chef-lieu",
+          "type": "Text"
+        }
+      ]
+    }
+  ]
+}

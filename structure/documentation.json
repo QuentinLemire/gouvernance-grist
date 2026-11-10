@@ -1,0 +1,106 @@
+{
+  "format": "grist-structure",
+  "version": "1.1",
+  "sujet": "DOCUMENTATION",
+  "description": "Pages de documentation, FAQ et notes en Markdown, avec une vue lecture mise en page.",
+  "tables": [
+    {
+      "tableId": "Documentation",
+      "columns": [
+        {
+          "id": "Titre",
+          "label": "Titre",
+          "type": "Text"
+        },
+        {
+          "id": "Rubrique",
+          "label": "Rubrique",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Guide utilisateur",
+              "Procédure",
+              "FAQ",
+              "Note",
+              "Compte rendu",
+              "Décision"
+            ],
+            "choiceOptions": {
+              "Guide utilisateur": {
+                "fillColor": "#E3E3FD",
+                "textColor": "#000000"
+              },
+              "Procédure": {
+                "fillColor": "#C3FAD5",
+                "textColor": "#000000"
+              },
+              "FAQ": {
+                "fillColor": "#FEECC2",
+                "textColor": "#000000"
+              },
+              "Note": {
+                "fillColor": "#EEEEEE",
+                "textColor": "#000000"
+              },
+              "Compte rendu": {
+                "fillColor": "#CADDFB",
+                "textColor": "#000000"
+              },
+              "Décision": {
+                "fillColor": "#000091",
+                "textColor": "#FFFFFF"
+              }
+            }
+          }
+        },
+        {
+          "id": "Ordre",
+          "label": "Ordre",
+          "type": "Numeric"
+        },
+        {
+          "id": "Contenu",
+          "label": "Contenu",
+          "type": "Text",
+          "widgetOptions": {
+            "widget": "Markdown",
+            "wrap": true
+          }
+        },
+        {
+          "id": "Visible_par_tous",
+          "label": "Visible par tous",
+          "type": "Bool"
+        },
+        {
+          "id": "CreeLe",
+          "label": "Créé le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 0
+        },
+        {
+          "id": "CreePar",
+          "label": "Créé par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "ModifieLe",
+          "label": "Modifié le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 2
+        },
+        {
+          "id": "ModifiePar",
+          "label": "Modifié par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 2
+        }
+      ]
+    }
+  ]
+}

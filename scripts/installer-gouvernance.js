@@ -26,8 +26,18 @@
  *    pour être reconnaissables dans « Permissions avancées ».
  */
 
-// Adresse publique des fichiers de structure (servis par jsDelivr depuis GitHub).
-const DEPOT = 'https://cdn.jsdelivr.net/gh/QuentinLemire/gouvernance-grist@main/structure/';
+// Adresse publique du dépôt (servi par jsDelivr depuis GitHub). On peut la remplacer
+// par une adresse figée sur un commit précis via l'option { depot } d'installerGouvernance.
+const DEPOT_PAR_DEFAUT = 'https://cdn.jsdelivr.net/gh/QuentinLemire/gouvernance-grist@main/';
+
+// Document visé : par défaut celui qui est ouvert ; installerGouvernance(…, { docId }) en choisit un autre.
+let DOC_CIBLE = null;
+
+// Jeux de données de référence livrés avec certains sujets (dossier donnees/ du dépôt).
+const DONNEES_DE_REFERENCE = {
+  referentiel_territoires: 'territoires.json',
+  referentiel_programmes: 'programmes.json',
+};
 
 // ---------------------------------------------------------------------
 // Petits utilitaires d'accès à l'API Grist du document ouvert
@@ -40,9 +50,9 @@ function docIdCourant() {
   return m[1];
 }
 
-/** Appelle l'API du document courant et renvoie la réponse JSON (lève une erreur lisible sinon). */
+/** Appelle l'API du document visé et renvoie la réponse JSON (lève une erreur lisible sinon). */
 async function api(chemin, options = {}) {
-  const r = await fetch(`/api/docs/${docIdCourant()}${chemin}`, {
+  const r = await fetch(`/api/docs/${DOC_CIBLE || docIdCourant()}${chemin}`, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     ...options,
@@ -171,6 +181,8 @@ async function poserReglesDeBase() {
   };
   const parDefaut = await ressource('*');
   const accueil = await ressource('Accueil');
+  const tablesDuDoc = (await api('/tables')).tables.map((t) => t.id);
+  const documentation = tablesDuDoc.includes('Documentation') ? await ressource('Documentation') : null;
 
   const regle = (resource, aclFormula, permissionsText, rulePos, memo, extra = {}) =>
     ['AddRecord', '_grist_ACLRules', null, { resource, aclFormula, permissionsText, rulePos, memo, ...extra }];
@@ -182,6 +194,10 @@ async function poserReglesDeBase() {
     regle(accueil, 'user.Access == OWNER', 'all', 2, "[Gouvernance] Propriétaires : modifier la page d'accueil"),
     regle(accueil, 'True', '+R-CUD', 3, '[Gouvernance] Accueil lisible par tous'),
     regle(parDefaut, 'user.Access == OWNER', 'all', 4, '[Gouvernance] Propriétaires : tous les droits'),
+    // Pages de documentation marquées « Visible par tous » : lisibles même sans inscription.
+    ...(documentation ? [regle(documentation,
+      'user.Access != OWNER and (not user.Profil or not user.Profil.Actif) and rec.Visible_par_tous',
+      '+R-CUD', 3.5, '[Gouvernance] Documentation publique lisible par tous')] : []),
     regle(parDefaut, 'not user.Profil or not user.Profil.Actif', 'none', 5, '[Gouvernance] Non inscrits ou inactifs : Accueil seulement'),
   ]);
   return 'posées';
@@ -191,21 +207,54 @@ async function poserReglesDeBase() {
 // Point d'entrée
 // ---------------------------------------------------------------------
 
+/** Remplit une table vide avec un jeu de données de référence (ne touche jamais une table déjà remplie). */
+async function chargerDonnees(depot, fichier) {
+  const jeu = await (await fetch(`${depot}donnees/${fichier}`)).json();
+  const lignes = (await api(`/tables/${jeu.tableId}/records`)).records;
+  if (lignes.length) return `${jeu.tableId} : déjà rempli`;
+  await api(`/tables/${jeu.tableId}/records`, {
+    method: 'POST',
+    body: JSON.stringify({ records: jeu.records.map((fields) => ({ fields })) }),
+  });
+  return `${jeu.tableId} : ${jeu.records.length} lignes`;
+}
+
 /**
  * Installe les sujets demandés (noms des fichiers de `structure/`, sans « .json »).
- * Exemple : await installerGouvernance(['utilisateurs', 'support'])
+ * Les sujets dont ils dépendent (champ « dependances ») sont ajoutés automatiquement.
+ *
+ * Exemples :
+ *   await installerGouvernance(['utilisateurs', 'support'])
+ *   await installerGouvernance(['documentation'], { docId: 'abc123…' })   // un autre document
  */
-async function installerGouvernance(sujets) {
-  const tables = [];
-  for (const sujet of sujets) {
-    const r = await fetch(`${DEPOT}${sujet}.json`);
+async function installerGouvernance(sujets, { docId = null, depot = DEPOT_PAR_DEFAUT } = {}) {
+  DOC_CIBLE = docId;
+
+  // 1. Lire les sujets demandés et, de proche en proche, leurs dépendances.
+  const aLire = [...sujets];
+  const lus = new Map();
+  while (aLire.length) {
+    const sujet = aLire.shift();
+    if (lus.has(sujet)) continue;
+    const r = await fetch(`${depot}structure/${sujet}.json`);
     if (!r.ok) throw new Error(`Sujet introuvable sur le dépôt : ${sujet}`);
-    tables.push(...(await r.json()).tables);
+    const def = await r.json();
+    lus.set(sujet, def);
+    for (const dep of def.dependances || []) aLire.push(dep.toLowerCase());
   }
+
+  // 2. Créer toutes les tables en une passe (les références croisées se règlent à la fin).
+  const tables = [...lus.values()].flatMap((def) => def.tables);
   const rapport = await creerStructure(tables);
 
+  // 3. Données de référence (territoires, programmes…) si leur table est vide.
+  rapport.donnees = [];
+  for (const sujet of lus.keys()) {
+    if (DONNEES_DE_REFERENCE[sujet]) rapport.donnees.push(await chargerDonnees(depot, DONNEES_DE_REFERENCE[sujet]));
+  }
+
   // Les règles d'accès n'ont de sens que si l'annuaire et la page d'accueil sont présents.
-  if (sujets.includes('utilisateurs') && sujets.includes('accueil_public')) {
+  if (lus.has('utilisateurs') && lus.has('accueil_public')) {
     rapport.regles = await poserReglesDeBase();
   }
   console.table(rapport);

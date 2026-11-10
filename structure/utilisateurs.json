@@ -1,7 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "1.0",
+  "version": "1.1",
   "sujet": "UTILISATEURS",
+  "description": "Annuaire, rôles (dont AdminTerritoire / AdminRPROG avec périmètre), arborescence des services ; base des droits.",
   "tables": [
     {
       "tableId": "Entites",
@@ -109,6 +110,8 @@
           "widgetOptions": {
             "choices": [
               "Administrateur",
+              "AdminTerritoire",
+              "AdminRPROG",
               "Gestionnaire",
               "Contributeur",
               "Lecteur"
@@ -116,6 +119,14 @@
             "choiceOptions": {
               "Administrateur": {
                 "fillColor": "#000091",
+                "textColor": "#FFFFFF"
+              },
+              "AdminTerritoire": {
+                "fillColor": "#009081",
+                "textColor": "#FFFFFF"
+              },
+              "AdminRPROG": {
+                "fillColor": "#A558A0",
                 "textColor": "#FFFFFF"
               },
               "Gestionnaire": {
@@ -147,6 +158,32 @@
           "recalcWhen": 0
         },
         {
+          "id": "Territoires",
+          "label": "Territoires (périmètre)",
+          "type": "RefList:Territoires",
+          "visibleCol": "Nom"
+        },
+        {
+          "id": "Programmes",
+          "label": "Programmes (périmètre)",
+          "type": "RefList:Programmes",
+          "visibleCol": "Code"
+        },
+        {
+          "id": "Courriel_valide",
+          "label": "Courriel valide",
+          "type": "Bool",
+          "isFormula": true,
+          "formula": "import re\nreturn bool(re.match(r\"^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$\", $Email_cle))"
+        },
+        {
+          "id": "Doublon",
+          "label": "Doublon",
+          "type": "Bool",
+          "isFormula": true,
+          "formula": "return bool($Email_cle) and len(Utilisateurs.lookupRecords(Email_cle=$Email_cle)) > 1"
+        },
+        {
           "id": "CreeLe",
           "label": "Créé le",
           "type": "DateTime:Europe/Paris",
@@ -176,5 +213,9 @@
         }
       ]
     }
+  ],
+  "dependances": [
+    "REFERENTIEL_TERRITOIRES",
+    "REFERENTIEL_PROGRAMMES"
   ]
 }
