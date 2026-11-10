@@ -10,7 +10,8 @@
     - non inscrite : le message « accès réservé » (Accueil.Message, calculé
       depuis Parametres) avec un bouton pour écrire au contact, et les pages
       de documentation marquées « Visible par tous » ;
-    - inscrite : un mot d'accueil, les dernières nouveautés et la documentation.
+    - inscrite : un mot d'accueil, les 3 dernières pages « Nouveauté » de la
+      documentation, et la documentation.
   =====================================================================
 -->
 <html lang="fr">
@@ -61,12 +62,14 @@ let docsPubliques = [];
 
 /** Une personne est « inscrite » si les règles d'accès la laissent lire la table Utilisateurs. */
 async function afficher() {
-  const [accueil, utilisateurs, docs, nouveautes, p] = await Promise.all([
-    lire('Accueil'), lire('Utilisateurs'), lire('Documentation'), lire('Nouveautes'), parametres(),
+  const [accueil, utilisateurs, docs, p] = await Promise.all([
+    lire('Accueil'), lire('Utilisateurs'), lire('Documentation'), parametres(),
   ]);
   entete(p);
   const inscrit = Array.isArray(utilisateurs);
-  docsPubliques = (docs || []).filter((d) => inscrit || d.Visible_par_tous)
+  // Les pages de rubrique « Nouveauté » s'affichent dans le bloc Nouveautés, pas dans les fiches.
+  const nouveautes = (docs || []).filter((d) => d.Rubrique === 'Nouveauté');
+  docsPubliques = (docs || []).filter((d) => d.Rubrique !== 'Nouveauté' && (inscrit || d.Visible_par_tous))
     .sort((a, b) => String(a.Rubrique).localeCompare(String(b.Rubrique)) || (a.Ordre || 0) - (b.Ordre || 0));
   const message = (accueil || [])[0]?.Message || '';
   const contact = p.Contact_support || (message.match(/mailto:([^)\s]+)/) || [])[1] || '';
@@ -75,8 +78,8 @@ async function afficher() {
   if (inscrit) {
     html += `<section class="bandeau"><div><h2>Bienvenue dans ${esc(p.Nom_application || "l'application")}</h2>
       <p>Utilisez le menu de gauche pour accéder aux données. En cas de besoin, la documentation est ci-dessous${p.Contact_support ? ' et le support répond à ' + esc(p.Contact_support) : ''}.</p></div></section><main>`;
-    const N = (nouveautes || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0)).slice(0, 3);
-    if (N.length) html += `<section class="carte"><h2>📰 Nouveautés</h2>${N.map((n) => `<div class="nouveaute"><small>${n.Date ? new Date(n.Date * 1000).toLocaleDateString('fr-FR') : ''}${n.Version ? ' · version ' + esc(n.Version) : ''}</small><br><b>${esc(n.Titre)}</b><div class="markdown">${markdown(n.Detail)}</div></div>`).join('')}</section>`;
+    const N = nouveautes.sort((a, b) => (b.CreeLe || 0) - (a.CreeLe || 0)).slice(0, 3);
+    if (N.length) html += `<section class="carte"><h2>📰 Nouveautés</h2>${N.map((n) => `<div class="nouveaute"><small>${n.CreeLe ? new Date(n.CreeLe * 1000).toLocaleDateString('fr-FR') : ''}</small><br><b>${esc(n.Titre)}</b><div class="markdown">${markdown(n.Contenu)}</div></div>`).join('')}</section>`;
   } else {
     html += `<main><section class="acces-reserve markdown">${markdown(message || "# ⛔ Accès réservé\n\nPour avoir accès aux données, rapprochez-vous des administrateurs.")}
       ${contact ? `<p><a class="bouton primaire" href="mailto:${esc(contact)}?subject=${encodeURIComponent('Demande d\'accès à ' + (p.Nom_application || "l'application Grist"))}">✉️ Demander un accès</a></p>` : ''}</section>`;
