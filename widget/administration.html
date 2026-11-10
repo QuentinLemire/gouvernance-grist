@@ -13,7 +13,7 @@
                          actions groupées, ajout en masse, export CSV
     🔐 Droits            matrice rôle × table → règles d'accès Grist,
                          aperçu avant écriture
-    🆘 Support           demandes, fil d'échanges, assignation, archivage
+    🆘 Support           demandes, fil d'échanges, assignation, clôture
     🧱 Structure         tables standard de la norme (dépôt Git / GitLab) :
                          installer ce qui manque ; dans le document source,
                          « Publier la norme »
@@ -488,7 +488,7 @@ const PAS_SUPPORT = `user.Profil.Role != ${JSON.stringify(ROLE_SUPPORT)} and use
 const SUPPORT_PRIVE = {
   Support: [
     { formule: PAS_SUPPORT + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
-    { cols: 'Statut,Priorite,Assigne_a,Archive', formule: PAS_SUPPORT, perm: '-U' },
+    { cols: 'Statut,Priorite,Assigne_a', formule: PAS_SUPPORT, perm: '-U' },
   ],
   Support_commentaires: [
     { formule: PAS_SUPPORT + ' and rec.Demande.Demandeur != user.Email', perm: '-CRUD' },
@@ -643,13 +643,13 @@ function aTraiter(t) {
 function ongletSupport() {
   if (!aTable('Support')) return `<div class="encadre alerte">Pas de table Support. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
   const f = etat.filtres.support;
-  const T = (etat.d.Support || []).filter((t) => f === 'tous' || (f === 'ouverts' ? ticketOuvert(t) : f === 'archives' ? t.Archive : !ticketOuvert(t) && !t.Archive))
+  const T = (etat.d.Support || []).filter((t) => f === 'tous' || (f === 'ouverts') === ticketOuvert(t))
     .sort((a, b) => aTraiter(b) - aTraiter(a) || (b.Dernier_retour || b.CreeLe || 0) - (a.Dernier_retour || a.CreeLe || 0));
   if (!T.some((t) => t.id === etat.ticket)) etat.ticket = T[0]?.id ?? null;
   const t = T.find((x) => x.id === etat.ticket);
   return `
     <div class="barre-outils">
-      ${[['ouverts', 'Ouvertes'], ['traites', 'Closes'], ['archives', 'Archivées'], ['tous', 'Toutes']].map(([v, l]) => `<button class="bouton petit ${f === v ? 'primaire' : ''}" data-support="${v}">${l}</button>`).join('')}
+      ${[['ouverts', 'Ouvertes'], ['traites', 'Closes'], ['tous', 'Toutes']].map(([v, l]) => `<button class="bouton petit ${f === v ? 'primaire' : ''}" data-support="${v}">${l}</button>`).join('')}
       <span class="espace"></span><span class="aide" style="margin:0"><span class="a-traiter"></span>${T.filter(aTraiter).length} en attente d'une réponse du support · ${T.length} demande(s)</span>
     </div>
     ${T.length ? `<div class="maitre-detail">
@@ -687,7 +687,6 @@ function ficheTicket(t) {
       <select class="champ" data-t="${t.id}" data-col="Statut" title="Statut">${options(statuts, t.Statut)}</select>
       <select class="champ" data-t="${t.id}" data-col="Priorite" title="Priorité">${options(priorites, t.Priorite, 'Priorité')}</select>
       <select class="champ" data-t="${t.id}" data-col="Assigne_a" data-type="ref" title="Assignée à">${options(personnes, t.Assigne_a, 'Assigner à…')}</select>
-      ${colonne('Support', 'Archive') ? `<button class="bouton petit" data-action="archiver" data-id="${t.id}" data-val="${t.Archive ? '0' : '1'}">${t.Archive ? 'Désarchiver' : 'Archiver'}</button>` : ''}
     </div>
   </article>`;
 }
@@ -704,7 +703,7 @@ async function traiterTicket(bouton, id, { texte = '', statut = null, evenement 
     if (texte && fil) a.push(['AddRecord', 'Support_commentaires', null, { Demande: id, Message: texte, ...(type ? { Type: 'Message' } : {}) }]);
     // Écrire sur une demande close la rouvre ; répondre à une demande nouvelle la passe « En cours ».
     if (!statut && texte && (!ticketOuvert(t) || t.Statut === 'Nouveau')) { statut = 'En cours'; evenement = ticketOuvert(t) ? '' : '↩️ Demande rouverte'; }
-    if (statut) a.push(['UpdateRecord', 'Support', id, { Statut: statut, ...(statut === 'En cours' && t.Archive ? { Archive: false } : {}) }]);
+    if (statut) a.push(['UpdateRecord', 'Support', id, { Statut: statut }]);
     if (evenement && fil && type) a.push(['AddRecord', 'Support_commentaires', null, { Demande: id, Message: evenement, Type: 'Événement' }]);
     if (!a.length) return;
     await agir(a);
@@ -806,7 +805,12 @@ async function chargerSujets() {
       // Colonnes du document absentes de la norme : à publier si ce document est la source.
       for (const t of def.tables) for (const c of (etat.meta.parId[t.tableId]?.colonnes || [])) if (!t.columns.some((x) => x.id === c.colId)) ajouts.push(t.tableId + '.' + c.colId);
       const absent = def.tables.every((t) => !aTable(t.tableId));
-      res[s.fichier] = { def, manques, ajouts, etat: absent ? 'absent' : manques.length ? 'partiel' : 'present' };
+      // Hors document source : colonnes présentes mais pas dans l'ordre de la norme.
+      const desordre = !estSource() && def.tables.some((t) => {
+        const ici = (etat.meta.parId[t.tableId]?.colonnes || []).map((c) => c.colId).filter((id) => t.columns.some((x) => x.id === id));
+        return ici.join() !== t.columns.map((c) => c.id).filter((id) => ici.includes(id)).join();
+      });
+      res[s.fichier] = { def, manques, ajouts, desordre, etat: absent ? 'absent' : manques.length || desordre ? 'partiel' : 'present' };
     } catch (e) { res[s.fichier] = { erreur: true, etat: 'inconnu' }; }
   }));
   etat.sujets = res;
@@ -820,9 +824,9 @@ function ongletStructure() {
       <p class="aide">Modifiez ici les tables standard, puis publiez : toutes les applications verront la nouvelle norme à leur prochaine ouverture. ${depot().jeton ? '' : '<br><b>Sans jeton</b> (Paramètres → Github_jeton), les fichiers sont téléchargés et la page du dépôt s\'ouvre pour les déposer.'}</p>
       <button class="bouton primaire" data-action="publier">📤 Publier la norme</button></section>` : ''}
     <section class="carte"><h2>🧱 Tables standard de la norme DGOM</h2>
-      <p class="aide">Lues en direct sur le <a href="${PAGE_DEPOT}" target="_blank" rel="noopener">dépôt Git</a>. « Installer » ajoute seulement ce qui manque : rien n'est jamais supprimé ni modifié.</p>
+      <p class="aide">Lues en direct sur le <a href="${PAGE_DEPOT}" target="_blank" rel="noopener">dépôt Git</a>. « Installer » ajoute ce qui manque et range les colonnes dans l'ordre de la norme : rien n'est jamais supprimé.</p>
       ${SUJETS.map((s) => { const x = etat.sujets[s.fichier]; return `<div class="sujet"><div><b>${esc(s.nom)}</b> ${s.obligatoire ? '<span class="badge bleu">socle</span>' : ''}<br>
-        <small>${x.def ? esc(x.def.description || '') : ''}${x.manques?.length && x.etat === 'partiel' ? '<br>Manque : ' + esc(x.manques.slice(0, 8).join(', ')) + (x.manques.length > 8 ? '…' : '') : ''}</small></div>
+        <small>${x.def ? esc(x.def.description || '') : ''}${x.manques?.length && x.etat === 'partiel' ? '<br>Manque : ' + esc(x.manques.slice(0, 8).join(', ')) + (x.manques.length > 8 ? '…' : '') : ''}${x.desordre && x.etat === 'partiel' ? '<br>Colonnes à remettre dans l\'ordre de la norme' : ''}</small></div>
         ${estSource() && x.ajouts?.length ? '<span class="badge bleu" title="' + esc(x.ajouts.join(', ')) + '">à publier</span>' : ''} ${badge[x.etat]} ${x.etat === 'absent' || x.etat === 'partiel' ? `<button class="bouton petit primaire" data-action="installer" data-sujet="${s.fichier}">Installer</button>` : ''}</div>`; }).join('')}
     </section>
     <section class="carte"><h2>🕓 Traçabilité</h2>
@@ -846,6 +850,30 @@ async function creerStructure(tables) {
     const cible = (/^(?:Ref|RefList):(\w+)/.exec(c.type || '') || [])[1];
     const moi = colonne(t.tableId, c.id), vis = cible && c.visibleCol && colonne(cible, c.visibleCol);
     if (moi && vis && moi.visibleCol !== vis.id) a.push(['ModifyColumn', t.tableId, c.id, { visibleCol: vis.id }], ['SetDisplayFormula', t.tableId, null, moi.id, '$' + c.id + '.' + c.visibleCol]);
+  }
+  if (a.length) await agir(a);
+  await rangerColonnes(tables);
+}
+
+/**
+ * Range les colonnes dans l'ordre de la norme (les colonnes propres à l'application suivent),
+ * dans la structure et dans la vue « données brutes » / fiche de chaque table.
+ */
+async function rangerColonnes(tables) {
+  await chargerStructure();
+  const [sections, champs] = await Promise.all([lire('_grist_Views_section'), lire('_grist_Views_section_field')]);
+  const a = [];
+  for (const t of tables) {
+    const table = etat.meta.parId[t.tableId]; if (!table) continue;
+    const norme = t.columns.map((c) => c.id);
+    const rang = (colId) => { const i = norme.indexOf(colId); return i < 0 ? norme.length : i; };
+    const ordre = [...table.colonnes].sort((x, y) => rang(x.colId) - rang(y.colId)); // tri stable : le reste garde son ordre
+    a.push(['BulkUpdateRecord', '_grist_Tables_column', ordre.map((c) => c.id), { parentPos: ordre.map((_, i) => i + 1) }]);
+    const position = Object.fromEntries(ordre.map((c, i) => [c.id, i]));
+    for (const sec of (sections || []).filter((x) => x.id === table.rawViewSectionRef || x.id === table.recordCardViewSectionRef)) {
+      const f = (champs || []).filter((x) => x.parentId === sec.id && x.colRef in position).sort((x, y) => position[x.colRef] - position[y.colRef]);
+      if (f.length) a.push(['BulkUpdateRecord', '_grist_Views_section_field', f.map((x) => x.id), { parentPos: f.map((_, i) => i + 1) }]);
+    }
   }
   if (a.length) await agir(a);
 }
@@ -1040,7 +1068,6 @@ document.addEventListener('click', async (e) => {
     case 'repondre-clore': return traiterTicket(b, id, { texte: $('rep-' + id).value.trim(), statut: 'Résolu', evenement: '✅ Demande close' });
     case 'clore': return traiterTicket(b, id, { statut: 'Résolu', evenement: '✅ Demande close' });
     case 'rouvrir': return traiterTicket(b, id, { statut: 'En cours', evenement: '↩️ Demande rouverte' });
-    case 'archiver': return occupe(b, async () => { await agir([['UpdateRecord', 'Support', id, { Archive: b.dataset.val === '1' }]]); await actualiser(); });
     case 'installer': return installerSujet(b, b.dataset.sujet);
     case 'tracabilite': {
       const t = $('traca-table').value; if (!t) return;

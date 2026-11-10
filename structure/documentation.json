@@ -1,17 +1,12 @@
 {
   "format": "grist-structure",
-  "version": "1.4",
+  "version": "1.5",
   "sujet": "DOCUMENTATION",
   "description": "Pages de documentation, FAQ, notes et nouveautés (rubrique « Nouveauté », affichées sur l'accueil), en Markdown.",
   "tables": [
     {
       "tableId": "Documentation",
       "columns": [
-        {
-          "id": "Titre",
-          "label": "Titre",
-          "type": "Text"
-        },
         {
           "id": "Rubrique",
           "label": "Rubrique",
@@ -69,6 +64,11 @@
           "type": "Numeric"
         },
         {
+          "id": "Titre",
+          "label": "Titre",
+          "type": "Text"
+        },
+        {
           "id": "Contenu",
           "label": "Contenu",
           "type": "Text",
@@ -76,6 +76,14 @@
             "widget": "Markdown",
             "wrap": true
           }
+        },
+        {
+          "id": "Auteur",
+          "label": "Auteur (fiche)",
+          "type": "Ref:Utilisateurs",
+          "isFormula": true,
+          "formula": "Utilisateurs.lookupOne(Email_cle=($CreePar or \"\").strip().lower()) or None",
+          "visibleCol": "Email"
         },
         {
           "id": "CreeLe",
@@ -90,14 +98,6 @@
           "type": "Text",
           "formula": "user.Email",
           "recalcWhen": 0
-        },
-        {
-          "id": "Auteur",
-          "label": "Auteur (fiche)",
-          "type": "Ref:Utilisateurs",
-          "isFormula": true,
-          "formula": "Utilisateurs.lookupOne(Email_cle=($CreePar or \"\").strip().lower()) or None",
-          "visibleCol": "Email"
         },
         {
           "id": "ModifieLe",

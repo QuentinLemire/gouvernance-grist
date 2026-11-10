@@ -1,8 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "1.4",
+  "version": "1.5",
   "sujet": "SUPPORT",
-  "description": "Demandes des utilisateurs, lien vers la page concernée, fil d'échanges et archivage.",
+  "description": "Demandes des utilisateurs, lien vers la page concernée, fil d'échanges ; seul le support clôt ou rouvre.",
   "tables": [
     {
       "tableId": "Support",
@@ -10,11 +10,6 @@
         {
           "id": "Titre",
           "label": "Titre",
-          "type": "Text"
-        },
-        {
-          "id": "Description",
-          "label": "Description",
           "type": "Text"
         },
         {
@@ -32,35 +27,32 @@
           }
         },
         {
-          "id": "Priorite",
-          "label": "Priorité",
-          "type": "Choice",
+          "id": "Description",
+          "label": "Description",
+          "type": "Text"
+        },
+        {
+          "id": "Url_page",
+          "label": "Lien vers la page concernée",
+          "type": "Text",
           "widgetOptions": {
-            "choices": [
-              "Basse",
-              "Normale",
-              "Haute",
-              "Urgente"
-            ],
-            "choiceOptions": {
-              "Basse": {
-                "fillColor": "#E3E3FD",
-                "textColor": "#000000"
-              },
-              "Normale": {
-                "fillColor": "#C3FAD5",
-                "textColor": "#000000"
-              },
-              "Haute": {
-                "fillColor": "#FEECC2",
-                "textColor": "#000000"
-              },
-              "Urgente": {
-                "fillColor": "#FFBDBD",
-                "textColor": "#000000"
-              }
-            }
+            "widget": "HyperLink"
           }
+        },
+        {
+          "id": "Demandeur",
+          "label": "Demandeur",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "Personne",
+          "label": "Demandeur (fiche)",
+          "type": "Ref:Utilisateurs",
+          "isFormula": true,
+          "formula": "Utilisateurs.lookupOne(Email_cle=($Demandeur or \"\").strip().lower()) or None",
+          "visibleCol": "Email"
         },
         {
           "id": "Statut",
@@ -101,19 +93,35 @@
           }
         },
         {
-          "id": "Demandeur",
-          "label": "Demandeur",
-          "type": "Text",
-          "formula": "user.Email",
-          "recalcWhen": 0
-        },
-        {
-          "id": "Personne",
-          "label": "Demandeur (fiche)",
-          "type": "Ref:Utilisateurs",
-          "isFormula": true,
-          "formula": "Utilisateurs.lookupOne(Email_cle=($Demandeur or \"\").strip().lower()) or None",
-          "visibleCol": "Email"
+          "id": "Priorite",
+          "label": "Priorité",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Basse",
+              "Normale",
+              "Haute",
+              "Urgente"
+            ],
+            "choiceOptions": {
+              "Basse": {
+                "fillColor": "#E3E3FD",
+                "textColor": "#000000"
+              },
+              "Normale": {
+                "fillColor": "#C3FAD5",
+                "textColor": "#000000"
+              },
+              "Haute": {
+                "fillColor": "#FEECC2",
+                "textColor": "#000000"
+              },
+              "Urgente": {
+                "fillColor": "#FFBDBD",
+                "textColor": "#000000"
+              }
+            }
+          }
         },
         {
           "id": "Assigne_a",
@@ -122,31 +130,11 @@
           "visibleCol": "Email"
         },
         {
-          "id": "Url_page",
-          "label": "Lien vers la page concernée",
-          "type": "Text",
-          "widgetOptions": {
-            "widget": "HyperLink"
-          }
-        },
-        {
-          "id": "Archive",
-          "label": "Archivé",
-          "type": "Bool"
-        },
-        {
           "id": "Commentaires",
           "label": "Échanges",
           "type": "RefList:Support_commentaires",
           "isFormula": true,
           "formula": "Support_commentaires.lookupRecords(Demande=$id, sort_by=\"CreeLe\")"
-        },
-        {
-          "id": "Nb_commentaires",
-          "label": "Nb échanges",
-          "type": "Numeric",
-          "isFormula": true,
-          "formula": "len($Commentaires)"
         },
         {
           "id": "Dernier_retour",
@@ -195,11 +183,6 @@
           "visibleCol": "Titre"
         },
         {
-          "id": "Message",
-          "label": "Message",
-          "type": "Text"
-        },
-        {
           "id": "Type",
           "label": "Type",
           "type": "Choice",
@@ -212,6 +195,11 @@
           "formula": "\"Message\"",
           "isFormula": false,
           "recalcWhen": 0
+        },
+        {
+          "id": "Message",
+          "label": "Message",
+          "type": "Text"
         },
         {
           "id": "Auteur",

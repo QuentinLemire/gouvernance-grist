@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.4",
+  "version": "1.5",
   "sujet": "UTILISATEURS",
   "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
   "tables": [
@@ -19,17 +19,17 @@
           "visibleCol": "Nom"
         },
         {
-          "id": "Territoire",
-          "label": "Territoire",
-          "type": "Ref:Territoires",
-          "visibleCol": "Nom"
-        },
-        {
           "id": "Nom_complet",
           "label": "Nom complet",
           "type": "Text",
           "isFormula": true,
           "formula": "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom + \"/\" + nom\n    parent = parent.Parent\nreturn nom"
+        },
+        {
+          "id": "Territoire",
+          "label": "Territoire",
+          "type": "Ref:Territoires",
+          "visibleCol": "Nom"
         },
         {
           "id": "Actif",
@@ -52,20 +52,6 @@
           "type": "Numeric",
           "isFormula": true,
           "formula": "return len(Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))"
-        },
-        {
-          "id": "NbreTotal",
-          "label": "Nb total (sous-entités incluses)",
-          "type": "Numeric",
-          "isFormula": true,
-          "formula": "def somme_descendants(entite):\n    enfants = Entites.lookupRecords(Parent=entite)\n    return sum(r.Nbre for r in enfants) + sum(somme_descendants(r) for r in enfants)\n\nreturn rec.Nbre + somme_descendants(rec)"
-        },
-        {
-          "id": "Mail_groupe",
-          "label": "Mail groupé",
-          "type": "Text",
-          "isFormula": true,
-          "formula": "from urllib.parse import quote\npeople = Utilisateurs.lookupRecords(Entite=rec.id)\nreturn \"Courriel groupé (%s) mailto:%s\" % (len(people), quote(\", \".join(people.Email)))"
         },
         {
           "id": "CreeLe",
@@ -101,21 +87,20 @@
       "tableId": "Utilisateurs",
       "columns": [
         {
+          "id": "Nom",
+          "label": "Nom",
+          "type": "Text"
+        },
+        {
           "id": "Email",
           "label": "Email",
           "type": "Text"
         },
         {
-          "id": "Email_cle",
-          "label": "Clé email (technique)",
-          "type": "Text",
-          "isFormula": true,
-          "formula": "($Email or \"\").strip().lower()"
-        },
-        {
-          "id": "Nom",
-          "label": "Nom",
-          "type": "Text"
+          "id": "Entite",
+          "label": "Entité",
+          "type": "Ref:Entites",
+          "visibleCol": "Nom"
         },
         {
           "id": "Role",
@@ -149,17 +134,18 @@
           }
         },
         {
-          "id": "Entite",
-          "label": "Entité",
-          "type": "Ref:Entites",
-          "visibleCol": "Nom"
-        },
-        {
           "id": "Actif",
           "label": "Actif",
           "type": "Bool",
           "formula": "True",
           "recalcWhen": 0
+        },
+        {
+          "id": "Email_cle",
+          "label": "Clé email (technique)",
+          "type": "Text",
+          "isFormula": true,
+          "formula": "($Email or \"\").strip().lower()"
         },
         {
           "id": "Courriel_valide",

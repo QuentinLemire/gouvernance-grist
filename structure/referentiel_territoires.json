@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.1",
+  "version": "1.2",
   "sujet": "REFERENTIEL_TERRITOIRES",
   "description": "Les 13 territoires ultramarins (code COG, statut, bassin). Données de référence fournies avec le modèle.",
   "tables": [
@@ -15,6 +15,11 @@
         {
           "id": "Nom",
           "label": "Nom",
+          "type": "Text"
+        },
+        {
+          "id": "Chef_lieu",
+          "label": "Chef-lieu",
           "type": "Text"
         },
         {
@@ -83,11 +88,6 @@
               }
             }
           }
-        },
-        {
-          "id": "Chef_lieu",
-          "label": "Chef-lieu",
-          "type": "Text"
         }
       ]
     }
