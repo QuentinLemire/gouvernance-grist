@@ -180,7 +180,6 @@ async function poserReglesDeBase() {
   };
   const parDefaut = await ressource('*');
   const accueil = await ressource('Accueil');
-  const tablesDuDoc = (await api('/tables')).tables.map((t) => t.id);
 
   const regle = (resource, aclFormula, permissionsText, rulePos, memo, extra = {}) =>
     ['AddRecord', '_grist_ACLRules', null, { resource, aclFormula, permissionsText, rulePos, memo, ...extra }];
