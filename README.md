@@ -20,7 +20,7 @@ Chaque fichier ne contient que la structure (tables, colonnes, types, formules),
 ## Les principes
 
 - **Traçabilité** : toute table métier a les colonnes `CreeLe`, `CreePar`, `ModifieLe`, `ModifiePar`.
-- **Droits par rôle** : le rôle vient de la table Utilisateurs (attribut `user.Profil`) ; une personne non inscrite ou inactive ne voit que l'accueil.
+- **Droits par rôle** : le rôle vient de la table Utilisateurs (attribut `user.Profil`) ; une personne non inscrite ou inactive ne voit **que la page d'accueil** (pas même la documentation).
 - **Rien n'est supprimé** : mettre une application à la norme ajoute seulement ce qui manque.
 
 ## Les widgets (`widget/`)

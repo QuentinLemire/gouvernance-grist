@@ -40,7 +40,7 @@
     .edition { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .edition textarea { width: 100%; min-height: 460px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; resize: vertical; }
     .edition .apercu { border: 1px dashed var(--bordure); padding: 16px; overflow: auto; max-height: 520px; }
-    .champs { display: grid; grid-template-columns: 2fr 1fr 90px auto; gap: 10px; margin-bottom: 12px; align-items: center; }
+    .champs { display: grid; grid-template-columns: 2fr 1fr 90px; gap: 10px; margin-bottom: 12px; align-items: center; }
     .champs label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
     @media (max-width: 860px) { .doc-grille, .edition, .champs { grid-template-columns: 1fr; } .sommaire { position: static; } }
   </style>
@@ -124,7 +124,6 @@ function afficherPage() {
   if (!d) { zone.innerHTML = '<p class="vide">Aucune page pour le moment. Cliquez sur « Nouvelle page ».</p>'; return; }
   zone.innerHTML = `<div class="meta">
       ${d.Rubrique ? `<span class="badge bleu">${esc(d.Rubrique)}</span>` : ''}
-      ${d.Visible_par_tous ? '<span class="badge vert">Visible par tous</span>' : ''}
       ${d.ModifieLe || d.CreeLe ? `<span>Mis à jour le ${date(d.ModifieLe || d.CreeLe)}</span>` : ''}
       <span class="actions"><button class="bouton petit" id="modifier">✏️ Modifier</button></span>
     </div>
@@ -134,12 +133,11 @@ function afficherPage() {
 /* ---------------- Édition ---------------- */
 function editer(d) {
   enEdition = true;
-  d = d || { Titre: '', Rubrique: rubriques[0] || '', Ordre: 0, Contenu: '## Objet\n\n…', Visible_par_tous: false };
+  d = d || { Titre: '', Rubrique: rubriques[0] || '', Ordre: 0, Contenu: '## Objet\n\n…' };
   document.getElementById('page').innerHTML = `<div class="champs">
       <input class="champ" id="e-titre" placeholder="Titre de la page" value="${esc(d.Titre)}">
       <select class="champ" id="e-rubrique">${['', ...rubriques].map((r) => `<option ${r === d.Rubrique ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>
       <input class="champ" id="e-ordre" type="number" title="Ordre dans la rubrique" value="${Number(d.Ordre) || 0}">
-      <label><input type="checkbox" id="e-public" ${d.Visible_par_tous ? 'checked' : ''}> Visible par tous</label>
     </div>
     <div class="edition">
       <textarea class="champ" id="e-contenu" aria-label="Contenu en Markdown">${esc(d.Contenu)}</textarea>
@@ -160,7 +158,6 @@ async function enregistrer(id) {
     Rubrique: document.getElementById('e-rubrique').value,
     Ordre: Number(document.getElementById('e-ordre').value) || 0,
     Contenu: document.getElementById('e-contenu').value,
-    Visible_par_tous: document.getElementById('e-public').checked,
   };
   try {
     const r = await grist.docApi.applyUserActions([id ? ['UpdateRecord', 'Documentation', id, champs] : ['AddRecord', 'Documentation', null, champs]]);
