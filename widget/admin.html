@@ -4961,9 +4961,14 @@ async function createUserManagement() {
       if (m) { (matrix[rs.tableId] = matrix[rs.tableId] || {})[JSON.parse('"' + m[1] + '"')] = PERM_TO_LEVEL[r.permissionsText] || ''; }
       if ((r.aclFormula || '').trim() === 'user.Access != OWNER') denyOthers = true;
     }
-    const foreignAttr = rules.find(r => r.userAttributes && parseJson(r.userAttributes, {}).name === PROFIL_ATTR && !String(r.memo || '').startsWith(ADMIN_TAG));
+    // Attribut « Profil » créé hors du panneau (ex. par l'installateur Gouvernance) :
+    // s'il pointe sur la table Utilisateurs, il est compatible et on le réutilise ;
+    // s'il pointe ailleurs, on bloque pour ne pas écraser une configuration inconnue.
+    const otherAttrs = rules.filter(r => r.userAttributes && parseJson(r.userAttributes, {}).name === PROFIL_ATTR && !String(r.memo || '').startsWith(ADMIN_TAG));
+    const compatAttr = otherAttrs.find(r => parseJson(r.userAttributes, {}).tableId === 'Utilisateurs');
+    const foreignAttr = compatAttr ? null : otherAttrs[0];
     const foreignRules = rules.filter(r => (r.aclFormula || r.permissionsText) && !String(r.memo || '').startsWith(ADMIN_TAG));
-    return { matrix, denyOthers, ours, foreignAttr, foreignRules, resById };
+    return { matrix, denyOthers, ours, foreignAttr, compatAttr, foreignRules, resById };
   }
 
   function standardPreset() {
@@ -5061,8 +5066,11 @@ async function createUserManagement() {
       const minPos = allRules.reduce((m, r) => Math.min(m, Number(r.rulePos) || 0), 0);
       let pos = minPos - 1000;
       const add = [];
-      if (rules.length) add.push({ resource: resId('*', '*'), aclFormula: '', permissionsText: '', rulePos: pos++, memo: ADMIN_TAG + ' attribut',
-        userAttributes: JSON.stringify({ name: PROFIL_ATTR, tableId: 'Utilisateurs', lookupColId: 'Email', charId: 'Email' }) });
+      // L'attribut user.Profil n'est créé que s'il n'existe pas déjà une version compatible.
+      // On compare de préférence sur Email_cle (courriel nettoyé : minuscules, sans espaces) si la colonne existe.
+      const lookupCol = col('Utilisateurs', 'Email_cle') ? 'Email_cle' : 'Email';
+      if (rules.length && !st.compatAttr) add.push({ resource: resId('*', '*'), aclFormula: '', permissionsText: '', rulePos: pos++, memo: ADMIN_TAG + ' attribut',
+        userAttributes: JSON.stringify({ name: PROFIL_ATTR, tableId: 'Utilisateurs', lookupColId: lookupCol, charId: 'Email' }) });
       for (const r of rules) add.push({ resource: resId(r.tableId, '*'), aclFormula: r.aclFormula, permissionsText: r.permissionsText, rulePos: pos++, memo: ADMIN_TAG, userAttributes: '' });
       const actions = [];
       if (st.ours.length) actions.push(['BulkRemoveRecord', '_grist_ACLRules', st.ours.map(r => r.id)]);
