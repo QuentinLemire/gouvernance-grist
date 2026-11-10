@@ -1,122 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "1.0",
+  "version": "1.1",
   "sujet": "CATALOGUE_GOUVERNANCE",
   "tables": [
-    {
-      "tableId": "Applications",
-      "columns": [
-        {
-          "id": "Nom",
-          "label": "Nom",
-          "type": "Text"
-        },
-        {
-          "id": "Description",
-          "label": "Description",
-          "type": "Text"
-        },
-        {
-          "id": "URL",
-          "label": "URL du document",
-          "type": "Text",
-          "widgetOptions": {
-            "widget": "HyperLink"
-          }
-        },
-        {
-          "id": "Doc_ID",
-          "label": "ID du document",
-          "type": "Text",
-          "isFormula": true,
-          "formula": "import re\nm = re.search(r'/([A-Za-z0-9]{12,})(/|$)', rec.URL or '')\nreturn m.group(1) if m else ''"
-        },
-        {
-          "id": "Entite",
-          "label": "Direction / service",
-          "type": "Ref:Entites",
-          "visibleCol": "Nom"
-        },
-        {
-          "id": "Referent",
-          "label": "Référent",
-          "type": "Ref:Utilisateurs",
-          "visibleCol": "Email"
-        },
-        {
-          "id": "Statut",
-          "label": "Statut",
-          "type": "Choice",
-          "widgetOptions": {
-            "choices": [
-              "En projet",
-              "En production",
-              "Gelée",
-              "Archivée"
-            ],
-            "choiceOptions": {
-              "En projet": {
-                "fillColor": "#E3E3FD",
-                "textColor": "#000000"
-              },
-              "En production": {
-                "fillColor": "#C3FAD5",
-                "textColor": "#000000"
-              },
-              "Gelée": {
-                "fillColor": "#FEECC2",
-                "textColor": "#000000"
-              },
-              "Archivée": {
-                "fillColor": "#DDDDDD",
-                "textColor": "#000000"
-              }
-            }
-          }
-        },
-        {
-          "id": "Sujets",
-          "label": "Sujets transverses utilisés",
-          "type": "RefList:Sujets_transverses",
-          "visibleCol": "Code"
-        },
-        {
-          "id": "Nb_tickets_ouverts",
-          "label": "Tickets ouverts",
-          "type": "Numeric",
-          "isFormula": true,
-          "formula": "return len([t for t in Support.lookupRecords(Application=rec.id) if t.Statut not in ('Résolu', 'Fermé')])"
-        },
-        {
-          "id": "CreeLe",
-          "label": "Créé le",
-          "type": "DateTime:Europe/Paris",
-          "formula": "NOW()",
-          "recalcWhen": 0
-        },
-        {
-          "id": "CreePar",
-          "label": "Créé par",
-          "type": "Text",
-          "formula": "user.Email",
-          "recalcWhen": 0
-        },
-        {
-          "id": "ModifieLe",
-          "label": "Modifié le",
-          "type": "DateTime:Europe/Paris",
-          "formula": "NOW()",
-          "recalcWhen": 2
-        },
-        {
-          "id": "ModifiePar",
-          "label": "Modifié par",
-          "type": "Text",
-          "formula": "user.Email",
-          "recalcWhen": 2
-        }
-      ]
-    },
     {
       "tableId": "Sujets_transverses",
       "columns": [
@@ -225,13 +111,6 @@
           "type": "RefList:Structure_tables",
           "isFormula": true,
           "formula": "Structure_tables.lookupRecords(Sujet=rec.id)"
-        },
-        {
-          "id": "Nb_applications",
-          "label": "Nb applications",
-          "type": "Numeric",
-          "isFormula": true,
-          "formula": "return len(Applications.lookupRecords(Sujets=CONTAINS(rec.id)))"
         },
         {
           "id": "CreeLe",
@@ -445,6 +324,111 @@
           "recalcWhen": 0
         }
       ]
+    },
+    {
+      "tableId": "Demandes_evolution",
+      "columns": [
+        {
+          "id": "Titre",
+          "label": "Titre",
+          "type": "Text"
+        },
+        {
+          "id": "Type",
+          "label": "Type",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Nouveau sujet",
+              "Modification",
+              "Correction",
+              "Retrait"
+            ]
+          }
+        },
+        {
+          "id": "Sujet",
+          "label": "Sujet transverse",
+          "type": "Ref:Sujets_transverses"
+        },
+        {
+          "id": "Description",
+          "label": "Description / justification",
+          "type": "Text"
+        },
+        {
+          "id": "Demandeur",
+          "label": "Demandeur",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "Statut",
+          "label": "Statut",
+          "type": "Choice",
+          "formula": "\"Proposée\"",
+          "recalcWhen": 0,
+          "widgetOptions": {
+            "choices": [
+              "Proposée",
+              "En instruction",
+              "Validée en comité",
+              "Refusée",
+              "Publiée sur Git"
+            ]
+          }
+        },
+        {
+          "id": "Date_comite",
+          "label": "Date du comité",
+          "type": "Date"
+        },
+        {
+          "id": "Decision",
+          "label": "Décision / motif",
+          "type": "Text"
+        },
+        {
+          "id": "Version_cible",
+          "label": "Version cible",
+          "type": "Text"
+        },
+        {
+          "id": "Publication",
+          "label": "Publication Git",
+          "type": "Ref:Versions_Git"
+        },
+        {
+          "id": "CreeLe",
+          "label": "Créé le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 0
+        },
+        {
+          "id": "CreePar",
+          "label": "Créé par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "ModifieLe",
+          "label": "Modifié le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 2
+        },
+        {
+          "id": "ModifiePar",
+          "label": "Modifié par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 2
+        }
+      ]
     }
-  ]
+  ],
+  "description": "La norme DGOM elle-même : sujets transverses, structure des tables et colonnes, versions Git et circuit des demandes d'évolution. Propre au Grist « Gouvernance »."
 }

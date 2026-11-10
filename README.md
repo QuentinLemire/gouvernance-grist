@@ -1,6 +1,6 @@
 # Gouvernance des données Grist — Ministère des Outre-mer (DGOM)
 
-Ce dépôt est la **source de vérité versionnée** des sujets transverses communs aux applications Grist du ministère.
+Ce dépôt est la **norme DGOM versionnée** des applications Grist : les sujets transverses que toute application doit contenir, et le modèle qui les applique.
 Le référentiel vivant est le document Grist **« Gouvernance »** ; ce dépôt en garde l'historique.
 
 ## Contenu
@@ -66,4 +66,4 @@ Dans les deux cas, rien n'est jamais supprimé : seules les tables et colonnes m
 | `journal.json` | Journal_Admin | Trace des actions d'administration |
 | `documentation.json` | Documentation | Guides, procédures, FAQ et notes en Markdown |
 | `nouveautes.json` | Nouveautes | Journal des versions affiché sur l'accueil |
-| `catalogue_gouvernance.json` | Applications, Sujets_transverses, Structure_tables, Structure_colonnes, Versions_Git | Propre au Grist « Gouvernance » |
+| `catalogue_gouvernance.json` | Sujets_transverses, Structure_tables, Structure_colonnes, Versions_Git, Demandes_evolution | La norme elle-même et son circuit de changement ; propre au Grist « Gouvernance » |
