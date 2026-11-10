@@ -1,0 +1,36 @@
+{
+  "format": "grist-structure",
+  "version": "1.0",
+  "sujet": "JOURNAL",
+  "tables": [
+    {
+      "tableId": "Journal_Admin",
+      "columns": [
+        {
+          "id": "Date",
+          "label": "Date",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 0
+        },
+        {
+          "id": "Auteur",
+          "label": "Auteur",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "Action",
+          "label": "Action",
+          "type": "Text"
+        },
+        {
+          "id": "Detail",
+          "label": "Détail",
+          "type": "Text"
+        }
+      ]
+    }
+  ]
+}

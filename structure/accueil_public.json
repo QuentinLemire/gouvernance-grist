@@ -1,0 +1,36 @@
+{
+  "format": "grist-structure",
+  "version": "1.0",
+  "sujet": "ACCUEIL_PUBLIC",
+  "tables": [
+    {
+      "tableId": "Accueil",
+      "columns": [
+        {
+          "id": "Titre",
+          "label": "Titre",
+          "type": "Text"
+        },
+        {
+          "id": "Message",
+          "label": "Message",
+          "type": "Text",
+          "isFormula": true,
+          "formula": "def param(cle, defaut=\"\"):\n    r = Parametres.lookupOne(Cle=cle)\n    return r.Valeur if r and r.Valeur else defaut\n\nappli = param(\"Nom_application\", \"Cette application\")\nmail = param(\"Contact_support\", \"applications@outre-mer.gouv.fr\")\nreturn (\n  \"# ⛔ Pour avoir accès aux données, rapprochez-vous des administrateurs 👮\\n\\n\"\n  \"**%s** n'est accessible qu'aux utilisateurs dont l'adresse mail a été enregistrée par la **DGOM**, un **AdminTerritoire** ou un **AdminRPROG**.\\n\\n\"\n  \"En cas de difficulté, contactez vos correspondants en charge des contrats ou la DGOM à l'adresse [%s](mailto:%s).\"\n) % (appli, mail, mail)",
+          "widgetOptions": {
+            "widget": "Markdown",
+            "wrap": true
+          }
+        },
+        {
+          "id": "Ordre",
+          "label": "Ordre",
+          "type": "Numeric"
+        }
+      ]
+    }
+  ],
+  "dependances": [
+    "PARAMETRES"
+  ]
+}

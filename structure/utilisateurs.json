@@ -1,0 +1,180 @@
+{
+  "format": "grist-structure",
+  "version": "1.0",
+  "sujet": "UTILISATEURS",
+  "tables": [
+    {
+      "tableId": "Entites",
+      "columns": [
+        {
+          "id": "Nom",
+          "label": "Nom",
+          "type": "Text"
+        },
+        {
+          "id": "Parent",
+          "label": "Parent",
+          "type": "Ref:Entites",
+          "visibleCol": "Nom"
+        },
+        {
+          "id": "Nom_complet",
+          "label": "Nom complet",
+          "type": "Text",
+          "isFormula": true,
+          "formula": "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom + \"/\" + nom\n    parent = parent.Parent\nreturn nom"
+        },
+        {
+          "id": "Actif",
+          "label": "Actif",
+          "type": "Bool",
+          "formula": "True",
+          "recalcWhen": 0
+        },
+        {
+          "id": "Nbre",
+          "label": "Nb utilisateurs",
+          "type": "Numeric",
+          "isFormula": true,
+          "formula": "return len(Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))"
+        },
+        {
+          "id": "NbreTotal",
+          "label": "Nb total (sous-entités incluses)",
+          "type": "Numeric",
+          "isFormula": true,
+          "formula": "def somme_descendants(entite):\n    enfants = Entites.lookupRecords(Parent=entite)\n    return sum(r.Nbre for r in enfants) + sum(somme_descendants(r) for r in enfants)\n\nreturn rec.Nbre + somme_descendants(rec)"
+        },
+        {
+          "id": "Mail_groupe",
+          "label": "Mail groupé",
+          "type": "Text",
+          "isFormula": true,
+          "formula": "from urllib.parse import quote\npeople = Utilisateurs.lookupRecords(Entite=rec.id)\nreturn \"Courriel groupé (%s) mailto:%s\" % (len(people), quote(\", \".join(people.Email)))"
+        },
+        {
+          "id": "CreeLe",
+          "label": "Créé le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 0
+        },
+        {
+          "id": "CreePar",
+          "label": "Créé par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "ModifieLe",
+          "label": "Modifié le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 2
+        },
+        {
+          "id": "ModifiePar",
+          "label": "Modifié par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 2
+        }
+      ]
+    },
+    {
+      "tableId": "Utilisateurs",
+      "columns": [
+        {
+          "id": "Email",
+          "label": "Email",
+          "type": "Text"
+        },
+        {
+          "id": "Email_cle",
+          "label": "Clé email (technique)",
+          "type": "Text",
+          "isFormula": true,
+          "formula": "($Email or \"\").strip().lower()"
+        },
+        {
+          "id": "Nom",
+          "label": "Nom",
+          "type": "Text"
+        },
+        {
+          "id": "Role",
+          "label": "Rôle",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Administrateur",
+              "Gestionnaire",
+              "Contributeur",
+              "Lecteur"
+            ],
+            "choiceOptions": {
+              "Administrateur": {
+                "fillColor": "#000091",
+                "textColor": "#FFFFFF"
+              },
+              "Gestionnaire": {
+                "fillColor": "#6A6AF4",
+                "textColor": "#FFFFFF"
+              },
+              "Contributeur": {
+                "fillColor": "#C3FAD5",
+                "textColor": "#000000"
+              },
+              "Lecteur": {
+                "fillColor": "#E3E3FD",
+                "textColor": "#000000"
+              }
+            }
+          }
+        },
+        {
+          "id": "Entite",
+          "label": "Entité",
+          "type": "Ref:Entites",
+          "visibleCol": "Nom"
+        },
+        {
+          "id": "Actif",
+          "label": "Actif",
+          "type": "Bool",
+          "formula": "True",
+          "recalcWhen": 0
+        },
+        {
+          "id": "CreeLe",
+          "label": "Créé le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 0
+        },
+        {
+          "id": "CreePar",
+          "label": "Créé par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "ModifieLe",
+          "label": "Modifié le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 2
+        },
+        {
+          "id": "ModifiePar",
+          "label": "Modifié par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 2
+        }
+      ]
+    }
+  ]
+}

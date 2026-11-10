@@ -1,0 +1,157 @@
+{
+  "format": "grist-structure",
+  "version": "1.0",
+  "sujet": "SUPPORT",
+  "tables": [
+    {
+      "tableId": "Support",
+      "columns": [
+        {
+          "id": "Titre",
+          "label": "Titre",
+          "type": "Text"
+        },
+        {
+          "id": "Description",
+          "label": "Description",
+          "type": "Text"
+        },
+        {
+          "id": "Application",
+          "label": "Application",
+          "type": "Ref:Applications",
+          "visibleCol": "Nom"
+        },
+        {
+          "id": "Categorie",
+          "label": "Catégorie",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Accès / droits",
+              "Anomalie",
+              "Demande d'évolution",
+              "Question"
+            ],
+            "choiceOptions": {}
+          }
+        },
+        {
+          "id": "Priorite",
+          "label": "Priorité",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Basse",
+              "Normale",
+              "Haute",
+              "Urgente"
+            ],
+            "choiceOptions": {
+              "Basse": {
+                "fillColor": "#E3E3FD",
+                "textColor": "#000000"
+              },
+              "Normale": {
+                "fillColor": "#C3FAD5",
+                "textColor": "#000000"
+              },
+              "Haute": {
+                "fillColor": "#FEECC2",
+                "textColor": "#000000"
+              },
+              "Urgente": {
+                "fillColor": "#FFBDBD",
+                "textColor": "#000000"
+              }
+            }
+          }
+        },
+        {
+          "id": "Statut",
+          "label": "Statut",
+          "type": "Choice",
+          "formula": "\"Nouveau\"",
+          "recalcWhen": 0,
+          "widgetOptions": {
+            "choices": [
+              "Nouveau",
+              "En cours",
+              "En attente",
+              "Résolu",
+              "Fermé"
+            ],
+            "choiceOptions": {
+              "Nouveau": {
+                "fillColor": "#E3E3FD",
+                "textColor": "#000000"
+              },
+              "En cours": {
+                "fillColor": "#FEECC2",
+                "textColor": "#000000"
+              },
+              "En attente": {
+                "fillColor": "#EEEEEE",
+                "textColor": "#000000"
+              },
+              "Résolu": {
+                "fillColor": "#C3FAD5",
+                "textColor": "#000000"
+              },
+              "Fermé": {
+                "fillColor": "#DDDDDD",
+                "textColor": "#000000"
+              }
+            }
+          }
+        },
+        {
+          "id": "Demandeur",
+          "label": "Demandeur",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "Assigne_a",
+          "label": "Assigné à",
+          "type": "Ref:Utilisateurs",
+          "visibleCol": "Email"
+        },
+        {
+          "id": "Reponse",
+          "label": "Réponse",
+          "type": "Text"
+        },
+        {
+          "id": "CreeLe",
+          "label": "Créé le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 0
+        },
+        {
+          "id": "CreePar",
+          "label": "Créé par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "ModifieLe",
+          "label": "Modifié le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 2
+        },
+        {
+          "id": "ModifiePar",
+          "label": "Modifié par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 2
+        }
+      ]
+    }
+  ]
+}
