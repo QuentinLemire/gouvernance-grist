@@ -67,9 +67,11 @@ async function afficher() {
   ]);
   entete(p);
   const inscrit = Array.isArray(utilisateurs);
-  // Les pages de rubrique « Nouveauté » s'affichent dans le bloc Nouveautés, pas dans les fiches.
+  // « Nouveauté » va dans le bloc Nouveautés ; « Norme » et « Administration » ne concernent
+  // que les administrateurs (onglet Aide du panneau, page Documentation) : jamais sur l'accueil.
   const nouveautes = (docs || []).filter((d) => d.Rubrique === 'Nouveauté');
-  docsPubliques = (docs || []).filter((d) => d.Rubrique !== 'Nouveauté' && (inscrit || d.Visible_par_tous))
+  const horsAccueil = ['Nouveauté', 'Norme', 'Administration'];
+  docsPubliques = (docs || []).filter((d) => !horsAccueil.includes(d.Rubrique) && (inscrit || d.Visible_par_tous))
     .sort((a, b) => String(a.Rubrique).localeCompare(String(b.Rubrique)) || (a.Ordre || 0) - (b.Ordre || 0));
   const message = (accueil || [])[0]?.Message || '';
   const contact = p.Contact_support || (message.match(/mailto:([^)\s]+)/) || [])[1] || '';
