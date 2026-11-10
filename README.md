@@ -13,8 +13,7 @@ Le Grist **« Gouvernance »** en est la base source ; le Grist **« Modèle DGO
 | `accueil_public.json` | Accueil | Message affiché aux personnes sans droit |
 | `support.json` | Support, Support_commentaires | Demandes et conversation avec le support |
 | `journal.json` | Journal_Admin | Trace des actions d'administration |
-| `documentation.json` | Documentation | Guides, procédures, FAQ, notes en Markdown |
-| `nouveautes.json` | Nouveautes | Journal des versions affiché sur l'accueil |
+| `documentation.json` | Documentation | Guides, procédures, FAQ, notes et nouveautés en Markdown |
 
 Chaque fichier ne contient que la structure (tables, colonnes, types, formules), jamais de données.
 
@@ -33,7 +32,7 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Accueil | Accueil | `accueil.html` | Accès réservé pour les non-inscrits ; accueil, nouveautés et documentation pour les autres |
 | Documentation | Documentation | `documentation.html` | Sommaire, recherche, pages Markdown, édition avec aperçu |
 | Support | Support | `support.html` | Créer une demande et converser avec le support |
-| Administration | (aucune) | `administration.html` | Utilisateurs, droits, support (clore / rouvrir), mise à la norme, paramètres, journal |
+| Administration | (aucune) | `administration.html` | Utilisateurs, droits, support (clore / rouvrir), mise à la norme, paramètres, journal, aide |
 | Boîte à outils | Parametres | `boite-a-outils.html` | Outil de Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)) : schéma, gestion des tables et colonnes |
 
 Adresse : `https://raw.githack.com/QuentinLemire/gouvernance-grist/main/widget/<fichier>`
@@ -46,7 +45,7 @@ Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une imag
 - **Nouvelle application** : dupliquer le Grist « Modèle DGOM ».
 - **Application existante** : poser le widget Administration, onglet **Structure**, puis « Installer » sur chaque table standard manquante ou incomplète.
 - **Par script** : console du navigateur (F12) sur le document, coller `scripts/installer-gouvernance.js` puis
-  `await installerGouvernance(['utilisateurs', 'parametres', 'accueil_public', 'support', 'journal', 'documentation', 'nouveautes'])`.
+  `await installerGouvernance(['utilisateurs', 'parametres', 'accueil_public', 'support', 'journal', 'documentation'])`.
 
 ## Faire évoluer la norme
 
