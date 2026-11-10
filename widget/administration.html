@@ -162,6 +162,7 @@ const etat = {
   filtres: { texte: '', role: '', statut: 'actifs', support: 'ouverts' },
   selection: new Set(),                               // utilisateurs cochés
   sujets: null,                                       // sujets lus sur le dépôt
+  pages: null,                                        // pages du menu (onglet Structure)
 };
 
 // =====================================================================
@@ -259,7 +260,7 @@ async function chargerDonnees() {
 async function actualiser() {
   try { await chargerStructure(); await chargerDonnees(); }
   catch (e) { $('contenu').innerHTML = '<div class="encadre erreur">' + esc(e.message) + '</div>'; return; }
-  etat.droits = null;
+  etat.droits = null; etat.pages = null;
   majEntete();
   afficher();
 }
@@ -816,6 +817,19 @@ async function chargerSujets() {
   etat.sujets = res;
 }
 
+/** Carte « Pages standard » : ce qui manque dans le menu et le bouton pour le créer. */
+function cartePages() {
+  if (!etat.pages) { lirePages().then((p) => { etat.pages = p; afficher(); }); return ''; }
+  const presentes = new Set(etat.pages.map((p) => p.cle));
+  const manquent = PAGES.filter((x) => !presentes.has(x.cle));
+  return `<section class="carte"><h2>🧭 Pages standard</h2>
+    <p class="aide">Menu commun : Accueil, Documentation, Support, vos pages métier, puis Administration › Utilisateurs et Boîte à outils.</p>
+    ${PAGES.map((x) => `<div class="sujet"><div><b>${esc(x.nom)}</b></div>${presentes.has(x.cle) ? '<span class="badge vert">présente</span>'
+      : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>' : '<span class="badge orange">manquante</span>'}</div>`).join('')}
+    <p><button class="bouton primaire" data-action="pages">${manquent.length ? '➕ Créer les pages standard et ranger le menu' : '↕️ Ranger le menu'}</button></p>
+  </section>`;
+}
+
 function ongletStructure() {
   if (!etat.sujets) { chargerSujets().then(afficher); return '<p class="vide">Lecture du dépôt Git…</p>'; }
   const badge = { present: '<span class="badge vert">installé</span>', partiel: '<span class="badge orange">incomplet</span>', absent: '<span class="badge">absent</span>', inconnu: '<span class="badge rouge">dépôt injoignable</span>' };
@@ -829,6 +843,7 @@ function ongletStructure() {
         <small>${x.def ? esc(x.def.description || '') : ''}${x.manques?.length && x.etat === 'partiel' ? '<br>Manque : ' + esc(x.manques.slice(0, 8).join(', ')) + (x.manques.length > 8 ? '…' : '') : ''}${x.desordre && x.etat === 'partiel' ? '<br>Colonnes à remettre dans l\'ordre de la norme' : ''}</small></div>
         ${estSource() && x.ajouts?.length ? '<span class="badge bleu" title="' + esc(x.ajouts.join(', ')) + '">à publier</span>' : ''} ${badge[x.etat]} ${x.etat === 'absent' || x.etat === 'partiel' ? `<button class="bouton petit primaire" data-action="installer" data-sujet="${s.fichier}">Installer</button>` : ''}</div>`; }).join('')}
     </section>
+    ${cartePages()}
     <section class="carte"><h2>🕓 Traçabilité</h2>
         <p class="aide">Ajoute « Créé le / par » et « Modifié le / par » à une table métier.</p>
         <div class="barre-outils"><select class="champ" id="traca-table">${options(etat.meta.tables.filter((t) => !t.colonnes.some((c) => c.colId === 'ModifiePar')).map((t) => [t.tableId, t.tableId]), '', 'Table…')}</select>
@@ -876,6 +891,92 @@ async function rangerColonnes(tables) {
     }
   }
   if (a.length) await agir(a);
+}
+
+// ---------------------------------------------------------------------
+// Pages standard du menu
+// ---------------------------------------------------------------------
+
+/**
+ * Le menu commun à toutes les applications, dans l'ordre. Les pages métier se placent
+ * entre Support et Administration. « fichier » = widget personnalisé du dépôt.
+ */
+const PAGES = [
+  { cle: 'accueil', nom: '🏠 Accueil', table: 'Accueil', fichier: 'accueil.html' },
+  { cle: 'documentation', nom: '📖 Documentation', table: 'Documentation', fichier: 'documentation.html' },
+  { cle: 'support', nom: '🆘 Support', table: 'Support', fichier: 'support.html' },
+  { cle: 'administration', nom: '🛡️ Administration', fichier: 'administration.html' },
+  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Utilisateurs', sousPage: true },
+  { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Parametres', fichier: 'boite-a-outils.html', sousPage: true },
+];
+
+/** Pages du document (dans l'ordre du menu), chacune reconnue comme page standard ou non. */
+async function lirePages() {
+  const [pages, vues, sections] = await Promise.all([lire('_grist_Pages'), lire('_grist_Views'), lire('_grist_Views_section')]);
+  const vue = Object.fromEntries((vues || []).map((v) => [v.id, v]));
+  return (pages || []).sort((a, b) => a.pagePos - b.pagePos).map((p) => {
+    const urls = (sections || []).filter((s) => s.parentId === p.viewRef).map((s) => json(s.customView, {}).url || '');
+    const nom = vue[p.viewRef]?.name || '';
+    const std = PAGES.find((x) => (x.fichier && urls.some((u) => u.split('?')[0].endsWith('/' + x.fichier)))
+      || (!x.fichier && nom.replace(/[^\p{L}]/gu, '') === x.nom.replace(/[^\p{L}]/gu, '')));
+    return { ...p, nom, cle: std?.cle || null };
+  });
+}
+
+/** Crée les pages standard qui manquent, puis remet le menu dans l'ordre de la norme. */
+async function creerPages(bouton) {
+  await occupe(bouton, async () => {
+    const presentes = new Set((await lirePages()).map((p) => p.cle));
+    const tableRef = (t) => etat.meta.parId[t]?.id;
+    const creees = [];
+    for (const page of PAGES.filter((x) => !presentes.has(x.cle) && x.table && tableRef(x.table))) {
+      if (page.fichier) {
+        const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
+        await agir([
+          ['UpdateRecord', '_grist_Views', r.viewRef, { name: page.nom }],
+          ['UpdateRecord', '_grist_Views_section', r.sectionRef, { title: page.nom.replace(/^\S+\s/, ''), customView: JSON.stringify({
+            mode: 'url', url: new URL(page.fichier, location.href).href, widgetDef: null, access: 'full', pluginId: '', sectionId: '',
+            renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }],
+        ]);
+      } else {
+        // Annuaire (liste triée par nom) et fiche de la personne choisie, côte à côte.
+        const t = tableRef(page.table);
+        const r1 = (await agir([['CreateViewSection', t, 0, 'record', null, null]])).retValues[0];
+        const r2 = (await agir([['CreateViewSection', t, r1.viewRef, 'single', null, null]])).retValues[0];
+        const champs = ((await lire('_grist_Views_section_field')) || []).filter((f) => f.parentId === r1.sectionRef || f.parentId === r2.sectionRef);
+        const colId = (f) => etat.meta.colonnesParId[f.colRef]?.colId;
+        const technique = ['Email_cle', 'manualSort'];
+        const enListe = ['Nom', 'Email', 'Entite', 'Role', 'Actif'];
+        const retirer = champs.filter((f) => technique.includes(colId(f)) || colId(f)?.startsWith('gristHelper') || (f.parentId === r1.sectionRef && !enListe.includes(colId(f))));
+        await agir([
+          ...(retirer.length ? [['BulkRemoveRecord', '_grist_Views_section_field', retirer.map((f) => f.id)]] : []),
+          ['UpdateRecord', '_grist_Views', r1.viewRef, { name: page.nom, layoutSpec: JSON.stringify({ children: [{ children: [{ size: 125, leaf: r1.sectionRef }, { size: 75, leaf: r2.sectionRef }] }], collapsed: [] }) }],
+          ['UpdateRecord', '_grist_Views_section', r1.sectionRef, { title: 'Annuaire', sortColRefs: JSON.stringify([colonne(page.table, 'Nom')?.id].filter(Boolean)) }],
+          ['UpdateRecord', '_grist_Views_section', r2.sectionRef, { title: 'Fiche', linkSrcSectionRef: r1.sectionRef, linkSrcColRef: 0, linkTargetColRef: 0 }],
+        ]);
+      }
+      creees.push(page.nom);
+    }
+    await rangerMenu();
+    if (creees.length) await tracer('Pages standard créées', creees.join(', '));
+    message(creees.length ? '✅ Pages créées : ' + esc(creees.join(', ')) : '✅ Menu remis dans l\'ordre de la norme.');
+    etat.pages = null; await actualiser();
+  });
+}
+
+/** Ordre du menu : Accueil, Documentation, Support, pages métier, Administration › Utilisateurs, Boîte à outils. */
+async function rangerMenu() {
+  const pages = await lirePages();
+  const de = (cle) => pages.filter((p) => p.cle === cle);
+  const metier = pages.filter((p) => !p.cle);
+  const ordre = [
+    ...['accueil', 'documentation', 'support'].flatMap(de).map((p) => [p, 0]),
+    ...metier.map((p) => [p, p.indentation]),
+    ...de('administration').map((p) => [p, 0]),
+    ...['utilisateurs', 'boite'].flatMap(de).map((p) => [p, 1]),
+  ];
+  if (ordre.length && ordre[0][1]) ordre[0][1] = 0; // une page ne peut pas commencer le menu en retrait
+  await agir([['BulkUpdateRecord', '_grist_Pages', ordre.map(([p]) => p.id), { pagePos: ordre.map((_, i) => i + 1), indentation: ordre.map(([, n]) => n) }]]);
 }
 
 async function installerSujet(bouton, fichier) {
@@ -943,7 +1044,7 @@ function ongletAide() {
         <tr><td>👥 Utilisateurs</td><td>Qui a accès : courriel, nom, rôle, entité, actif. Ajout en masse, export CSV.</td></tr>
         <tr><td>🔐 Droits</td><td>Ce que chaque rôle peut faire sur chaque table. « Proposition standard » puis « Appliquer ».</td></tr>
         <tr><td>🆘 Support</td><td>Répondre aux demandes, les clore ou les rouvrir. Point rouge = la personne attend une réponse.</td></tr>
-        <tr><td>🧱 Structure</td><td>Comparer l'application à la norme DGOM et installer ce qui manque.</td></tr>
+        <tr><td>🧱 Structure</td><td>Comparer l'application à la norme DGOM, installer les tables qui manquent, créer les pages standard et ranger le menu.</td></tr>
         <tr><td>⚙️ Paramètres</td><td>Nom de l'application, contact du support, logo ; journal complet des actions.</td></tr>
       </table>
     </section>
@@ -1074,6 +1175,7 @@ document.addEventListener('click', async (e) => {
       return occupe(b, async () => { await creerStructure([{ tableId: t, columns: TRACABILITE }]); await tracer('Traçabilité ajoutée', t); message('✅ Traçabilité ajoutée à ' + esc(t)); await actualiser(); });
     }
     case 'publier': return publierNorme(b);
+    case 'pages': return creerPages(b);
   }
 });
 
