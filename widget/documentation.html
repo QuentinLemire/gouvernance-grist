@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  Documentation — DGOM (charte de l'État / DSFR)
+  =====================================================================
+  Widget à poser sur la page « Documentation », lié à la table
+  Documentation, niveau d'accès « Accès complet au document ».
+
+  - Lecture : sommaire par rubrique, recherche plein texte, page mise en
+    forme (Markdown : titres, listes, tableaux, citations, code, liens).
+  - Écriture (si les règles d'accès le permettent) : nouvelle page,
+    modification avec aperçu en direct, visibilité publique.
+  Les règles d'accès Grist restent seules juges : un enregistrement refusé
+  affiche simplement un message d'erreur.
+  =====================================================================
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documentation</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
+  <link rel="stylesheet" href="commun/dsfr-grist.css">
+  <script src="commun/outils.js"></script>
+  <style>
+    .doc-grille { display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; }
+    .sommaire { background: #fff; border: 1px solid var(--bordure); padding: 16px; position: sticky; top: 12px; }
+    .sommaire input { width: 100%; margin-bottom: 12px; }
+    .sommaire h3 { font-size: 13px; text-transform: uppercase; color: var(--texte-doux); margin: 14px 0 4px; }
+    .sommaire button { display: block; width: 100%; text-align: left; font: inherit; background: none; border: none;
+      border-left: 3px solid transparent; padding: 6px 10px; cursor: pointer; color: var(--texte); }
+    .sommaire button:hover { background: #f6f6f6; }
+    .sommaire button.actif { border-left-color: var(--bleu); color: var(--bleu); font-weight: 700; background: var(--bleu-clair); }
+    .page { background: #fff; border: 1px solid var(--bordure); padding: 28px 36px; min-height: 360px; }
+    .page .meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; color: var(--texte-doux); font-size: 13px; }
+    .page .meta .actions { margin-left: auto; display: flex; gap: 8px; }
+    .edition { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .edition textarea { width: 100%; min-height: 460px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; resize: vertical; }
+    .edition .apercu { border: 1px dashed var(--bordure); padding: 16px; overflow: auto; max-height: 520px; }
+    .champs { display: grid; grid-template-columns: 2fr 1fr 90px auto; gap: 10px; margin-bottom: 12px; align-items: center; }
+    .champs label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
+    @media (max-width: 860px) { .doc-grille, .edition, .champs { grid-template-columns: 1fr; } .sommaire { position: static; } }
+  </style>
+</head>
+<body>
+
+<header class="entete">
+  <p class="fr-logo">Ministère<br>des Outre-mer</p>
+  <div class="dgom" id="logo-dgom"><span>DGOM</span></div>
+  <div class="titres">
+    <h1 id="titre-appli">Documentation</h1>
+    <p>Guides, procédures, FAQ et notes</p>
+  </div>
+  <div class="actions"><button class="bouton primaire" id="nouvelle">＋ Nouvelle page</button></div>
+</header>
+
+<main>
+  <div class="doc-grille">
+    <nav class="sommaire" aria-label="Sommaire">
+      <input class="champ" id="recherche" type="search" placeholder="Rechercher…" aria-label="Rechercher dans la documentation">
+      <div id="liste"><p class="vide">Chargement…</p></div>
+    </nav>
+    <article class="page" id="page"></article>
+  </div>
+</main>
+<div id="messages"></div>
+
+<script>
+'use strict';
+const { esc, lire, parametres, entete, markdown } = window.Outils;
+
+/* ---------------- État ---------------- */
+let pages = [];        // lignes de la table Documentation
+let rubriques = [];    // choix de la colonne Rubrique
+let courante = null;   // id de la page affichée
+let enEdition = false;
+
+/* ---------------- Outils ---------------- */
+function message(texte, erreur) {
+  const m = document.createElement('div');
+  m.className = 'message' + (erreur ? ' erreur' : ''); m.textContent = texte;
+  document.getElementById('messages').appendChild(m); setTimeout(() => m.remove(), 4000);
+}
+const date = (s) => (s ? new Date(s * 1000).toLocaleDateString('fr-FR') : '');
+
+/** Choix de la colonne Rubrique, lus dans la structure du document. */
+async function lireRubriques() {
+  const [tables, cols] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
+  const t = (tables || []).find((x) => x.tableId === 'Documentation');
+  const c = t && (cols || []).find((x) => x.parentId === t.id && x.colId === 'Rubrique');
+  try { return JSON.parse(c.widgetOptions).choices || []; } catch (e) { return []; }
+}
+
+/* ---------------- Chargement ---------------- */
+async function charger() {
+  const [docs, p, r] = await Promise.all([lire('Documentation'), parametres(), lireRubriques()]);
+  entete(p, 'Documentation');
+  rubriques = r;
+  pages = (docs || []).sort((a, b) => String(a.Rubrique || '').localeCompare(String(b.Rubrique || '')) || (a.Ordre || 0) - (b.Ordre || 0) || String(a.Titre).localeCompare(String(b.Titre)));
+  if (!pages.some((d) => d.id === courante)) courante = pages[0]?.id ?? null;
+  afficherListe();
+  if (!enEdition) afficherPage();
+}
+
+/* ---------------- Sommaire ---------------- */
+function afficherListe() {
+  const q = document.getElementById('recherche').value.trim().toLowerCase();
+  const trouvees = pages.filter((d) => !q || `${d.Titre} ${d.Contenu} ${d.Rubrique}`.toLowerCase().includes(q));
+  const groupes = {};
+  trouvees.forEach((d) => (groupes[d.Rubrique || 'Sans rubrique'] ||= []).push(d));
+  document.getElementById('liste').innerHTML = Object.keys(groupes).length
+    ? Object.entries(groupes).map(([g, l]) => `<h3>${esc(g)}</h3>${l.map((d) =>
+        `<button data-page="${d.id}" class="${d.id === courante ? 'actif' : ''}">${esc(d.Titre || 'Sans titre')}</button>`).join('')}`).join('')
+    : '<p class="vide">Aucune page.</p>';
+}
+
+/* ---------------- Lecture ---------------- */
+function afficherPage() {
+  const d = pages.find((x) => x.id === courante);
+  const zone = document.getElementById('page');
+  if (!d) { zone.innerHTML = '<p class="vide">Aucune page pour le moment. Cliquez sur « Nouvelle page ».</p>'; return; }
+  zone.innerHTML = `<div class="meta">
+      ${d.Rubrique ? `<span class="badge bleu">${esc(d.Rubrique)}</span>` : ''}
+      ${d.Visible_par_tous ? '<span class="badge vert">Visible par tous</span>' : ''}
+      ${d.ModifieLe || d.CreeLe ? `<span>Mis à jour le ${date(d.ModifieLe || d.CreeLe)}</span>` : ''}
+      <span class="actions"><button class="bouton petit" id="modifier">✏️ Modifier</button></span>
+    </div>
+    <div class="markdown"><h1>${esc(d.Titre || 'Sans titre')}</h1>${markdown(d.Contenu)}</div>`;
+}
+
+/* ---------------- Édition ---------------- */
+function editer(d) {
+  enEdition = true;
+  d = d || { Titre: '', Rubrique: rubriques[0] || '', Ordre: 0, Contenu: '## Objet\n\n…', Visible_par_tous: false };
+  document.getElementById('page').innerHTML = `<div class="champs">
+      <input class="champ" id="e-titre" placeholder="Titre de la page" value="${esc(d.Titre)}">
+      <select class="champ" id="e-rubrique">${['', ...rubriques].map((r) => `<option ${r === d.Rubrique ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>
+      <input class="champ" id="e-ordre" type="number" title="Ordre dans la rubrique" value="${Number(d.Ordre) || 0}">
+      <label><input type="checkbox" id="e-public" ${d.Visible_par_tous ? 'checked' : ''}> Visible par tous</label>
+    </div>
+    <div class="edition">
+      <textarea class="champ" id="e-contenu" aria-label="Contenu en Markdown">${esc(d.Contenu)}</textarea>
+      <div class="apercu markdown" id="e-apercu"></div>
+    </div>
+    <p class="aide">Markdown : <code># Titre</code>, <code>**gras**</code>, <code>- liste</code>, <code>| tableau |</code>, <code>> encadré</code>, <code>[lien](https://…)</code>.</p>
+    <p><button class="bouton primaire" id="enregistrer" data-id="${d.id || ''}">💾 Enregistrer</button>
+       <button class="bouton" id="annuler">Annuler</button></p>`;
+  apercu();
+}
+function apercu() {
+  document.getElementById('e-apercu').innerHTML = markdown(document.getElementById('e-contenu').value);
+}
+
+async function enregistrer(id) {
+  const champs = {
+    Titre: document.getElementById('e-titre').value.trim() || 'Sans titre',
+    Rubrique: document.getElementById('e-rubrique').value,
+    Ordre: Number(document.getElementById('e-ordre').value) || 0,
+    Contenu: document.getElementById('e-contenu').value,
+    Visible_par_tous: document.getElementById('e-public').checked,
+  };
+  try {
+    const r = await grist.docApi.applyUserActions([id ? ['UpdateRecord', 'Documentation', id, champs] : ['AddRecord', 'Documentation', null, champs]]);
+    courante = id || r.retValues[0];
+    enEdition = false;
+    message('Page enregistrée.');
+    await charger();
+  } catch (e) {
+    message("Enregistrement refusé : vous n'avez peut-être pas les droits d'écriture.", true);
+  }
+}
+
+/* ---------------- Évènements ---------------- */
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.page) { courante = Number(b.dataset.page); enEdition = false; afficherListe(); afficherPage(); }
+  else if (b.id === 'modifier') editer(pages.find((x) => x.id === courante));
+  else if (b.id === 'nouvelle') editer(null);
+  else if (b.id === 'annuler') { enEdition = false; afficherPage(); }
+  else if (b.id === 'enregistrer') enregistrer(Number(b.dataset.id) || null);
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'recherche') afficherListe();
+  if (e.target.id === 'e-contenu') apercu();
+});
+
+/* ---------------- Démarrage ---------------- */
+grist.ready({ requiredAccess: 'full' });
+grist.onRecords(() => { if (!enEdition) charger(); });
+charger();
+</script>
+</body>
+</html>

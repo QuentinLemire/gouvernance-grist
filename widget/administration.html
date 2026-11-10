@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  Panneau d'administration Grist — DGOM (charte de l'État / DSFR)
+  =====================================================================
+  Widget personnalisé à poser sur une page du document, avec le niveau
+  d'accès « Accès complet au document ». Réservé aux propriétaires pour
+  l'onglet Droits (Grist n'autorise qu'eux à modifier les règles d'accès).
+
+  Onglets
+    🏠 Tableau de bord   chiffres clés, santé du document, dernières actions
+    👥 Utilisateurs      annuaire : recherche, filtres, modification en ligne,
+                         actions groupées, ajout en masse, export CSV
+    🔐 Droits            matrice rôle × table → règles d'accès Grist,
+                         périmètre territorial, aperçu avant écriture
+    🆘 Support           demandes, fil d'échanges, assignation, archivage
+    🧱 Structure         sujets transverses du dépôt Git : présents / à
+                         installer, traçabilité, export structure.json
+    ⚙️ Paramètres        paramètres de l'application, journal complet
+
+  Principes
+    - Ne supprime jamais de données ni de tables.
+    - Toute action d'administration est tracée dans Journal_Admin.
+    - Les règles d'accès écrites portent la mention « [Admin] » : elles se
+      réécrivent ou se retirent proprement, les autres règles sont conservées.
+  =====================================================================
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administration</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
+  <link rel="stylesheet" href="commun/dsfr-grist.css">
+  <style>
+    /* Compléments propres au panneau d'administration */
+    .onglets { display: flex; gap: 0; flex-wrap: wrap; background: #fff; border-bottom: 1px solid var(--bordure); padding: 0 24px; position: sticky; top: 0; z-index: 5; }
+    .onglets button { font: inherit; font-weight: 500; padding: 14px 16px; border: none; background: none; cursor: pointer;
+      color: var(--texte-doux); border-bottom: 3px solid transparent; }
+    .onglets button:hover { color: var(--texte); }
+    .onglets button.actif { color: var(--bleu); border-bottom-color: var(--bleu); background: var(--bleu-clair); }
+    .barre-outils { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .barre-outils .espace { flex: 1; }
+    .sante li { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--bordure); list-style: none; }
+    .sante ul { padding: 0; margin: 0; }
+    .sante li > span:nth-child(2) { flex: 1; }
+    .matrice select { width: 100%; min-width: 118px; padding: 5px 8px; font-size: 13px; }
+    .matrice td, .matrice th { padding: 6px; }
+    .matrice td.table { font-weight: 700; white-space: nowrap; }
+    pre.apercu { background: #1e1e1e; color: #f0f0f0; padding: 14px; font-size: 12.5px; max-height: 320px; overflow: auto; white-space: pre-wrap; }
+    .ticket { border: 1px solid var(--bordure); background: #fff; padding: 14px 16px; margin-bottom: 12px; }
+    .ticket header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .ticket header b { flex: 1; font-size: 16px; }
+    .ticket .meta { color: var(--texte-doux); font-size: 13px; margin: 4px 0 8px; }
+    .ticket .fil { border-left: 3px solid var(--bleu-clair); margin: 10px 0; padding-left: 12px; }
+    .ticket .fil p { margin: 6px 0; }
+    .ticket .fil small { color: var(--texte-doux); }
+    .ticket .reglages { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .perimetre { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 0; }
+    .perimetre label { font-size: 13px; white-space: nowrap; }
+    .sujet { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bordure); }
+    .sujet > div { flex: 1; }
+    .sujet small { color: var(--texte-doux); }
+    td .champ { padding: 4px 8px; font-size: 14px; max-width: 220px; }
+    .apercu-logo { max-height: 48px; vertical-align: middle; margin-left: 10px; }
+  </style>
+</head>
+<body>
+
+<header class="entete">
+  <p class="fr-logo">Ministère<br>des Outre-mer</p>
+  <div class="dgom" id="logo-dgom"><span>DGOM</span></div>
+  <div class="titres">
+    <h1 id="titre-appli">Administration</h1>
+    <p>Direction générale des Outre-mer</p>
+  </div>
+  <div class="actions"><button class="bouton petit" data-action="actualiser">↻ Actualiser</button></div>
+</header>
+
+<nav class="onglets" id="onglets">
+  <button data-onglet="accueil" class="actif">🏠 Tableau de bord</button>
+  <button data-onglet="utilisateurs">👥 Utilisateurs</button>
+  <button data-onglet="droits">🔐 Droits</button>
+  <button data-onglet="support">🆘 Support</button>
+  <button data-onglet="structure">🧱 Structure</button>
+  <button data-onglet="parametres">⚙️ Paramètres</button>
+</nav>
+
+<main id="contenu"><p class="vide">Chargement…</p></main>
+<div id="messages"></div>
+
+<script>
+'use strict';
+
+// =====================================================================
+// 1. Configuration
+// =====================================================================
+
+/** Mention portée par les règles d'accès créées par ce panneau. */
+const MARQUE = '[Admin]';
+
+/** Nom de l'attribut utilisateur Grist : user.Profil = la ligne de Utilisateurs de la personne connectée. */
+const ATTRIBUT = 'Profil';
+
+/** Dépôt Git des sujets transverses (lu en direct, sans authentification). */
+const DEPOT = 'https://raw.githubusercontent.com/QuentinLemire/gouvernance-grist/main/';
+
+/** Sujets proposés dans l'onglet Structure, dans l'ordre d'installation conseillé. */
+const SUJETS = [
+  { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
+  { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins', obligatoire: true },
+  { fichier: 'referentiel_programmes', nom: 'Programmes budgétaires', obligatoire: false },
+  { fichier: 'parametres', nom: 'Paramètres', obligatoire: true },
+  { fichier: 'accueil_public', nom: "Page d'accueil publique", obligatoire: true },
+  { fichier: 'support', nom: 'Support', obligatoire: true },
+  { fichier: 'journal', nom: "Journal d'administration", obligatoire: true },
+  { fichier: 'documentation', nom: 'Documentation', obligatoire: false },
+  { fichier: 'nouveautes', nom: 'Nouveautés', obligatoire: false },
+];
+
+/** Données de référence livrées avec certains sujets (dossier donnees/ du dépôt). */
+const DONNEES = { referentiel_territoires: 'territoires.json', referentiel_programmes: 'programmes.json' };
+
+/** Niveaux de droit proposés dans la matrice, et leur traduction en permissions Grist. */
+const NIVEAUX = [
+  { code: '',       libelle: '— hérité',            perm: null },
+  { code: 'aucun',  libelle: '🚫 Aucun accès',       perm: '-CRUD' },
+  { code: 'lire',   libelle: '👁️ Lecture',           perm: '+R-CUD' },
+  { code: 'ajout',  libelle: '➕ Lecture + ajout',   perm: '+CR-UD' },
+  { code: 'modif',  libelle: '✏️ Modifier',          perm: '+CRU-D' },
+  { code: 'tout',   libelle: '🗑️ Tout',              perm: '+CRUD' },
+];
+const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) => [n.perm, n.code]));
+
+/** Tables jamais gérées par la matrice : la page d'accueil doit rester lisible par tous. */
+const HORS_MATRICE = ['Accueil'];
+const tablesGerees = () => etat.meta.tables.map((t) => t.tableId).filter((t) => !HORS_MATRICE.includes(t));
+
+/** Colonnes de traçabilité ajoutées à la demande sur une table. */
+const TRACABILITE = [
+  { id: 'CreeLe', label: 'Créé le', type: 'DateTime:Europe/Paris', formula: 'NOW()', recalcWhen: 0 },
+  { id: 'CreePar', label: 'Créé par', type: 'Text', formula: 'user.Email', recalcWhen: 0 },
+  { id: 'ModifieLe', label: 'Modifié le', type: 'DateTime:Europe/Paris', formula: 'NOW()', recalcWhen: 2 },
+  { id: 'ModifiePar', label: 'Modifié par', type: 'Text', formula: 'user.Email', recalcWhen: 2 },
+];
+
+// =====================================================================
+// 2. État du panneau
+// =====================================================================
+
+const etat = {
+  onglet: 'accueil',
+  meta: { tables: [], parId: {}, colonnesParId: {} },  // structure du document
+  d: {},                                              // données des tables utiles
+  acl: { ressources: [], regles: [] },                // règles d'accès
+  droits: null,                                       // matrice en cours d'édition
+  filtres: { texte: '', role: '', statut: 'actifs', support: 'ouverts' },
+  selection: new Set(),                               // utilisateurs cochés
+  sujets: null,                                       // sujets lus sur le dépôt
+};
+
+// =====================================================================
+// 3. Outils
+// =====================================================================
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const json = (s, defaut) => { try { return s ? JSON.parse(s) : defaut; } catch (e) { return defaut; } };
+const liste = (v) => (Array.isArray(v) ? (v[0] === 'L' ? v.slice(1) : v) : []);
+const estCourriel = (s) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(String(s || '').trim());
+const cle = (s) => String(s || '').trim().toLowerCase();
+const dateFr = (t) => (t ? new Date(t * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '');
+
+/** Grist renvoie les tables en colonnes ; on les remet en lignes { id, Col1, Col2… }. */
+function enLignes(table) {
+  const ids = table.id || [];
+  return ids.map((id, i) => Object.fromEntries(Object.keys(table).map((k) => [k, table[k][i]])));
+}
+
+/** Lit une table ; renvoie [] si elle n'existe pas ou si les droits l'interdisent. */
+async function lire(tableId) {
+  try { return enLignes(await grist.docApi.fetchTable(tableId)); } catch (e) { return null; }
+}
+
+/** Applique des actions Grist (une seule transaction, annulable avec Ctrl+Z). */
+const agir = (actions) => grist.docApi.applyUserActions(actions);
+
+/** Trace une action d'administration (silencieux si la table Journal_Admin n'existe pas). */
+async function tracer(action, detail = '') {
+  if (!aTable('Journal_Admin')) return;
+  try { await agir([['AddRecord', 'Journal_Admin', null, { Action: action, Detail: detail }]]); } catch (e) { /* non bloquant */ }
+}
+
+/** Petit message en bas à droite. */
+function message(texte, erreur = false) {
+  const m = document.createElement('div');
+  m.className = 'message' + (erreur ? ' erreur' : '');
+  m.innerHTML = texte;
+  $('messages').appendChild(m);
+  setTimeout(() => m.remove(), erreur ? 9000 : 4000);
+}
+
+/** Exécute une action en désactivant le bouton et en affichant l'erreur éventuelle. */
+async function occupe(bouton, fn) {
+  const texte = bouton?.textContent;
+  if (bouton) { bouton.disabled = true; bouton.textContent = '…'; }
+  try { return await fn(); }
+  catch (e) { console.error(e); message('❌ ' + esc(e.message || e), true); }
+  finally { if (bouton) { bouton.disabled = false; bouton.textContent = texte; } }
+}
+
+/** Fait télécharger un fichier texte au navigateur. */
+function telecharger(nom, contenu, type = 'text/plain') {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([contenu], { type: type + ';charset=utf-8' }));
+  a.download = nom; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// =====================================================================
+// 4. Chargement de la structure et des données
+// =====================================================================
+
+const aTable = (t) => !!etat.meta.parId[t];
+const colonne = (t, c) => (etat.meta.parId[t]?.colonnes || []).find((x) => x.colId === c);
+const choix = (t, c) => json(colonne(t, c)?.widgetOptions, {}).choices || [];
+const roles = () => choix('Utilisateurs', 'Role');
+
+async function chargerStructure() {
+  const [tables, colonnes] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
+  if (!tables) throw new Error("Lecture de la structure impossible : réglez le widget sur « Accès complet au document ».");
+  const parTable = {};
+  for (const c of colonnes) (parTable[c.parentId] = parTable[c.parentId] || []).push(c);
+  const visibles = tables.filter((t) => t.tableId && !t.tableId.startsWith('_grist') && !(t.summarySourceTable > 0));
+  for (const t of visibles) {
+    t.colonnes = (parTable[t.id] || [])
+      .filter((c) => c.colId !== 'manualSort' && !c.colId.startsWith('gristHelper_'))
+      .sort((a, b) => (a.parentPos || 0) - (b.parentPos || 0));
+  }
+  etat.meta = {
+    tables: visibles.sort((a, b) => a.tableId.localeCompare(b.tableId)),
+    parId: Object.fromEntries(visibles.map((t) => [t.tableId, t])),
+    colonnesParId: Object.fromEntries(colonnes.map((c) => [c.id, c])),
+  };
+}
+
+async function chargerDonnees() {
+  const utiles = ['Utilisateurs', 'Entites', 'Territoires', 'Programmes', 'Support', 'Support_commentaires', 'Journal_Admin', 'Parametres'];
+  etat.d = {};
+  await Promise.all(utiles.filter(aTable).map(async (t) => { etat.d[t] = (await lire(t)) || []; }));
+  etat.acl = { ressources: (await lire('_grist_ACLResources')) || [], regles: await lire('_grist_ACLRules') };
+}
+
+async function actualiser() {
+  try { await chargerStructure(); await chargerDonnees(); }
+  catch (e) { $('contenu').innerHTML = '<div class="encadre erreur">' + esc(e.message) + '</div>'; return; }
+  etat.droits = null;
+  majEntete();
+  afficher();
+}
+
+/** En-tête : logo DGOM et nom de l'application viennent de la table Parametres. */
+function majEntete() {
+  const p = parametres();
+  $('logo-dgom').innerHTML = p.Logo_DGOM ? '<img alt="DGOM" src="' + esc(p.Logo_DGOM) + '">' : '<span>DGOM</span>';
+  $('titre-appli').textContent = 'Administration' + (p.Nom_application ? ' · ' + p.Nom_application : '');
+}
+const parametres = () => Object.fromEntries((etat.d.Parametres || []).map((r) => [r.Cle, r.Valeur]));
+
+// =====================================================================
+// 5. Onglet « Tableau de bord »
+// =====================================================================
+
+/** Liste des contrôles de santé : { ok, texte, onglet? } */
+function controles() {
+  const U = etat.d.Utilisateurs || [];
+  const out = [];
+  if (!aTable('Utilisateurs')) return [{ ok: false, texte: "Pas de table <b>Utilisateurs</b> : installez le sujet dans l'onglet Structure.", onglet: 'structure' }];
+  const actifs = U.filter((u) => u.Actif !== false);
+  const admins = actifs.filter((u) => u.Role === 'Administrateur');
+  out.push(admins.length ? { ok: true, texte: admins.length + ' administrateur(s) actif(s).' }
+    : { ok: false, texte: 'Aucun administrateur actif.', onglet: 'utilisateurs' });
+  const invalides = U.filter((u) => u.Email && !estCourriel(u.Email));
+  if (invalides.length) out.push({ ok: false, texte: invalides.length + ' courriel(s) mal formé(s).', onglet: 'utilisateurs' });
+  const vus = {}; let doublons = 0;
+  U.forEach((u) => { const k = cle(u.Email); if (k) { if (vus[k]) doublons++; vus[k] = 1; } });
+  if (doublons) out.push({ ok: false, texte: doublons + ' courriel(s) en double.', onglet: 'utilisateurs' });
+  const sansRole = actifs.filter((u) => !u.Role);
+  if (sansRole.length) out.push({ ok: false, texte: sansRole.length + ' personne(s) active(s) sans rôle.', onglet: 'utilisateurs' });
+
+  if (!etat.acl.regles) out.push({ ok: false, texte: "Règles d'accès illisibles : seuls les <b>propriétaires</b> du document peuvent les gérer." });
+  else {
+    const protegees = new Set(reglesDuPanneau().map((r) => ressource(r.resource)?.tableId));
+    const nonProtegees = etat.meta.tables.filter((t) => !protegees.has(t.tableId));
+    out.push(protegees.size ? { ok: nonProtegees.length === 0, texte: protegees.size + ' table(s) protégée(s) par rôle' + (nonProtegees.length ? ', ' + nonProtegees.length + ' sans règle' : '') + '.', onglet: 'droits' }
+      : { ok: false, texte: "Aucun droit par rôle : toute personne qui a accès au document voit tout.", onglet: 'droits' });
+    const garde = etat.acl.regles.some((r) => /not user\.Profil/.test(r.aclFormula || ''));
+    out.push(garde ? { ok: true, texte: 'Les personnes non inscrites ne voient que la page d\'accueil.' }
+      : { ok: false, texte: "Les personnes non inscrites dans Utilisateurs ne sont pas bloquées.", onglet: 'droits' });
+  }
+  for (const s of SUJETS.filter((x) => x.obligatoire)) {
+    if (etat.sujets && etat.sujets[s.fichier] && etat.sujets[s.fichier].etat !== 'present') {
+      out.push({ ok: false, texte: 'Sujet transverse incomplet : <b>' + esc(s.nom) + '</b>.', onglet: 'structure' });
+    }
+  }
+  // Tables de référence ou techniques : pas besoin de savoir qui les a modifiées ligne par ligne.
+  const sansObjet = ['Journal_Admin', 'Accueil', 'Parametres', 'Territoires', 'Programmes'];
+  const sansTraca = etat.meta.tables.filter((t) => !sansObjet.includes(t.tableId) && !t.colonnes.some((c) => c.colId === 'ModifiePar'));
+  if (sansTraca.length) out.push({ ok: false, texte: sansTraca.length + ' table(s) sans traçabilité : ' + sansTraca.map((t) => esc(t.tableId)).join(', ') + '.', onglet: 'structure' });
+  return out;
+}
+
+function ongletAccueil() {
+  const U = etat.d.Utilisateurs || [];
+  const actifs = U.filter((u) => u.Actif !== false).length;
+  const ouverts = (etat.d.Support || []).filter(ticketOuvert).length;
+  const c = controles();
+  const ko = c.filter((x) => !x.ok).length;
+  const journal = (etat.d.Journal_Admin || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0)).slice(0, 8);
+  return `
+    <div class="tuiles">
+      <div class="tuile"><div class="valeur">${actifs}</div><div class="libelle">utilisateurs actifs sur ${U.length}</div></div>
+      <div class="tuile"><div class="valeur">${roles().length}</div><div class="libelle">rôles</div></div>
+      <div class="tuile ${ouverts ? 'orange' : 'vert'}"><div class="valeur">${ouverts}</div><div class="libelle">demandes de support ouvertes</div></div>
+      <div class="tuile"><div class="valeur">${etat.meta.tables.length}</div><div class="libelle">tables dans le document</div></div>
+      <div class="tuile ${ko ? 'rouge' : 'vert'}"><div class="valeur">${ko ? ko : '✓'}</div><div class="libelle">${ko ? 'point(s) à corriger' : 'document en bonne santé'}</div></div>
+    </div>
+    <div class="grille-2">
+      <section class="carte sante"><h2>🩺 Santé du document</h2>
+        <ul>${c.map((x) => `<li><span>${x.ok ? '✅' : '⚠️'}</span><span>${x.texte}</span>${!x.ok && x.onglet ? `<button class="bouton petit" data-onglet-aller="${x.onglet}">Corriger →</button>` : ''}</li>`).join('')}</ul>
+      </section>
+      <section class="carte"><h2>📒 Dernières actions</h2>
+        ${journal.length ? `<table class="tableau"><tr><th>Date</th><th>Qui</th><th>Action</th></tr>${journal.map((j) => `<tr><td>${dateFr(j.Date)}</td><td>${esc(j.Auteur)}</td><td><b>${esc(j.Action)}</b><br><small>${esc(j.Detail)}</small></td></tr>`).join('')}</table>` : '<p class="vide">Aucune action tracée pour l\'instant.</p>'}
+      </section>
+    </div>`;
+}
+
+// =====================================================================
+// 6. Onglet « Utilisateurs »
+// =====================================================================
+
+function utilisateursFiltres() {
+  const f = etat.filtres;
+  const t = cle(f.texte);
+  return (etat.d.Utilisateurs || []).filter((u) => {
+    if (f.statut === 'actifs' && u.Actif === false) return false;
+    if (f.statut === 'inactifs' && u.Actif !== false) return false;
+    if (f.statut === 'anomalies' && estCourriel(u.Email) && !estDoublon(u)) return false;
+    if (f.role && (u.Role || '') !== (f.role === '(aucun)' ? '' : f.role)) return false;
+    if (t && !cle([u.Email, u.Nom, u.Role, nomEntite(u.Entite)].join(' ')).includes(t)) return false;
+    return true;
+  }).sort((a, b) => cle(a.Email).localeCompare(cle(b.Email)));
+}
+const estDoublon = (u) => (etat.d.Utilisateurs || []).filter((x) => cle(x.Email) && cle(x.Email) === cle(u.Email)).length > 1;
+const nomEntite = (id) => (etat.d.Entites || []).find((e) => e.id === id)?.Nom || '';
+const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</option>` + valeurs.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(choisie) ? ' selected' : ''}>${esc(l)}</option>`).join('');
+
+function ongletUtilisateurs() {
+  if (!aTable('Utilisateurs')) return `<div class="encadre alerte">La table Utilisateurs n'existe pas. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
+  const f = etat.filtres;
+  const U = utilisateursFiltres();
+  const ent = (etat.d.Entites || []).map((e) => [e.id, e.Nom]);
+  const rl = roles().map((r) => [r, r]);
+  const aPerimetre = !!colonne('Utilisateurs', 'Territoires') && aTable('Territoires');
+  const sel = [...etat.selection].filter((id) => U.some((u) => u.id === id));
+  return `
+    <section class="carte">
+      <div class="barre-outils">
+        <input class="champ" id="u-recherche" placeholder="🔍 Rechercher (courriel, nom, entité…)" value="${esc(f.texte)}" style="min-width:280px">
+        <select class="champ" id="u-role">${options([...rl, ['(aucun)', 'Sans rôle']], f.role, 'Tous les rôles')}</select>
+        <select class="champ" id="u-statut">${options([['actifs', 'Actifs'], ['inactifs', 'Inactifs'], ['anomalies', '⚠️ Anomalies']], f.statut, 'Tous')}</select>
+        <span class="espace"></span>
+        <button class="bouton petit" data-action="export-csv">⬇️ Export CSV</button>
+      </div>
+      <div class="barre-outils" ${sel.length ? '' : 'style="opacity:.55"'}>
+        <b>${sel.length} sélectionné(s)</b>
+        <select class="champ" id="g-role" ${sel.length ? '' : 'disabled'}>${options(rl, '', 'Changer le rôle…')}</select>
+        <button class="bouton petit" data-action="g-activer" ${sel.length ? '' : 'disabled'}>Activer</button>
+        <button class="bouton petit" data-action="g-desactiver" ${sel.length ? '' : 'disabled'}>Désactiver</button>
+      </div>
+      <div class="defile"><table class="tableau">
+        <tr><th><input type="checkbox" id="u-tous" ${sel.length && sel.length === U.length ? 'checked' : ''}></th><th>Courriel</th><th>Nom</th><th>Rôle</th><th>Entité</th>${aPerimetre ? '<th>Territoires</th>' : ''}<th>Actif</th></tr>
+        ${U.map((u) => `<tr>
+          <td><input type="checkbox" data-sel="${u.id}" ${etat.selection.has(u.id) ? 'checked' : ''}></td>
+          <td>${esc(u.Email)} ${!estCourriel(u.Email) ? '<span class="badge rouge">format</span>' : ''} ${estDoublon(u) ? '<span class="badge orange">doublon</span>' : ''}</td>
+          <td><input class="champ" data-u="${u.id}" data-col="Nom" value="${esc(u.Nom)}"></td>
+          <td><select class="champ" data-u="${u.id}" data-col="Role">${options(rl, u.Role)}</select></td>
+          <td><select class="champ" data-u="${u.id}" data-col="Entite" data-type="ref">${options(ent, u.Entite)}</select></td>
+          ${aPerimetre ? `<td><button class="bouton petit" data-action="perimetre" data-id="${u.id}">${liste(u.Territoires).length ? liste(u.Territoires).length + ' territoire(s)' : 'Tous'}</button></td>` : ''}
+          <td><input type="checkbox" data-u="${u.id}" data-col="Actif" ${u.Actif !== false ? 'checked' : ''}></td>
+        </tr>`).join('') || '<tr><td colspan="7" class="vide">Personne ne correspond aux filtres.</td></tr>'}
+      </table></div>
+      <div id="perimetre-edition"></div>
+    </section>
+    <div class="grille-2">
+      <section class="carte"><h2>➕ Ajouter des personnes</h2>
+        <p class="aide">Un courriel par ligne (copié depuis un tableur ou une messagerie). Les doublons et les adresses mal formées sont ignorés.</p>
+        <textarea class="champ" id="ajout-liste" rows="5" style="width:100%" placeholder="prenom.nom@outre-mer.gouv.fr"></textarea>
+        <div class="barre-outils" style="margin-top:10px">
+          <select class="champ" id="ajout-role">${options(rl, roles().includes('Lecteur') ? 'Lecteur' : '', 'Rôle…')}</select>
+          <select class="champ" id="ajout-entite">${options(ent, '', 'Entité…')}</select>
+          <button class="bouton primaire" data-action="ajouter">Ajouter</button>
+        </div>
+      </section>
+      <section class="carte"><h2>🎭 Rôles</h2>
+        <p class="aide">Les rôles servent à l'onglet Droits. Renommer un rôle ne met pas à jour les personnes qui l'ont déjà.</p>
+        <p>${roles().map((r) => `<span class="badge bleu" style="margin:0 6px 6px 0">${esc(r)} · ${(etat.d.Utilisateurs || []).filter((u) => u.Role === r).length}</span>`).join('')}</p>
+        <div class="barre-outils"><input class="champ" id="nouveau-role" placeholder="Nouveau rôle"><button class="bouton petit" data-action="ajouter-role">Ajouter le rôle</button></div>
+      </section>
+    </div>`;
+}
+
+/** Édition du périmètre territorial d'une personne (cases à cocher). */
+function editerPerimetre(id) {
+  const u = (etat.d.Utilisateurs || []).find((x) => x.id === id);
+  const choisis = new Set(liste(u.Territoires));
+  $('perimetre-edition').innerHTML = `<div class="encadre" style="margin-top:14px"><b>Périmètre de ${esc(u.Email)}</b> — aucun territoire coché = tous.
+    <div class="perimetre">${(etat.d.Territoires || []).map((t) => `<label><input type="checkbox" data-terr="${t.id}" ${choisis.has(t.id) ? 'checked' : ''}> ${esc(t.Nom)}</label>`).join('')}</div>
+    <button class="bouton primaire petit" data-action="perimetre-ok" data-id="${id}">Enregistrer</button> <button class="bouton petit" data-action="perimetre-annuler">Annuler</button></div>`;
+}
+
+async function ajouterPersonnes(bouton) {
+  const lignes = $('ajout-liste').value.split(/[\n;,]+/).map((s) => s.trim()).filter(Boolean);
+  const existants = new Set((etat.d.Utilisateurs || []).map((u) => cle(u.Email)));
+  const ok = [], ignores = [];
+  for (const l of lignes) {
+    const mail = (l.match(/[^\s<>]+@[^\s<>]+/) || [l])[0];
+    if (!estCourriel(mail) || existants.has(cle(mail))) { ignores.push(mail); continue; }
+    existants.add(cle(mail)); ok.push(mail);
+  }
+  if (!ok.length) return message('Aucune nouvelle adresse valide.' + (ignores.length ? ' Ignorées : ' + esc(ignores.join(', ')) : ''), true);
+  const role = $('ajout-role').value, entite = Number($('ajout-entite').value) || null;
+  await occupe(bouton, async () => {
+    await agir([['BulkAddRecord', 'Utilisateurs', ok.map(() => null), { Email: ok, Role: ok.map(() => role), Entite: ok.map(() => entite), Actif: ok.map(() => true) }]]);
+    await tracer('Ajout d\'utilisateurs', ok.length + ' personne(s) : ' + ok.join(', '));
+    message('✅ ' + ok.length + ' personne(s) ajoutée(s).' + (ignores.length ? ' ' + ignores.length + ' ignorée(s).' : ''));
+    $('ajout-liste').value = '';
+    await actualiser();
+  });
+}
+
+function exporterCsv() {
+  const U = utilisateursFiltres();
+  const lignes = [['Courriel', 'Nom', 'Rôle', 'Entité', 'Actif']].concat(U.map((u) => [u.Email, u.Nom, u.Role, nomEntite(u.Entite), u.Actif !== false ? 'oui' : 'non']));
+  const csv = lignes.map((l) => l.map((v) => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  telecharger('utilisateurs.csv', '﻿' + csv, 'text/csv');
+}
+
+// =====================================================================
+// 7. Onglet « Droits » : matrice rôle × table → règles d'accès Grist
+// =====================================================================
+
+const ressource = (id) => etat.acl.ressources.find((r) => r.id === id);
+const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.memo || '').startsWith(MARQUE));
+
+/** Relit la matrice depuis les règles « [Admin] » déjà écrites. */
+function lireMatrice() {
+  const m = { niveaux: {}, perimetre: {}, bloquerAutres: false };
+  for (const r of reglesDuPanneau()) {
+    const t = ressource(r.resource)?.tableId; if (!t) continue;
+    const role = /user\.Profil\.Role == "((?:[^"\\]|\\.)*)"/.exec(r.aclFormula || '');
+    if (role && !/rec\./.test(r.aclFormula)) (m.niveaux[t] = m.niveaux[t] || {})[JSON.parse('"' + role[1] + '"')] = NIVEAU_DE_PERM[r.permissionsText] || '';
+    if (/rec\.Territoire not in user\.Profil\.Territoires/.test(r.aclFormula || '')) m.perimetre[t] = true;
+    if ((r.aclFormula || '').trim().startsWith('user.Access != OWNER')) m.bloquerAutres = true;
+  }
+  return m;
+}
+
+/** Proposition raisonnable pour démarrer. */
+function matriceStandard() {
+  const m = { niveaux: {}, perimetre: {}, bloquerAutres: true };
+  const sensibles = ['Utilisateurs', 'Entites', 'Parametres', 'Territoires', 'Programmes'];
+  for (const t of tablesGerees()) {
+    m.niveaux[t] = {};
+    for (const r of roles()) {
+      let n = 'lire';
+      if (r === 'Administrateur') n = 'tout';
+      else if (t === 'Journal_Admin') n = 'aucun';
+      else if (t === 'Support' || t === 'Support_commentaires') n = r === 'Lecteur' ? 'ajout' : 'modif';
+      else if (sensibles.includes(t)) n = 'lire';
+      else if (/^Admin/.test(r) || r === 'Gestionnaire') n = 'tout';
+      else if (r === 'Contributeur') n = 'modif';
+      m.niveaux[t][r] = n;
+    }
+    if (colonne(t, 'Territoire')) m.perimetre[t] = true;
+  }
+  return m;
+}
+
+const chaine = (s) => JSON.stringify(String(s));
+
+/** Traduit la matrice en règles Grist, dans l'ordre où Grist les évalue. */
+function construireRegles() {
+  const m = etat.droits, out = [];
+  for (const t of tablesGerees()) {
+    const lignes = Object.entries(m.niveaux[t] || {}).filter(([r, n]) => n && roles().includes(r));
+    if (!lignes.length && !m.bloquerAutres) continue;
+    out.push({ table: t, formule: 'user.Access == OWNER', perm: '+CRUD' });
+    if (m.perimetre[t] && colonne(t, 'Territoire')) {
+      // Un AdminTerritoire ne voit que les lignes de ses territoires (s'il en a).
+      out.push({ table: t, formule: 'user.Profil.Role == "AdminTerritoire" and user.Profil.Territoires and rec.Territoire not in user.Profil.Territoires', perm: '-CRUD' });
+    }
+    for (const [r, n] of lignes) out.push({ table: t, formule: 'user.Profil.Actif and user.Profil.Role == ' + chaine(r), perm: NIVEAUX.find((x) => x.code === n).perm });
+    if (m.bloquerAutres) {
+      // Les lignes marquées « Visible par tous » (ex. documentation publique) restent lisibles.
+      out.push({ table: t, formule: colonne(t, 'Visible_par_tous') ? 'user.Access != OWNER and not rec.Visible_par_tous' : 'user.Access != OWNER', perm: '-CRUD' });
+    }
+  }
+  return out;
+}
+
+function ongletDroits() {
+  if (!etat.acl.regles) return '<div class="encadre alerte">Seuls les <b>propriétaires</b> du document peuvent gérer les droits.</div>';
+  if (!aTable('Utilisateurs') || !roles().length) return '<div class="encadre alerte">Il faut d\'abord des utilisateurs avec des rôles (onglet Utilisateurs).</div>';
+  if (!etat.droits) etat.droits = lireMatrice();
+  const m = etat.droits;
+  const autres = (etat.acl.regles || []).filter((r) => (r.aclFormula || r.permissionsText) && !String(r.memo || '').startsWith(MARQUE));
+  const garde = (etat.acl.regles || []).some((r) => /not user\.Profil/.test(r.aclFormula || ''));
+  const avecTerritoire = etat.meta.tables.some((t) => colonne(t.tableId, 'Territoire'));
+  return `
+    <section class="carte">
+      <h2>🔐 Qui peut faire quoi ?</h2>
+      <p class="aide">Pour chaque table, choisissez ce que chaque rôle peut faire. Le rôle vient de la table Utilisateurs (via le courriel de connexion). Une personne <b>inactive</b> n'a aucun rôle. Les <b>propriétaires</b> gardent toujours tous les droits.</p>
+      ${autres.length ? `<div class="encadre">ℹ️ ${autres.length} règle(s) écrite(s) hors de ce panneau sont conservées ; les règles du panneau passent avant elles.</div>` : ''}
+      ${!garde ? `<div class="encadre alerte">⚠️ Les personnes non inscrites ne sont pas bloquées. <button class="bouton petit" data-action="garde">Ne leur montrer que l'accueil</button></div>` : ''}
+      <div class="barre-outils">
+        <button class="bouton petit" data-action="standard">✨ Proposition standard</button>
+        <button class="bouton petit" data-action="vider">Tout effacer</button>
+        <label><input type="checkbox" id="bloquer-autres" ${m.bloquerAutres ? 'checked' : ''}> Bloquer toute personne sans rôle reconnu</label>
+      </div>
+      <div class="defile"><table class="tableau matrice">
+        <tr><th>Table</th>${roles().map((r) => `<th>${esc(r)}</th>`).join('')}${avecTerritoire ? '<th title="Les AdminTerritoire ne voient que leurs territoires">Périmètre</th>' : ''}</tr>
+        ${etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => `<tr><td class="table">${esc(t.tableId)}</td>
+          ${roles().map((r) => `<td><select class="champ" data-mat-table="${esc(t.tableId)}" data-mat-role="${esc(r)}">${NIVEAUX.map((n) => `<option value="${n.code}" ${(m.niveaux[t.tableId] || {})[r] === n.code || (!(m.niveaux[t.tableId] || {})[r] && !n.code) ? 'selected' : ''}>${n.libelle}</option>`).join('')}</select></td>`).join('')}
+          ${avecTerritoire ? `<td>${colonne(t.tableId, 'Territoire') ? `<label><input type="checkbox" data-perim="${esc(t.tableId)}" ${m.perimetre[t.tableId] ? 'checked' : ''}> par territoire</label>` : ''}</td>` : ''}
+        </tr>`).join('')}
+      </table></div>
+    </section>
+    <section class="carte">
+      <h2>👀 Aperçu des règles</h2>
+      <pre class="apercu" id="apercu-regles"></pre>
+      <div class="barre-outils">
+        <button class="bouton primaire" data-action="appliquer-droits">Appliquer ces droits</button>
+        <button class="bouton" data-action="retirer-droits">Retirer les règles du panneau</button>
+        <span class="aide" style="margin:0">Vérifiez ensuite avec « Voir en tant que » dans <i>Permissions avancées</i>.</span>
+      </div>
+    </section>`;
+}
+
+function majApercu() {
+  const el = $('apercu-regles'); if (!el) return;
+  const r = construireRegles();
+  let t = '', tableEnCours = '';
+  for (const x of r) { if (x.table !== tableEnCours) { tableEnCours = x.table; t += '\n▸ ' + x.table + '\n'; } t += '   si ' + x.formule.padEnd(70) + ' → ' + x.perm + '\n'; }
+  el.textContent = r.length ? t.trim() : 'Aucune règle : le document reste ouvert à toute personne qui y a accès.';
+}
+
+/** Écrit (ou retire) les règles du panneau ; les autres règles du document ne sont pas touchées. */
+async function appliquerDroits(bouton, retirer) {
+  await occupe(bouton, async () => {
+    const regles = retirer ? [] : construireRegles();
+    let ressources = etat.acl.ressources;
+    const besoin = regles.length ? [['*', '*'], ...[...new Set(regles.map((r) => r.table))].map((t) => [t, '*'])] : [];
+    const manquantes = besoin.filter(([t, c]) => !ressources.some((r) => r.tableId === t && r.colIds === c));
+    if (manquantes.length) {
+      await agir([['BulkAddRecord', '_grist_ACLResources', manquantes.map(() => null), { tableId: manquantes.map((m) => m[0]), colIds: manquantes.map((m) => m[1]) }]]);
+      ressources = (await lire('_grist_ACLResources')) || [];
+    }
+    const idRes = (t) => ressources.find((r) => r.tableId === t && r.colIds === '*').id;
+    // Les règles du panneau passent avant toutes les autres.
+    let pos = Math.min(0, ...etat.acl.regles.map((r) => Number(r.rulePos) || 0)) - 1000;
+    const nouvelles = [];
+    const attributExiste = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT && json(r.userAttributes, {}).tableId === 'Utilisateurs');
+    if (regles.length && !attributExiste) {
+      nouvelles.push({ resource: idRes('*'), aclFormula: '', permissionsText: '', rulePos: pos++, memo: MARQUE + ' attribut',
+        userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Email_cle') ? 'Email_cle' : 'Email' }) });
+    }
+    for (const r of regles) nouvelles.push({ resource: idRes(r.table), aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE, userAttributes: '' });
+    // L'attribut user.Profil n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
+    const anciennes = reglesDuPanneau().filter((r) => !json(r.userAttributes, {}).name);
+    const actions = [];
+    if (anciennes.length) actions.push(['BulkRemoveRecord', '_grist_ACLRules', anciennes.map((r) => r.id)]);
+    if (nouvelles.length) {
+      const cles = Object.keys(nouvelles[0]);
+      actions.push(['BulkAddRecord', '_grist_ACLRules', nouvelles.map(() => null), Object.fromEntries(cles.map((k) => [k, nouvelles.map((n) => n[k])]))]);
+    }
+    if (actions.length) await agir(actions);
+    await tracer(retirer ? 'Droits retirés' : 'Droits appliqués', retirer ? anciennes.length + ' règle(s) retirée(s)' : regles.length + ' règle(s) sur ' + new Set(regles.map((r) => r.table)).size + ' table(s)');
+    message(retirer ? '✅ Règles du panneau retirées.' : '✅ ' + regles.length + ' règles appliquées.');
+    await actualiser();
+  });
+}
+
+/** Règle de base : une personne non inscrite (ou inactive) ne voit que la page d'accueil. */
+async function poserGarde(bouton) {
+  if (!aTable('Accueil')) return message("Installez d'abord la page d'accueil publique (onglet Structure).", true);
+  await occupe(bouton, async () => {
+    let res = etat.acl.ressources;
+    const manque = [['*', '*'], ['Accueil', '*']].filter(([t]) => !res.some((r) => r.tableId === t && r.colIds === '*'));
+    if (manque.length) {
+      await agir([['BulkAddRecord', '_grist_ACLResources', manque.map(() => null), { tableId: manque.map((m) => m[0]), colIds: manque.map(() => '*') }]]);
+      res = await lire('_grist_ACLResources');
+    }
+    const id = (t) => res.find((r) => r.tableId === t && r.colIds === '*').id;
+    const attribut = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT);
+    const a = [];
+    if (!attribut) a.push({ resource: id('*'), aclFormula: '', permissionsText: '', rulePos: 1, memo: '[Gouvernance] attribut', userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Email_cle') ? 'Email_cle' : 'Email' }) });
+    a.push({ resource: id('Accueil'), aclFormula: 'True', permissionsText: '+R-CUD', rulePos: 2, memo: '[Gouvernance] Accueil lisible par tous', userAttributes: '' });
+    a.push({ resource: id('*'), aclFormula: 'user.Access == OWNER', permissionsText: 'all', rulePos: 3, memo: '[Gouvernance] Propriétaires : tous les droits', userAttributes: '' });
+    a.push({ resource: id('*'), aclFormula: 'not user.Profil or not user.Profil.Actif', permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits ou inactifs : Accueil seulement', userAttributes: '' });
+    const cles = Object.keys(a[0]);
+    await agir([['BulkAddRecord', '_grist_ACLRules', a.map(() => null), Object.fromEntries(cles.map((k) => [k, a.map((x) => x[k])]))]]);
+    await tracer('Garde posée', 'Non inscrits : page d\'accueil seulement');
+    message('✅ Les personnes non inscrites ne voient plus que la page d\'accueil.');
+    await actualiser();
+  });
+}
+
+// =====================================================================
+// 8. Onglet « Support »
+// =====================================================================
+
+const ticketOuvert = (t) => !t.Archive && !['Résolu', 'Fermé'].includes(t.Statut);
+const couleurStatut = { 'Nouveau': 'bleu', 'En cours': 'orange', 'En attente': '', 'Résolu': 'vert', 'Fermé': '' };
+
+function ongletSupport() {
+  if (!aTable('Support')) return `<div class="encadre alerte">Pas de table Support. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
+  const f = etat.filtres.support;
+  const T = (etat.d.Support || []).filter((t) => f === 'tous' || (f === 'ouverts' ? ticketOuvert(t) : f === 'archives' ? t.Archive : !ticketOuvert(t) && !t.Archive))
+    .sort((a, b) => (b.CreeLe || 0) - (a.CreeLe || 0));
+  const statuts = choix('Support', 'Statut').map((s) => [s, s]);
+  const priorites = choix('Support', 'Priorite').map((s) => [s, s]);
+  const personnes = (etat.d.Utilisateurs || []).filter((u) => u.Actif !== false).map((u) => [u.id, u.Nom || u.Email]);
+  const fils = (id) => (etat.d.Support_commentaires || []).filter((c) => c.Demande === id).sort((a, b) => (a.CreeLe || 0) - (b.CreeLe || 0));
+  return `
+    <div class="barre-outils">
+      ${[['ouverts', 'Ouvertes'], ['traites', 'Traitées'], ['archives', 'Archivées'], ['tous', 'Toutes']].map(([v, l]) => `<button class="bouton petit ${f === v ? 'primaire' : ''}" data-support="${v}">${l}</button>`).join('')}
+      <span class="espace"></span><span class="aide" style="margin:0">${T.length} demande(s)</span>
+    </div>
+    ${T.map((t) => `<article class="ticket">
+      <header><b>${esc(t.Titre || '(sans titre)')}</b>
+        ${t.Priorite ? `<span class="badge ${t.Priorite === 'Urgente' ? 'rouge' : t.Priorite === 'Haute' ? 'orange' : ''}">${esc(t.Priorite)}</span>` : ''}
+        <span class="badge ${couleurStatut[t.Statut] || ''}">${esc(t.Statut || 'Nouveau')}</span></header>
+      <div class="meta">${esc(t.Demandeur || t.CreePar || '')} · ${dateFr(t.CreeLe)}${t.Categorie ? ' · ' + esc(t.Categorie) : ''}${t.Url_page ? ` · <a href="${esc(t.Url_page)}" target="_blank" rel="noopener">page concernée ↗</a>` : ''}</div>
+      ${t.Description ? `<div>${esc(t.Description).replace(/\n/g, '<br>')}</div>` : ''}
+      ${aTable('Support_commentaires') ? `<div class="fil">${fils(t.id).map((c) => `<p><small>${esc(c.CreePar)} · ${dateFr(c.CreeLe)}</small><br>${esc(c.Message).replace(/\n/g, '<br>')}</p>`).join('') || '<p class="vide">Pas encore d\'échange.</p>'}
+        <div class="barre-outils"><input class="champ" style="flex:1" placeholder="Répondre…" id="rep-${t.id}"><button class="bouton petit primaire" data-action="repondre" data-id="${t.id}">Envoyer</button></div></div>` : ''}
+      <div class="reglages">
+        <select class="champ" data-t="${t.id}" data-col="Statut">${options(statuts, t.Statut)}</select>
+        <select class="champ" data-t="${t.id}" data-col="Priorite">${options(priorites, t.Priorite, 'Priorité')}</select>
+        <select class="champ" data-t="${t.id}" data-col="Assigne_a" data-type="ref">${options(personnes, t.Assigne_a, 'Assigner à…')}</select>
+        ${colonne('Support', 'Archive') ? `<button class="bouton petit" data-action="archiver" data-id="${t.id}" data-val="${t.Archive ? '0' : '1'}">${t.Archive ? 'Désarchiver' : 'Archiver'}</button>` : ''}
+      </div>
+    </article>`).join('') || '<p class="vide">Aucune demande dans cette vue.</p>'}`;
+}
+
+// =====================================================================
+// 9. Onglet « Structure » : sujets transverses du dépôt Git
+// =====================================================================
+
+/** Compare chaque sujet du dépôt avec le document : présent, partiel (colonnes manquantes) ou absent. */
+async function chargerSujets() {
+  const res = {};
+  await Promise.all(SUJETS.map(async (s) => {
+    try {
+      const def = await (await fetch(DEPOT + 'structure/' + s.fichier + '.json', { cache: 'no-store' })).json();
+      const manques = [];
+      for (const t of def.tables) for (const c of t.columns) if (!colonne(t.tableId, c.id)) manques.push(t.tableId + '.' + c.id);
+      const absent = def.tables.every((t) => !aTable(t.tableId));
+      res[s.fichier] = { def, manques, etat: absent ? 'absent' : manques.length ? 'partiel' : 'present' };
+    } catch (e) { res[s.fichier] = { erreur: true, etat: 'inconnu' }; }
+  }));
+  etat.sujets = res;
+}
+
+function ongletStructure() {
+  if (!etat.sujets) { chargerSujets().then(afficher); return '<p class="vide">Lecture du dépôt Git…</p>'; }
+  const badge = { present: '<span class="badge vert">installé</span>', partiel: '<span class="badge orange">incomplet</span>', absent: '<span class="badge">absent</span>', inconnu: '<span class="badge rouge">dépôt injoignable</span>' };
+  return `
+    <section class="carte"><h2>🧱 Sujets transverses</h2>
+      <p class="aide">Définis une fois pour toutes les applications sur le <a href="https://github.com/QuentinLemire/gouvernance-grist" target="_blank" rel="noopener">dépôt Git</a>. L'installation ajoute seulement ce qui manque : rien n'est jamais supprimé ni modifié.</p>
+      ${SUJETS.map((s) => { const x = etat.sujets[s.fichier]; return `<div class="sujet"><div><b>${esc(s.nom)}</b> ${s.obligatoire ? '<span class="badge bleu">socle</span>' : ''}<br>
+        <small>${x.def ? esc(x.def.description || '') : ''}${x.manques?.length && x.etat === 'partiel' ? '<br>Manque : ' + esc(x.manques.slice(0, 8).join(', ')) + (x.manques.length > 8 ? '…' : '') : ''}</small></div>
+        ${badge[x.etat]} ${x.etat === 'absent' || x.etat === 'partiel' ? `<button class="bouton petit primaire" data-action="installer" data-sujet="${s.fichier}">Installer</button>` : ''}</div>`; }).join('')}
+    </section>
+    <div class="grille-2">
+      <section class="carte"><h2>🕓 Traçabilité</h2>
+        <p class="aide">Ajoute « Créé le / par » et « Modifié le / par » à une table métier.</p>
+        <div class="barre-outils"><select class="champ" id="traca-table">${options(etat.meta.tables.filter((t) => !t.colonnes.some((c) => c.colId === 'ModifiePar')).map((t) => [t.tableId, t.tableId]), '', 'Table…')}</select>
+        <button class="bouton petit primaire" data-action="tracabilite">Ajouter</button></div>
+      </section>
+      <section class="carte"><h2>📦 Export pour Git</h2>
+        <p class="aide">Structure complète du document (tables, colonnes, formules, choix), <b>sans aucune donnée</b>, au format des fichiers du dépôt.</p>
+        <button class="bouton" data-action="exporter">⬇️ Télécharger structure.json</button>
+      </section>
+    </div>`;
+}
+
+/** Crée tables et colonnes manquantes. Phase 1 : tables (colonnes simples) ; phase 2 : le reste ; phase 3 : affichage des références. */
+async function creerStructure(tables) {
+  const simple = (c) => !c.isFormula && !/^(Ref|RefList):/.test(c.type || '');
+  const info = (c) => ({ type: c.type || 'Any', label: c.label || c.id, isFormula: !!c.isFormula, formula: c.formula || '', recalcWhen: c.recalcWhen || 0,
+    widgetOptions: c.widgetOptions ? (typeof c.widgetOptions === 'string' ? c.widgetOptions : JSON.stringify(c.widgetOptions)) : '' });
+  for (const t of tables) if (!aTable(t.tableId)) await agir([['AddTable', t.tableId, t.columns.filter(simple).map((c) => ({ id: c.id, ...info(c) }))]]);
+  await chargerStructure();
+  for (const t of tables) for (const c of t.columns) if (!colonne(t.tableId, c.id)) await agir([['AddColumn', t.tableId, c.id, info(c)]]);
+  await chargerStructure();
+  const a = [];
+  for (const t of tables) for (const c of t.columns) {
+    const cible = (/^(?:Ref|RefList):(\w+)/.exec(c.type || '') || [])[1];
+    const moi = colonne(t.tableId, c.id), vis = cible && c.visibleCol && colonne(cible, c.visibleCol);
+    if (moi && vis && moi.visibleCol !== vis.id) a.push(['ModifyColumn', t.tableId, c.id, { visibleCol: vis.id }], ['SetDisplayFormula', t.tableId, null, moi.id, '$' + c.id + '.' + c.visibleCol]);
+  }
+  if (a.length) await agir(a);
+}
+
+async function installerSujet(bouton, fichier) {
+  await occupe(bouton, async () => {
+    // On installe aussi les sujets dont celui-ci dépend.
+    const aFaire = [fichier], vus = new Set(), tables = [];
+    while (aFaire.length) {
+      const f = aFaire.shift(); if (vus.has(f)) continue; vus.add(f);
+      const def = etat.sujets[f]?.def || await (await fetch(DEPOT + 'structure/' + f + '.json')).json();
+      tables.push(...def.tables);
+      (def.dependances || []).forEach((d) => aFaire.push(d.toLowerCase()));
+    }
+    await creerStructure(tables);
+    // Données de référence publiques (territoires, programmes) si la table est encore vide.
+    for (const f of vus) {
+      if (!DONNEES[f]) continue;
+      const jeu = await (await fetch(DEPOT + 'donnees/' + DONNEES[f])).json();
+      if (!((await lire(jeu.tableId)) || []).length) {
+        const cles = Object.keys(jeu.records[0]);
+        await agir([['BulkAddRecord', jeu.tableId, jeu.records.map(() => null), Object.fromEntries(cles.map((k) => [k, jeu.records.map((r) => r[k])]))]]);
+      }
+    }
+    await tracer('Sujet installé', [...vus].join(', '));
+    message('✅ Installé : ' + esc([...vus].join(', ')));
+    etat.sujets = null;
+    await actualiser();
+  });
+}
+
+function exporterStructure() {
+  const parId = etat.meta.colonnesParId;
+  const tables = etat.meta.tables.map((t) => ({ tableId: t.tableId, columns: t.colonnes.map((c) => {
+    const o = { id: c.colId, label: c.label, type: c.type };
+    if (c.isFormula) o.isFormula = true;
+    if (c.formula) o.formula = c.formula;
+    if (!c.isFormula && c.formula) o.recalcWhen = c.recalcWhen || 0;
+    const wo = json(c.widgetOptions, null); if (wo && Object.keys(wo).length) o.widgetOptions = wo;
+    if (c.visibleCol && parId[c.visibleCol]) o.visibleCol = parId[c.visibleCol].colId;
+    return o;
+  }) }));
+  telecharger('structure.json', JSON.stringify({ format: 'grist-structure', version: parametres().Version_structure || '1.0', exporteLe: new Date().toISOString(), tables }, null, 2) + '\n', 'application/json');
+  tracer('Export de structure', tables.length + ' table(s)');
+}
+
+// =====================================================================
+// 10. Onglet « Paramètres »
+// =====================================================================
+
+function ongletParametres() {
+  const P = (etat.d.Parametres || []);
+  const J = (etat.d.Journal_Admin || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0));
+  return `
+    <section class="carte"><h2>⚙️ Paramètres de l'application</h2>
+      ${aTable('Parametres') ? `<table class="tableau">${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
+        <td><input class="champ" style="width:100%;max-width:none" data-p="${p.id}" value="${esc(p.Valeur)}">${p.Cle === 'Logo_DGOM' && p.Valeur ? `<img class="apercu-logo" src="${esc(p.Valeur)}" alt="">` : ''}</td></tr>`).join('')}</table>`
+        : `<div class="encadre alerte">Pas de table Parametres. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`}
+    </section>
+    <section class="carte"><h2>📒 Journal d'administration</h2>
+      ${J.length ? `<div class="defile"><table class="tableau"><tr><th>Date</th><th>Qui</th><th>Action</th><th>Détail</th></tr>${J.map((j) => `<tr><td>${dateFr(j.Date)}</td><td>${esc(j.Auteur)}</td><td>${esc(j.Action)}</td><td>${esc(j.Detail)}</td></tr>`).join('')}</table></div>` : '<p class="vide">Journal vide.</p>'}
+    </section>`;
+}
+
+// =====================================================================
+// 11. Affichage et événements
+// =====================================================================
+
+const ONGLETS = { accueil: ongletAccueil, utilisateurs: ongletUtilisateurs, droits: ongletDroits, support: ongletSupport, structure: ongletStructure, parametres: ongletParametres };
+
+function afficher() {
+  document.querySelectorAll('#onglets button').forEach((b) => b.classList.toggle('actif', b.dataset.onglet === etat.onglet));
+  $('contenu').innerHTML = ONGLETS[etat.onglet]();
+  if (etat.onglet === 'droits') majApercu();
+}
+
+function allerA(onglet) { etat.onglet = onglet; afficher(); }
+
+/** Enregistre une valeur modifiée directement dans un tableau (utilisateur, ticket, paramètre). */
+async function enregistrerChamp(el) {
+  const val = el.type === 'checkbox' ? el.checked : el.dataset.type === 'ref' ? (Number(el.value) || 0) : el.value;
+  try {
+    if (el.dataset.u) {
+      await agir([['UpdateRecord', 'Utilisateurs', Number(el.dataset.u), { [el.dataset.col]: val }]]);
+      const u = etat.d.Utilisateurs.find((x) => x.id === Number(el.dataset.u)); u[el.dataset.col] = val;
+      if (el.dataset.col !== 'Nom') tracer('Utilisateur modifié', u.Email + ' : ' + el.dataset.col + ' = ' + (el.dataset.type === 'ref' ? nomEntite(val) : val));
+    } else if (el.dataset.t) {
+      await agir([['UpdateRecord', 'Support', Number(el.dataset.t), { [el.dataset.col]: val }]]);
+    } else if (el.dataset.p) {
+      await agir([['UpdateRecord', 'Parametres', Number(el.dataset.p), { Valeur: val }]]);
+      etat.d.Parametres.find((x) => x.id === Number(el.dataset.p)).Valeur = val; majEntete();
+    }
+    message('✅ Enregistré.');
+  } catch (e) { message('❌ ' + esc(e.message), true); }
+}
+
+document.addEventListener('change', async (e) => {
+  const el = e.target;
+  if (el.dataset.u || el.dataset.t || el.dataset.p) return enregistrerChamp(el);
+  if (el.id === 'u-role') { etat.filtres.role = el.value; return afficher(); }
+  if (el.id === 'u-statut') { etat.filtres.statut = el.value; return afficher(); }
+  if (el.dataset.sel) { el.checked ? etat.selection.add(Number(el.dataset.sel)) : etat.selection.delete(Number(el.dataset.sel)); return afficher(); }
+  if (el.id === 'u-tous') { utilisateursFiltres().forEach((u) => (el.checked ? etat.selection.add(u.id) : etat.selection.delete(u.id))); return afficher(); }
+  if (el.id === 'g-role' && el.value) return groupe({ Role: el.value }, 'Rôle « ' + el.value + ' »');
+  if (el.dataset.matTable) { const t = el.dataset.matTable; (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {})[el.dataset.matRole] = el.value; return majApercu(); }
+  if (el.dataset.perim) { etat.droits.perimetre[el.dataset.perim] = el.checked; return majApercu(); }
+  if (el.id === 'bloquer-autres') { etat.droits.bloquerAutres = el.checked; return majApercu(); }
+});
+
+// Recherche à la frappe, en gardant le curseur dans le champ.
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'u-recherche') return;
+  etat.filtres.texte = e.target.value;
+  const pos = e.target.selectionStart; afficher();
+  const champ = $('u-recherche'); champ.focus(); champ.setSelectionRange(pos, pos);
+});
+
+/** Modification groupée des utilisateurs cochés. */
+async function groupe(champs, libelle) {
+  const ids = [...etat.selection]; if (!ids.length) return;
+  await occupe(null, async () => {
+    await agir([['BulkUpdateRecord', 'Utilisateurs', ids, Object.fromEntries(Object.entries(champs).map(([k, v]) => [k, ids.map(() => v)]))]]);
+    await tracer('Modification groupée', ids.length + ' personne(s) : ' + libelle);
+    message('✅ ' + ids.length + ' personne(s) mise(s) à jour.');
+    etat.selection.clear(); await actualiser();
+  });
+}
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.onglet) return allerA(b.dataset.onglet);
+  if (b.dataset.ongletAller) return allerA(b.dataset.ongletAller);
+  if (b.dataset.support) { etat.filtres.support = b.dataset.support; return afficher(); }
+  const id = Number(b.dataset.id);
+  switch (b.dataset.action) {
+    case 'actualiser': etat.sujets = null; return actualiser();
+    case 'export-csv': return exporterCsv();
+    case 'ajouter': return ajouterPersonnes(b);
+    case 'g-activer': return groupe({ Actif: true }, 'activées');
+    case 'g-desactiver': return groupe({ Actif: false }, 'désactivées');
+    case 'perimetre': return editerPerimetre(id);
+    case 'perimetre-annuler': $('perimetre-edition').innerHTML = ''; return;
+    case 'perimetre-ok': {
+      const ids = [...document.querySelectorAll('[data-terr]:checked')].map((x) => Number(x.dataset.terr));
+      return occupe(b, async () => {
+        await agir([['UpdateRecord', 'Utilisateurs', id, { Territoires: ['L', ...ids] }]]);
+        await tracer('Périmètre modifié', (etat.d.Utilisateurs.find((u) => u.id === id) || {}).Email + ' : ' + ids.length + ' territoire(s)');
+        await actualiser();
+      });
+    }
+    case 'ajouter-role': {
+      const r = $('nouveau-role').value.trim(); if (!r || roles().includes(r)) return;
+      const c = colonne('Utilisateurs', 'Role'); const wo = json(c.widgetOptions, {}); wo.choices = [...(wo.choices || []), r];
+      return occupe(b, async () => { await agir([['ModifyColumn', 'Utilisateurs', 'Role', { widgetOptions: JSON.stringify(wo) }]]); await tracer('Rôle ajouté', r); await actualiser(); });
+    }
+    case 'standard': etat.droits = matriceStandard(); return afficher();
+    case 'vider': etat.droits = { niveaux: {}, perimetre: {}, bloquerAutres: false }; return afficher();
+    case 'appliquer-droits': return appliquerDroits(b, false);
+    case 'retirer-droits': return appliquerDroits(b, true);
+    case 'garde': return poserGarde(b);
+    case 'repondre': {
+      const txt = $('rep-' + id).value.trim(); if (!txt) return;
+      return occupe(b, async () => {
+        const a = [['AddRecord', 'Support_commentaires', null, { Demande: id, Message: txt }]];
+        const t = etat.d.Support.find((x) => x.id === id);
+        if (t && t.Statut === 'Nouveau') a.push(['UpdateRecord', 'Support', id, { Statut: 'En cours' }]);
+        await agir(a); await actualiser();
+      });
+    }
+    case 'archiver': return occupe(b, async () => { await agir([['UpdateRecord', 'Support', id, { Archive: b.dataset.val === '1' }]]); await actualiser(); });
+    case 'installer': return installerSujet(b, b.dataset.sujet);
+    case 'tracabilite': {
+      const t = $('traca-table').value; if (!t) return;
+      return occupe(b, async () => { await creerStructure([{ tableId: t, columns: TRACABILITE }]); await tracer('Traçabilité ajoutée', t); message('✅ Traçabilité ajoutée à ' + esc(t)); await actualiser(); });
+    }
+    case 'exporter': return exporterStructure();
+  }
+});
+
+// =====================================================================
+// 12. Démarrage
+// =====================================================================
+
+grist.ready({ requiredAccess: 'full' });
+// Grist prévient le widget quand les lignes de sa table liée changent : on en profite pour se remettre à jour.
+let minuterie = null;
+grist.onRecords(() => { clearTimeout(minuterie); minuterie = setTimeout(actualiser, 400); });
+actualiser().then(() => chargerSujets().then(() => { if (etat.onglet === 'accueil' || etat.onglet === 'structure') afficher(); }));
+</script>
+</body>
+</html>
