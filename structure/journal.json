@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.1",
+  "version": "1.2",
   "sujet": "JOURNAL",
   "tables": [
     {
@@ -21,6 +21,14 @@
           "recalcWhen": 0
         },
         {
+          "id": "Personne",
+          "label": "Auteur (fiche)",
+          "type": "Ref:Utilisateurs",
+          "isFormula": true,
+          "formula": "Utilisateurs.lookupOne(Email_cle=($Auteur or \"\").strip().lower()) or None",
+          "visibleCol": "Email"
+        },
+        {
           "id": "Action",
           "label": "Action",
           "type": "Text"
@@ -32,5 +40,8 @@
         }
       ]
     }
+  ],
+  "dependances": [
+    "UTILISATEURS"
   ]
 }

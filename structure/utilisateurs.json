@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.3",
+  "version": "1.4",
   "sujet": "UTILISATEURS",
   "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
   "tables": [
@@ -19,6 +19,12 @@
           "visibleCol": "Nom"
         },
         {
+          "id": "Territoire",
+          "label": "Territoire",
+          "type": "Ref:Territoires",
+          "visibleCol": "Nom"
+        },
+        {
           "id": "Nom_complet",
           "label": "Nom complet",
           "type": "Text",
@@ -31,6 +37,14 @@
           "type": "Bool",
           "formula": "True",
           "recalcWhen": 0
+        },
+        {
+          "id": "Membres",
+          "label": "Membres",
+          "type": "RefList:Utilisateurs",
+          "isFormula": true,
+          "formula": "Utilisateurs.lookupRecords(Entite=$id, sort_by=\"Nom\")",
+          "visibleCol": "Email"
         },
         {
           "id": "Nbre",
@@ -191,5 +205,8 @@
         }
       ]
     }
+  ],
+  "dependances": [
+    "REFERENTIEL_TERRITOIRES"
   ]
 }

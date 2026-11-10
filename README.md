@@ -8,7 +8,7 @@ Le Grist **« Gouvernance »** en est la base source ; le Grist **« Modèle DGO
 | Fichier | Tables | Rôle |
 |---|---|---|
 | `utilisateurs.json` | Entites, Utilisateurs | Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur) ; base des droits |
-| `referentiel_territoires.json` | Territoires | Référentiel facultatif des 13 territoires ultramarins (codes COG, données dans `donnees/`) |
+| `referentiel_territoires.json` | Territoires | Les 13 territoires ultramarins (codes COG, données dans `donnees/`) ; chaque entité y est rattachée |
 | `parametres.json` | Parametres | Nom de l'application, contact, logo DGOM |
 | `accueil_public.json` | Accueil | Message affiché aux personnes sans droit |
 | `support.json` | Support, Support_commentaires | Demandes et conversation avec le support |
@@ -16,6 +16,20 @@ Le Grist **« Gouvernance »** en est la base source ; le Grist **« Modèle DGO
 | `documentation.json` | Documentation | Guides, procédures, FAQ, notes et nouveautés en Markdown |
 
 Chaque fichier ne contient que la structure (tables, colonnes, types, formules), jamais de données.
+
+### Comment les tables sont liées
+
+```
+Territoires ◄── Entites ◄── Utilisateurs ◄──┬── Support ◄── Support_commentaires
+                  ▲ │ (Parent)               ├── Support_commentaires.Auteur
+                  └─┘                        ├── Journal_Admin.Personne
+                                             └── Documentation.Auteur
+Parametres ──► Accueil (le message lit le nom et le contact)
+```
+
+Les courriels saisis automatiquement (`Demandeur`, `CreePar`, `Auteur`) restent la trace brute ; une colonne liée
+(`Personne`, `Auteur (fiche)`) pointe vers la fiche Utilisateurs correspondante. Les listes inverses
+(`Entites.Membres`, `Support.Commentaires`) sont calculées.
 
 ## Les principes
 

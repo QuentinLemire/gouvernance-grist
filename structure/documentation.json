@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.3",
+  "version": "1.4",
   "sujet": "DOCUMENTATION",
   "description": "Pages de documentation, FAQ, notes et nouveautés (rubrique « Nouveauté », affichées sur l'accueil), en Markdown.",
   "tables": [
@@ -92,6 +92,14 @@
           "recalcWhen": 0
         },
         {
+          "id": "Auteur",
+          "label": "Auteur (fiche)",
+          "type": "Ref:Utilisateurs",
+          "isFormula": true,
+          "formula": "Utilisateurs.lookupOne(Email_cle=($CreePar or \"\").strip().lower()) or None",
+          "visibleCol": "Email"
+        },
+        {
           "id": "ModifieLe",
           "label": "Modifié le",
           "type": "DateTime:Europe/Paris",
@@ -107,5 +115,8 @@
         }
       ]
     }
+  ],
+  "dependances": [
+    "UTILISATEURS"
   ]
 }
