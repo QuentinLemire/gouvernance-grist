@@ -12,7 +12,6 @@ Le référentiel vivant est le document Grist **« Gouvernance »** ; ce dépôt
 | `widget/support.html` | **Support** côté utilisateur : créer une demande, suivre ses demandes et converser avec le support. La clôture et la réouverture se font dans le panneau d'administration. |
 | `widget/documentation.html` | **Documentation** : sommaire par rubrique, recherche, pages Markdown mises en forme, édition avec aperçu en direct. |
 | `widget/commun/` | Styles DSFR (Marianne, bleu France, bloc-marque) et outils partagés par les widgets. |
-| `widget/admin.html` | Ancien panneau (Boîte à outils de Florent Ballu, [balludgom/TableManager](https://github.com/balludgom/TableManager)), conservé le temps de basculer les documents vers `administration.html`. |
 | `scripts/installer-gouvernance.js` | Script commenté qui recrée les sujets transverses choisis dans n'importe quel document Grist (à coller dans la console du navigateur). |
 | `structure/*.json` | Structure de chaque sujet transverse (tables, colonnes, types, formules), **sans aucune donnée**. |
 | `donnees/*.json` | Données de référence publiques livrées avec un sujet (13 territoires, programmes P123 / P138). |
