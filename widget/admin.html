@@ -1,4 +1,25 @@
 <!DOCTYPE html>
+<!--
+  =====================================================================
+  Panneau d'administration Grist · Gouvernance des données (DGOM)
+  =====================================================================
+  Fichier unique (HTML + CSS + JS), chargé comme « widget personnalisé » Grist
+  avec le niveau d'accès « Accès complet au document ».
+
+  Organisation du fichier
+  - En-tête <head> : API Grist, Tailwind (outils de Florent), bloc-marque DSFR.
+  - Outils Grist de Florent Ballu (explorateur, gestion des tables) :
+    code d'origine, inchangé — https://github.com/balludgom/TableManager
+  - Module « Administration » (bloc commençant par « Module Administration ») :
+      · styles DSFR (Marianne, bleu France) préfixés #app-admin ;
+      · onglets Tableau de bord, Utilisateurs, Permissions, Support, Modèles,
+        Structure & Git ;
+      · le code JS est commenté section par section (Utilitaires, Chargement,
+        Moteur de structure, Modèle DGOM, Rôles, Rendu…).
+  - Le logo DGOM et le nom de l'application se règlent dans la table
+    Parametres (clés Logo_DGOM et Nom_application), sans toucher au code.
+  =====================================================================
+-->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">

@@ -1,0 +1,27 @@
+{
+  "format": "grist-structure",
+  "version": "1.0",
+  "sujet": "PARAMETRES",
+  "tables": [
+    {
+      "tableId": "Parametres",
+      "columns": [
+        {
+          "id": "Cle",
+          "label": "Clé",
+          "type": "Text"
+        },
+        {
+          "id": "Valeur",
+          "label": "Valeur",
+          "type": "Text"
+        },
+        {
+          "id": "Description",
+          "label": "Description",
+          "type": "Text"
+        }
+      ]
+    }
+  ]
+}
