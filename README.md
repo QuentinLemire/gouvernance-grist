@@ -29,7 +29,7 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 
 | Page | Table liée | Fichier | Rôle |
 |---|---|---|---|
-| Accueil | Accueil | `accueil.html` | Accès réservé pour les non-inscrits ; accueil, nouveautés et documentation pour les autres |
+| Accueil | Accueil | `accueil.html` | Pour les personnes sans accès : message, étapes et bouton « Demander un accès ». Pour les autres : confirmation et nouveautés |
 | Documentation | Documentation | `documentation.html` | Sommaire, recherche, pages Markdown, édition avec aperçu |
 | Support | Support | `support.html` | Créer une demande et converser avec le support |
 | Administration | (aucune) | `administration.html` | Utilisateurs, droits, support (clore / rouvrir), mise à la norme, paramètres, journal, aide |

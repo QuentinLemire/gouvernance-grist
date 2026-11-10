@@ -8,10 +8,10 @@
 
   Ce que voit chaque personne (les règles d'accès Grist font le tri) :
     - non inscrite : le message « accès réservé » (Accueil.Message, calculé
-      depuis Parametres) avec un bouton pour écrire au contact, et les pages
-      de documentation marquées « Visible par tous » ;
-    - inscrite : un mot d'accueil, les 3 dernières pages « Nouveauté » de la
-      documentation, et la documentation.
+      depuis Parametres), les 3 étapes pour obtenir un accès et un bouton qui
+      prépare le courriel au contact ;
+    - inscrite : la confirmation de son accès et les 3 dernières pages
+      « Nouveauté » de la documentation.
   =====================================================================
 -->
 <html lang="fr">
@@ -32,11 +32,7 @@
     .bandeau p { margin: 0; font-size: 17px; opacity: .92; }
     .acces-reserve { border-left: 6px solid var(--erreur); background: #fff; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,18,.12); }
     .acces-reserve h1 { font-size: 24px; }
-    .docs { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-    .doc { background: #fff; border: 1px solid var(--bordure); border-bottom: 4px solid var(--bleu); padding: 18px; cursor: pointer; text-align: left; font: inherit; color: inherit; }
-    .doc:hover { background: #fafaff; }
-    .doc h3 { font-size: 17px; margin: 8px 0 0; }
-    .lecture { background: #fff; border: 1px solid var(--bordure); padding: 24px 28px; margin-top: 20px; }
+    .etapes { margin: 0 0 16px; padding-left: 22px; } .etapes li { margin: 8px 0; }
     .nouveaute { padding: 12px 0; border-bottom: 1px solid var(--bordure); }
     .nouveaute:last-child { border-bottom: none; }
     .nouveaute small { color: var(--texte-doux); }
@@ -58,7 +54,6 @@
 <script>
 'use strict';
 const { esc, lire, parametres, entete, markdown } = window.Outils;
-let docsPubliques = [];
 
 /** Une personne est « inscrite » si les règles d'accès la laissent lire la table Utilisateurs. */
 async function afficher() {
@@ -66,43 +61,35 @@ async function afficher() {
     lire('Accueil'), lire('Utilisateurs'), lire('Documentation'), parametres(),
   ]);
   entete(p);
-  const inscrit = Array.isArray(utilisateurs);
-  // « Nouveauté » va dans le bloc Nouveautés ; « Norme » et « Administration » ne concernent
-  // que les administrateurs (onglet Aide du panneau, page Documentation) : jamais sur l'accueil.
-  const nouveautes = (docs || []).filter((d) => d.Rubrique === 'Nouveauté');
-  const horsAccueil = ['Nouveauté', 'Norme', 'Administration'];
-  docsPubliques = (docs || []).filter((d) => !horsAccueil.includes(d.Rubrique) && (inscrit || d.Visible_par_tous))
-    .sort((a, b) => String(a.Rubrique).localeCompare(String(b.Rubrique)) || (a.Ordre || 0) - (b.Ordre || 0));
+  const appli = p.Nom_application || "l'application";
   const message = (accueil || [])[0]?.Message || '';
   const contact = p.Contact_support || (message.match(/mailto:([^)\s]+)/) || [])[1] || '';
+  const mailto = contact ? `mailto:${esc(contact)}?subject=${encodeURIComponent("Demande d'accès à " + appli)}&body=${encodeURIComponent("Bonjour,\n\nJe souhaite accéder à " + appli + ".\nMon service :\nMotif :\n\nMerci.")}` : '';
+  let html;
 
-  let html = '';
-  if (inscrit) {
-    html += `<section class="bandeau"><div><h2>Bienvenue dans ${esc(p.Nom_application || "l'application")}</h2>
-      <p>Utilisez le menu de gauche pour accéder aux données. En cas de besoin, la documentation est ci-dessous${p.Contact_support ? ' et le support répond à ' + esc(p.Contact_support) : ''}.</p></div></section><main>`;
-    const N = nouveautes.sort((a, b) => (b.CreeLe || 0) - (a.CreeLe || 0)).slice(0, 3);
-    if (N.length) html += `<section class="carte"><h2>📰 Nouveautés</h2>${N.map((n) => `<div class="nouveaute"><small>${n.CreeLe ? new Date(n.CreeLe * 1000).toLocaleDateString('fr-FR') : ''}</small><br><b>${esc(n.Titre)}</b><div class="markdown">${markdown(n.Contenu)}</div></div>`).join('')}</section>`;
+  if (!Array.isArray(utilisateurs)) {
+    // Personne sans accès : tout l'écran est consacré à l'obtenir.
+    html = `<main><section class="acces-reserve markdown">${markdown(message || "# ⛔ Accès réservé\n\nPour avoir accès aux données, rapprochez-vous des administrateurs.")}</section>
+      <section class="carte"><h2>Comment obtenir un accès ?</h2>
+        <ol class="etapes">
+          <li><b>Écrivez</b> à ${contact ? `<a href="${mailto}">${esc(contact)}</a>` : 'la DGOM'} avec votre adresse professionnelle, votre service et le motif.</li>
+          <li><b>Un administrateur</b> enregistre votre adresse et vous attribue un rôle.</li>
+          <li><b>Rechargez cette page</b> : les données auxquelles vous avez droit apparaissent dans le menu.</li>
+        </ol>
+        ${mailto ? `<p><a class="bouton primaire" href="${mailto}">✉️ Demander un accès</a></p>` : ''}
+      </section></main>`;
   } else {
-    html += `<main><section class="acces-reserve markdown">${markdown(message || "# ⛔ Accès réservé\n\nPour avoir accès aux données, rapprochez-vous des administrateurs.")}
-      ${contact ? `<p><a class="bouton primaire" href="mailto:${esc(contact)}?subject=${encodeURIComponent('Demande d\'accès à ' + (p.Nom_application || "l'application Grist"))}">✉️ Demander un accès</a></p>` : ''}</section>`;
+    // Personne inscrite : un mot d'accueil et, s'il y en a, les dernières nouveautés.
+    const N = (docs || []).filter((d) => d.Rubrique === 'Nouveauté').sort((a, b) => (b.CreeLe || 0) - (a.CreeLe || 0)).slice(0, 3);
+    html = `<section class="bandeau"><div><h2>✅ Vous avez accès à ${esc(appli)}</h2>
+      <p>Utilisez le menu de gauche. Une question ? Page <b>Support</b>${contact ? ' ou ' + esc(contact) : ''}.</p></div></section><main>
+      ${N.length ? `<section class="carte"><h2>📰 Nouveautés</h2>${N.map((n) => `<div class="nouveaute"><small>${n.CreeLe ? new Date(n.CreeLe * 1000).toLocaleDateString('fr-FR') : ''}</small><br><b>${esc(n.Titre)}</b><div class="markdown">${markdown(n.Contenu)}</div></div>`).join('')}</section>` : ''}</main>`;
   }
-  if (docsPubliques.length) {
-    html += `<section><h2>📖 Documentation</h2><div class="docs">${docsPubliques.map((d, i) => `<button class="doc" data-doc="${i}">
-      ${d.Rubrique ? `<span class="badge bleu">${esc(d.Rubrique)}</span>` : ''}<h3>${esc(d.Titre)}</h3></button>`).join('')}</div><div id="lecture"></div></section>`;
-  }
-  document.getElementById('page').innerHTML = html + '</main>';
+  document.getElementById('page').innerHTML = html;
 }
 
-document.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-doc]'); if (!b) return;
-  const d = docsPubliques[Number(b.dataset.doc)];
-  const zone = document.getElementById('lecture');
-  zone.innerHTML = `<article class="lecture markdown"><h1>${esc(d.Titre)}</h1>${markdown(d.Contenu)}</article>`;
-  zone.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
-
 grist.ready({ requiredAccess: 'full' });
-grist.onRecords(afficher);   // se met à jour quand la table Accueil change
+grist.onRecords(afficher);   // se met à jour quand le message d'accueil change
 afficher();
 </script>
 </body>
