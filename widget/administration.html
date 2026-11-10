@@ -12,7 +12,7 @@
     👥 Utilisateurs      annuaire : recherche, filtres, modification en ligne,
                          actions groupées, ajout en masse, export CSV
     🔐 Droits            matrice rôle × table → règles d'accès Grist,
-                         périmètre territorial, aperçu avant écriture
+                         aperçu avant écriture
     🆘 Support           demandes, fil d'échanges, assignation, archivage
     🧱 Structure         sujets transverses du dépôt Git : présents / à
                          installer, traçabilité, export structure.json
@@ -55,8 +55,6 @@
     .ticket header b { flex: 1; font-size: 17px; }
     .ticket .meta { color: var(--texte-doux); font-size: 13px; margin: 4px 0 12px; }
     .ticket .reglages { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bordure); }
-    .perimetre { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 0; }
-    .perimetre label { font-size: 13px; white-space: nowrap; }
     .sujet { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bordure); }
     .sujet > div { flex: 1; }
     .sujet small { color: var(--texte-doux); }
@@ -107,7 +105,7 @@ const DEPOT = 'https://raw.githubusercontent.com/QuentinLemire/gouvernance-grist
 /** Sujets proposés dans l'onglet Structure, dans l'ordre d'installation conseillé. */
 const SUJETS = [
   { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
-  { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins', obligatoire: true },
+  { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins', obligatoire: false },
   { fichier: 'parametres', nom: 'Paramètres', obligatoire: true },
   { fichier: 'accueil_public', nom: "Page d'accueil publique", obligatoire: true },
   { fichier: 'support', nom: 'Support', obligatoire: true },
@@ -359,7 +357,6 @@ function ongletUtilisateurs() {
   const U = utilisateursFiltres();
   const ent = (etat.d.Entites || []).map((e) => [e.id, e.Nom]);
   const rl = roles().map((r) => [r, r]);
-  const aPerimetre = !!colonne('Utilisateurs', 'Territoires') && aTable('Territoires');
   const sel = [...etat.selection].filter((id) => U.some((u) => u.id === id));
   return `
     <section class="carte">
@@ -377,18 +374,16 @@ function ongletUtilisateurs() {
         <button class="bouton petit" data-action="g-desactiver" ${sel.length ? '' : 'disabled'}>Désactiver</button>
       </div>
       <div class="defile"><table class="tableau">
-        <tr><th><input type="checkbox" id="u-tous" ${sel.length && sel.length === U.length ? 'checked' : ''}></th><th>Courriel</th><th>Nom</th><th>Rôle</th><th>Entité</th>${aPerimetre ? '<th>Territoires</th>' : ''}<th>Actif</th></tr>
+        <tr><th><input type="checkbox" id="u-tous" ${sel.length && sel.length === U.length ? 'checked' : ''}></th><th>Courriel</th><th>Nom</th><th>Rôle</th><th>Entité</th><th>Actif</th></tr>
         ${U.map((u) => `<tr>
           <td><input type="checkbox" data-sel="${u.id}" ${etat.selection.has(u.id) ? 'checked' : ''}></td>
           <td>${esc(u.Email)} ${!estCourriel(u.Email) ? '<span class="badge rouge">format</span>' : ''} ${estDoublon(u) ? '<span class="badge orange">doublon</span>' : ''}</td>
           <td><input class="champ" data-u="${u.id}" data-col="Nom" value="${esc(u.Nom)}"></td>
           <td><select class="champ" data-u="${u.id}" data-col="Role">${options(rl, u.Role)}</select></td>
           <td><select class="champ" data-u="${u.id}" data-col="Entite" data-type="ref">${options(ent, u.Entite)}</select></td>
-          ${aPerimetre ? `<td><button class="bouton petit" data-action="perimetre" data-id="${u.id}">${liste(u.Territoires).length ? liste(u.Territoires).length + ' territoire(s)' : 'Tous'}</button></td>` : ''}
           <td><input type="checkbox" data-u="${u.id}" data-col="Actif" ${u.Actif !== false ? 'checked' : ''}></td>
         </tr>`).join('') || '<tr><td colspan="7" class="vide">Personne ne correspond aux filtres.</td></tr>'}
       </table></div>
-      <div id="perimetre-edition"></div>
     </section>
     <div class="grille-2">
       <section class="carte"><h2>➕ Ajouter des personnes</h2>
@@ -406,15 +401,6 @@ function ongletUtilisateurs() {
         <div class="barre-outils"><input class="champ" id="nouveau-role" placeholder="Nouveau rôle"><button class="bouton petit" data-action="ajouter-role">Ajouter le rôle</button></div>
       </section>
     </div>`;
-}
-
-/** Édition du périmètre territorial d'une personne (cases à cocher). */
-function editerPerimetre(id) {
-  const u = (etat.d.Utilisateurs || []).find((x) => x.id === id);
-  const choisis = new Set(liste(u.Territoires));
-  $('perimetre-edition').innerHTML = `<div class="encadre" style="margin-top:14px"><b>Périmètre de ${esc(u.Email)}</b> — aucun territoire coché = tous.
-    <div class="perimetre">${(etat.d.Territoires || []).map((t) => `<label><input type="checkbox" data-terr="${t.id}" ${choisis.has(t.id) ? 'checked' : ''}> ${esc(t.Nom)}</label>`).join('')}</div>
-    <button class="bouton primaire petit" data-action="perimetre-ok" data-id="${id}">Enregistrer</button> <button class="bouton petit" data-action="perimetre-annuler">Annuler</button></div>`;
 }
 
 async function ajouterPersonnes(bouton) {
@@ -453,12 +439,11 @@ const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.mem
 
 /** Relit la matrice depuis les règles « [Admin] » déjà écrites. */
 function lireMatrice() {
-  const m = { niveaux: {}, perimetre: {}, bloquerAutres: false, supportPrive: false };
+  const m = { niveaux: {}, bloquerAutres: false, supportPrive: false };
   for (const r of reglesDuPanneau()) {
     const t = ressource(r.resource)?.tableId; if (!t) continue;
     const role = /user\.Profil\.Role == "((?:[^"\\]|\\.)*)"/.exec(r.aclFormula || '');
     if (role && !/rec\./.test(r.aclFormula)) (m.niveaux[t] = m.niveaux[t] || {})[JSON.parse('"' + role[1] + '"')] = NIVEAU_DE_PERM[r.permissionsText] || '';
-    if (/rec\.Territoire not in user\.Profil\.Territoires/.test(r.aclFormula || '')) m.perimetre[t] = true;
     if ((r.aclFormula || '').trim().startsWith('user.Access != OWNER')) m.bloquerAutres = true;
     if (/rec\.Demandeur != user\.Email/.test(r.aclFormula || '')) m.supportPrive = true;
   }
@@ -467,7 +452,7 @@ function lireMatrice() {
 
 /** Proposition raisonnable pour démarrer. */
 function matriceStandard() {
-  const m = { niveaux: {}, perimetre: {}, bloquerAutres: true, supportPrive: true };
+  const m = { niveaux: {}, bloquerAutres: true, supportPrive: true };
   const sensibles = ['Utilisateurs', 'Entites', 'Parametres', 'Territoires'];
   for (const t of tablesGerees()) {
     m.niveaux[t] = {};
@@ -477,11 +462,10 @@ function matriceStandard() {
       else if (t === 'Journal_Admin') n = 'aucun';
       else if (t === 'Support' || t === 'Support_commentaires') n = r === 'Lecteur' ? 'ajout' : 'modif';
       else if (sensibles.includes(t)) n = 'lire';
-      else if (/^Admin/.test(r) || r === 'Gestionnaire') n = 'tout';
+      else if (r === 'Gestionnaire') n = 'tout';
       else if (r === 'Contributeur') n = 'modif';
       m.niveaux[t][r] = n;
     }
-    if (colonne(t, 'Territoire')) m.perimetre[t] = true;
   }
   return m;
 }
@@ -510,10 +494,6 @@ function construireRegles() {
     const lignes = Object.entries(m.niveaux[t] || {}).filter(([r, n]) => n && roles().includes(r));
     if (!lignes.length && !m.bloquerAutres && !(m.supportPrive && SUPPORT_PRIVE[t])) continue;
     out.push({ table: t, formule: 'user.Access == OWNER', perm: '+CRUD' });
-    if (m.perimetre[t] && colonne(t, 'Territoire')) {
-      // Un AdminTerritoire ne voit que les lignes de ses territoires (s'il en a).
-      out.push({ table: t, formule: 'user.Profil.Role == "AdminTerritoire" and user.Profil.Territoires and rec.Territoire not in user.Profil.Territoires', perm: '-CRUD' });
-    }
     // Support : chacun ne voit que ses propres demandes et seuls les administrateurs changent statut, priorité, assignation.
     if (m.supportPrive && SUPPORT_PRIVE[t]) for (const r of SUPPORT_PRIVE[t]) out.push({ table: t, ...r });
     for (const [r, n] of lignes) out.push({ table: t, formule: 'user.Profil.Actif and user.Profil.Role == ' + chaine(r), perm: NIVEAUX.find((x) => x.code === n).perm });
@@ -532,7 +512,6 @@ function ongletDroits() {
   const m = etat.droits;
   const autres = (etat.acl.regles || []).filter((r) => (r.aclFormula || r.permissionsText) && !String(r.memo || '').startsWith(MARQUE));
   const garde = (etat.acl.regles || []).some((r) => /not user\.Profil/.test(r.aclFormula || ''));
-  const avecTerritoire = etat.meta.tables.some((t) => colonne(t.tableId, 'Territoire'));
   return `
     <section class="carte">
       <h2>🔐 Qui peut faire quoi ?</h2>
@@ -546,10 +525,9 @@ function ongletDroits() {
         ${aTable('Support') ? `<label title="Seuls les ${ROLE_SUPPORT}s voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
       </div>
       <div class="defile"><table class="tableau matrice">
-        <tr><th>Table</th>${roles().map((r) => `<th>${esc(r)}</th>`).join('')}${avecTerritoire ? '<th title="Les AdminTerritoire ne voient que leurs territoires">Périmètre</th>' : ''}</tr>
+        <tr><th>Table</th>${roles().map((r) => `<th>${esc(r)}</th>`).join('')}</tr>
         ${etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => `<tr><td class="table">${esc(t.tableId)}</td>
           ${roles().map((r) => `<td><select class="champ" data-mat-table="${esc(t.tableId)}" data-mat-role="${esc(r)}">${NIVEAUX.map((n) => `<option value="${n.code}" ${(m.niveaux[t.tableId] || {})[r] === n.code || (!(m.niveaux[t.tableId] || {})[r] && !n.code) ? 'selected' : ''}>${n.libelle}</option>`).join('')}</select></td>`).join('')}
-          ${avecTerritoire ? `<td>${colonne(t.tableId, 'Territoire') ? `<label><input type="checkbox" data-perim="${esc(t.tableId)}" ${m.perimetre[t.tableId] ? 'checked' : ''}> par territoire</label>` : ''}</td>` : ''}
         </tr>`).join('')}
       </table></div>
     </section>
@@ -886,7 +864,6 @@ document.addEventListener('change', async (e) => {
   if (el.id === 'u-tous') { utilisateursFiltres().forEach((u) => (el.checked ? etat.selection.add(u.id) : etat.selection.delete(u.id))); return afficher(); }
   if (el.id === 'g-role' && el.value) return groupe({ Role: el.value }, 'Rôle « ' + el.value + ' »');
   if (el.dataset.matTable) { const t = el.dataset.matTable; (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {})[el.dataset.matRole] = el.value; return majApercu(); }
-  if (el.dataset.perim) { etat.droits.perimetre[el.dataset.perim] = el.checked; return majApercu(); }
   if (el.id === 'bloquer-autres') { etat.droits.bloquerAutres = el.checked; return majApercu(); }
   if (el.id === 'support-prive') { etat.droits.supportPrive = el.checked; return majApercu(); }
 });
@@ -930,23 +907,13 @@ document.addEventListener('click', async (e) => {
     case 'ajouter': return ajouterPersonnes(b);
     case 'g-activer': return groupe({ Actif: true }, 'activées');
     case 'g-desactiver': return groupe({ Actif: false }, 'désactivées');
-    case 'perimetre': return editerPerimetre(id);
-    case 'perimetre-annuler': $('perimetre-edition').innerHTML = ''; return;
-    case 'perimetre-ok': {
-      const ids = [...document.querySelectorAll('[data-terr]:checked')].map((x) => Number(x.dataset.terr));
-      return occupe(b, async () => {
-        await agir([['UpdateRecord', 'Utilisateurs', id, { Territoires: ['L', ...ids] }]]);
-        await tracer('Périmètre modifié', (etat.d.Utilisateurs.find((u) => u.id === id) || {}).Email + ' : ' + ids.length + ' territoire(s)');
-        await actualiser();
-      });
-    }
     case 'ajouter-role': {
       const r = $('nouveau-role').value.trim(); if (!r || roles().includes(r)) return;
       const c = colonne('Utilisateurs', 'Role'); const wo = json(c.widgetOptions, {}); wo.choices = [...(wo.choices || []), r];
       return occupe(b, async () => { await agir([['ModifyColumn', 'Utilisateurs', 'Role', { widgetOptions: JSON.stringify(wo) }]]); await tracer('Rôle ajouté', r); await actualiser(); });
     }
     case 'standard': etat.droits = matriceStandard(); return afficher();
-    case 'vider': etat.droits = { niveaux: {}, perimetre: {}, bloquerAutres: false, supportPrive: false }; return afficher();
+    case 'vider': etat.droits = { niveaux: {}, bloquerAutres: false, supportPrive: false }; return afficher();
     case 'appliquer-droits': return appliquerDroits(b, false);
     case 'retirer-droits': return appliquerDroits(b, true);
     case 'garde': return poserGarde(b);

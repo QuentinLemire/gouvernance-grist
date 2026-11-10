@@ -7,8 +7,8 @@ Le Grist **« Gouvernance »** en est la base source ; le Grist **« Modèle DGO
 
 | Fichier | Tables | Rôle |
 |---|---|---|
-| `utilisateurs.json` | Entites, Utilisateurs | Annuaire, rôles, périmètre territorial ; base des droits |
-| `referentiel_territoires.json` | Territoires | Les 13 territoires ultramarins (codes COG, données dans `donnees/`) |
+| `utilisateurs.json` | Entites, Utilisateurs | Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur) ; base des droits |
+| `referentiel_territoires.json` | Territoires | Référentiel facultatif des 13 territoires ultramarins (codes COG, données dans `donnees/`) |
 | `parametres.json` | Parametres | Nom de l'application, contact, logo DGOM |
 | `accueil_public.json` | Accueil | Message affiché aux personnes sans droit |
 | `support.json` | Support, Support_commentaires | Demandes et conversation avec le support |
