@@ -915,7 +915,7 @@ async function lirePages() {
   const [pages, vues, sections] = await Promise.all([lire('_grist_Pages'), lire('_grist_Views'), lire('_grist_Views_section')]);
   const vue = Object.fromEntries((vues || []).map((v) => [v.id, v]));
   return (pages || []).sort((a, b) => a.pagePos - b.pagePos).map((p) => {
-    const urls = (sections || []).filter((s) => s.parentId === p.viewRef).map((s) => json(s.customView, {}).url || '');
+    const urls = (sections || []).filter((s) => s.parentId === p.viewRef).map((s) => json(json(s.options, {}).customView, {}).url || '');
     const nom = vue[p.viewRef]?.name || '';
     const std = PAGES.find((x) => (x.fichier && urls.some((u) => u.split('?')[0].endsWith('/' + x.fichier)))
       || (!x.fichier && nom.replace(/[^\p{L}]/gu, '') === x.nom.replace(/[^\p{L}]/gu, '')));
@@ -934,9 +934,9 @@ async function creerPages(bouton) {
         const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
         await agir([
           ['UpdateRecord', '_grist_Views', r.viewRef, { name: page.nom }],
-          ['UpdateRecord', '_grist_Views_section', r.sectionRef, { title: page.nom.replace(/^\S+\s/, ''), customView: JSON.stringify({
+          ['UpdateRecord', '_grist_Views_section', r.sectionRef, { title: page.nom.replace(/^\S+\s/, ''), options: JSON.stringify({ customView: JSON.stringify({
             mode: 'url', url: new URL(page.fichier, location.href).href, widgetDef: null, access: 'full', pluginId: '', sectionId: '',
-            renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }],
+            renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }) }],
         ]);
       } else {
         // Annuaire (liste triée par nom) et fiche de la personne choisie, côte à côte.
