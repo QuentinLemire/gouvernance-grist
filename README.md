@@ -47,6 +47,14 @@ Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une imag
 - **Par script** : console du navigateur (F12) sur le document, coller `scripts/installer-gouvernance.js` puis
   `await installerGouvernance(['utilisateurs', 'parametres', 'accueil_public', 'support', 'journal', 'documentation'])`.
 
-## Faire évoluer la norme
+## Faire évoluer la norme : Grist → Git → toutes les applications
 
-Modifier le fichier concerné dans `structure/`, augmenter sa `version`, puis appliquer la mise à la norme dans les applications.
+1. **Modifier** les tables standard dans le Grist « Gouvernance » (Parametres : `Source_norme` = `oui`).
+2. **Publier** : panneau d'administration → onglet **Structure** → « 📤 Publier la norme ».
+   Avec un jeton GitHub (Parametres : `Github_jeton`, droit *Contents : write* sur ce seul dépôt), la publication est directe ;
+   sans jeton, les fichiers sont téléchargés et la page d'envoi du dépôt s'ouvre.
+   Les clés `…_jeton` ne sont lisibles que par les propriétaires du document (règle posée par l'onglet Droits).
+3. **Recevoir** : les widgets des applications pointent sur la branche `main` et se mettent à jour seuls ;
+   l'onglet Structure de chaque application signale les tables incomplètes et les installe en un clic (rien n'est supprimé).
+
+Passage futur à GitLab : renseigner `Gitlab_API`, `Gitlab_projet` (et `Gitlab_jeton` dans le document source).
