@@ -11,6 +11,7 @@ Le référentiel vivant est le document Grist **« Gouvernance »** ; ce dépôt
 | `widget/accueil.html` | **Page d'accueil** : message « accès réservé » et bouton de contact pour les personnes non inscrites ; mot d'accueil, nouveautés et documentation pour les autres. |
 | `widget/support.html` | **Support** côté utilisateur : créer une demande, suivre ses demandes et converser avec le support. La clôture et la réouverture se font dans le panneau d'administration. |
 | `widget/documentation.html` | **Documentation** : sommaire par rubrique, recherche, pages Markdown mises en forme, édition avec aperçu en direct. |
+| `widget/boite-a-outils.html` | **Boîte à outils** de Florent Ballu ([balludgom/TableManager](https://github.com/balludgom/TableManager)) : explorateur de schéma et des widgets, gestionnaire des tables et colonnes (création en masse, traçabilité, historique). |
 | `widget/commun/` | Styles DSFR (Marianne, bleu France, bloc-marque) et outils partagés par les widgets. |
 | `scripts/installer-gouvernance.js` | Script commenté qui recrée les sujets transverses choisis dans n'importe quel document Grist (à coller dans la console du navigateur). |
 | `structure/*.json` | Structure de chaque sujet transverse (tables, colonnes, types, formules), **sans aucune donnée**. |
@@ -25,6 +26,7 @@ Pour chaque widget : ajouter une page ou un widget → **Personnalisée** → **
 | Accueil | Accueil | `https://quentinlemire.github.io/gouvernance-grist/widget/accueil.html` |
 | Documentation | Documentation | `https://quentinlemire.github.io/gouvernance-grist/widget/documentation.html` |
 | Support | Support | `https://quentinlemire.github.io/gouvernance-grist/widget/support.html` |
+| Boîte à outils | Parametres | `https://quentinlemire.github.io/gouvernance-grist/widget/boite-a-outils.html` |
 | Administration | (aucune) | `https://quentinlemire.github.io/gouvernance-grist/widget/administration.html` |
 
 Tant que GitHub Pages n'est pas activé (Settings → Pages → branche `main`, dossier racine), remplacer le début de l'adresse par
