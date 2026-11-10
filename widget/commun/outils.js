@@ -9,7 +9,7 @@
  *    - Outils.markdown(texte)    HTML sûr à partir de Markdown (marked + DOMPurify)
  *    - Outils.esc(texte)         échappe le HTML
  *    - Outils.conversation(...)  fil d'échanges d'une demande de support (bulles)
- *    - Outils.ticketOuvert(t)    vrai si la demande n'est ni close ni archivée
+ *    - Outils.ticketOuvert(t)    vrai si la demande n'est pas close
  */
 window.Outils = (() => {
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -46,8 +46,8 @@ window.Outils = (() => {
   const dateHeure = (t) => (t ? new Date(t * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '');
   const texte = (s) => esc(s).replace(/\n/g, '<br>');
 
-  /** Une demande est ouverte tant qu'elle n'est ni résolue, ni fermée, ni archivée. */
-  const ticketOuvert = (t) => !t.Archive && !['Résolu', 'Fermé'].includes(t.Statut);
+  /** Une demande est ouverte tant qu'elle n'est ni résolue ni fermée. */
+  const ticketOuvert = (t) => !['Résolu', 'Fermé'].includes(t.Statut);
 
   /**
    * Fil d'échanges d'une demande : la description d'origine, puis chaque commentaire.

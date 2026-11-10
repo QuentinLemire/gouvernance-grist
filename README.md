@@ -35,7 +35,9 @@ Les courriels saisis automatiquement (`Demandeur`, `CreePar`, `Auteur`) restent 
 
 - **Traçabilité** : toute table métier a les colonnes `CreeLe`, `CreePar`, `ModifieLe`, `ModifiePar`.
 - **Droits par rôle** : le rôle vient de la table Utilisateurs (attribut `user.Profil`) ; une personne non inscrite ou inactive ne voit **que la page d'accueil** (pas même la documentation).
-- **Rien n'est supprimé** : mettre une application à la norme ajoute seulement ce qui manque.
+- **Ordre des colonnes** : d'abord ce qui identifie la ligne (nom, titre…), puis le contenu, les liens, l'état, et en dernier la traçabilité.
+  L'ordre de la norme est celui du Grist « Gouvernance » ; l'installation le reproduit (les colonnes propres à l'application suivent).
+- **Rien n'est supprimé** : mettre une application à la norme ajoute seulement ce qui manque et range les colonnes.
 
 ## Les widgets (`widget/`)
 

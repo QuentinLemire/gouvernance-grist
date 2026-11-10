@@ -18,8 +18,9 @@
  *
  *  Principes de sécurité
  *  ---------------------
- *  - Le script n'efface JAMAIS rien : il ajoute seulement les tables et les
- *    colonnes qui manquent. On peut donc le relancer sans risque.
+ *  - Le script n'efface JAMAIS rien : il ajoute les tables et les colonnes
+ *    qui manquent et range les colonnes dans l'ordre de la norme. On peut donc
+ *    le relancer sans risque.
  *  - Il passe par l'API REST de Grist avec la session de l'utilisateur
  *    connecté (aucune clé d'API à saisir).
  *  - Les règles d'accès qu'il écrit portent la mention « [Gouvernance] »
@@ -134,7 +135,35 @@ async function creerStructure(tables) {
   }
 
   await reglerAffichageDesReferences(tables);
+  await rangerColonnes(tables);
   return rapport;
+}
+
+/**
+ * Range les colonnes dans l'ordre de la norme (les colonnes propres à l'application suivent),
+ * dans la structure et dans la vue « données brutes » / fiche de chaque table.
+ */
+async function rangerColonnes(tables) {
+  const colonnes = await sql(
+    'select c.id, c.colId, t.tableId, t.rawViewSectionRef, t.recordCardViewSectionRef from _grist_Tables_column c ' +
+    "join _grist_Tables t on t.id = c.parentId where c.colId != 'manualSort' and c.colId not like 'gristHelper%' order by c.parentPos"
+  );
+  const champs = await sql('select id, parentId, colRef from _grist_Views_section_field');
+  const actions = [];
+  for (const table of tables) {
+    const ici = colonnes.filter((c) => c.tableId === table.tableId);
+    if (!ici.length) continue;
+    const norme = table.columns.map((c) => c.id);
+    const rang = (colId) => (norme.includes(colId) ? norme.indexOf(colId) : norme.length);
+    const ordre = [...ici].sort((a, b) => rang(a.colId) - rang(b.colId)); // tri stable : le reste garde son ordre
+    actions.push(['BulkUpdateRecord', '_grist_Tables_column', ordre.map((c) => c.id), { parentPos: ordre.map((_, i) => i + 1) }]);
+    const position = Object.fromEntries(ordre.map((c, i) => [c.id, i]));
+    for (const section of [ici[0].rawViewSectionRef, ici[0].recordCardViewSectionRef]) {
+      const f = champs.filter((x) => x.parentId === section && x.colRef in position).sort((a, b) => position[a.colRef] - position[b.colRef]);
+      if (f.length) actions.push(['BulkUpdateRecord', '_grist_Views_section_field', f.map((x) => x.id), { parentPos: f.map((_, i) => i + 1) }]);
+    }
+  }
+  if (actions.length) await appliquer(actions);
 }
 
 /** Pour chaque colonne de référence, choisit la colonne affichée (ex. le Nom de l'entité plutôt que son numéro). */
