@@ -139,6 +139,28 @@ input.champ:focus, select.champ:focus, textarea.champ:focus { outline: 2px solid
 .markdown pre { background: #1e1e1e; color: #f0f0f0; padding: 12px; overflow: auto; }
 .markdown pre code { background: none; color: inherit; }
 
+/* ---------- Conversation (support) ---------- */
+.conversation { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: #f6f6f6; max-height: 460px; overflow: auto; }
+.bulle { max-width: 78%; padding: 10px 14px; background: #fff; border: 1px solid var(--bordure); border-radius: 12px 12px 12px 2px; align-self: flex-start; }
+.bulle.droite { align-self: flex-end; border-radius: 12px 12px 2px 12px; }
+.bulle.equipe { background: var(--bleu-clair); border-color: #cacafb; }
+.bulle small { display: block; color: var(--texte-doux); font-size: 12px; margin-bottom: 2px; }
+.evenement { align-self: center; font-size: 12px; color: var(--texte-doux); background: #fff; border: 1px dashed var(--bordure); padding: 3px 12px; border-radius: 12px; }
+.repondre { display: flex; gap: 8px; margin-top: 10px; align-items: flex-end; }
+.repondre textarea { flex: 1; min-height: 64px; resize: vertical; }
+
+/* ---------- Liste maître / détail (support) ---------- */
+.maitre-detail { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 20px; align-items: start; }
+.liste-tickets { background: #fff; border: 1px solid var(--bordure); max-height: 640px; overflow: auto; }
+.liste-tickets button { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none; cursor: pointer;
+  border: none; border-bottom: 1px solid var(--bordure); border-left: 4px solid transparent; padding: 10px 12px; }
+.liste-tickets button:hover { background: #fafaff; }
+.liste-tickets button.actif { border-left-color: var(--bleu); background: var(--bleu-clair); }
+.liste-tickets b { display: block; }
+.liste-tickets small { color: var(--texte-doux); }
+.a-traiter { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--rouge); margin-right: 6px; vertical-align: 1px; }
+@media (max-width: 860px) { .maitre-detail { grid-template-columns: 1fr; } }
+
 /* ---------- Messages éphémères ---------- */
 #messages { position: fixed; right: 16px; bottom: 16px; z-index: 50; max-width: 420px; }
 .message { margin-top: 8px; padding: 10px 14px; background: #dffee6; color: var(--succes); border-left: 4px solid var(--succes);

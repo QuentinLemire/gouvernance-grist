@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  Support — vue utilisateur (charte de l'État / DSFR)
+  =====================================================================
+  Widget à poser sur la page « Support », lié à la table Support, niveau
+  d'accès « Accès complet au document ».
+
+  Chaque personne :
+    - crée une demande (titre, catégorie, description, page concernée) ;
+    - suit ses demandes et converse avec le support ;
+    - voit quand la demande est close ou rouverte.
+  Seul le support (panneau d'administration) clôt ou rouvre une demande.
+  Les règles d'accès « Support : chacun ne voit que ses demandes » (onglet
+  Droits du panneau) garantissent la confidentialité entre utilisateurs.
+  =====================================================================
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
+  <link rel="stylesheet" href="commun/dsfr-grist.css">
+  <script src="commun/outils.js"></script>
+  <style>
+    .fiche { background: #fff; border: 1px solid var(--bordure); padding: 20px 22px; }
+    .fiche header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+    .fiche header h2 { flex: 1; font-size: 19px; margin: 0; }
+    .fiche .meta { color: var(--texte-doux); font-size: 13px; margin-bottom: 12px; }
+    .formulaire { display: grid; gap: 12px; }
+    .formulaire label { font-weight: 500; display: grid; gap: 4px; }
+    .formulaire textarea { min-height: 140px; resize: vertical; }
+  </style>
+</head>
+<body>
+
+<header class="entete">
+  <p class="fr-logo">Ministère<br>des Outre-mer</p>
+  <div class="dgom" id="logo-dgom"><span>DGOM</span></div>
+  <div class="titres">
+    <h1 id="titre-appli">Support</h1>
+    <p>Une question, un problème, une idée ? Écrivez-nous.</p>
+  </div>
+  <div class="actions"><button class="bouton primaire" id="nouvelle">＋ Nouvelle demande</button></div>
+</header>
+
+<main>
+  <div class="barre-outils" style="display:flex;gap:8px;margin-bottom:14px" id="filtres"></div>
+  <div class="maitre-detail">
+    <nav class="liste-tickets" id="liste" aria-label="Mes demandes"><p class="vide" style="padding:12px">Chargement…</p></nav>
+    <section id="detail"></section>
+  </div>
+</main>
+<div id="messages"></div>
+
+<script>
+'use strict';
+const { esc, lire, parametres, entete, conversation, ticketOuvert, dateHeure } = window.Outils;
+
+/* ---------------- État ---------------- */
+let demandes = [], commentaires = [], categories = [];
+let courante = null;      // id de la demande affichée, ou 'nouvelle'
+let filtre = 'ouvertes';
+let typeCommentaire = false; // la colonne Support_commentaires.Type existe
+
+const couleurStatut = { 'Nouveau': 'bleu', 'En cours': 'orange', 'En attente': 'orange', 'Résolu': 'vert', 'Fermé': '' };
+const libelleStatut = { 'Nouveau': 'Envoyée', 'En cours': 'En cours de traitement', 'En attente': 'En attente de votre réponse', 'Résolu': 'Close', 'Fermé': 'Close' };
+
+function message(texte, erreur) {
+  const m = document.createElement('div');
+  m.className = 'message' + (erreur ? ' erreur' : ''); m.textContent = texte;
+  document.getElementById('messages').appendChild(m); setTimeout(() => m.remove(), 4500);
+}
+
+/** Choix d'une colonne et existence des colonnes, lus dans la structure du document. */
+async function lireStructure() {
+  const [tables, cols] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
+  const col = (t, c) => { const tt = (tables || []).find((x) => x.tableId === t); return tt && (cols || []).find((x) => x.parentId === tt.id && x.colId === c); };
+  try { categories = JSON.parse(col('Support', 'Categorie').widgetOptions).choices || []; } catch (e) { categories = []; }
+  typeCommentaire = !!col('Support_commentaires', 'Type');
+}
+
+/* ---------------- Chargement ---------------- */
+async function charger() {
+  const [S, C, p] = await Promise.all([lire('Support'), lire('Support_commentaires'), parametres(), lireStructure()]);
+  entete(p, 'Support');
+  demandes = (S || []).sort((a, b) => (b.Dernier_retour || b.CreeLe || 0) - (a.Dernier_retour || a.CreeLe || 0));
+  commentaires = C || [];
+  if (courante !== 'nouvelle' && !demandes.some((d) => d.id === courante)) courante = visibles()[0]?.id ?? (demandes.length ? null : 'nouvelle');
+  afficher();
+}
+
+const visibles = () => demandes.filter((d) => filtre === 'toutes' || (filtre === 'ouvertes') === ticketOuvert(d));
+const filDe = (id) => commentaires.filter((c) => c.Demande === id);
+
+/* ---------------- Affichage ---------------- */
+function afficher() {
+  const ouvertes = demandes.filter(ticketOuvert).length;
+  document.getElementById('filtres').innerHTML = [['ouvertes', `En cours (${ouvertes})`], ['closes', `Closes (${demandes.length - ouvertes})`], ['toutes', 'Toutes']]
+    .map(([v, l]) => `<button class="bouton petit ${filtre === v ? 'primaire' : ''}" data-filtre="${v}">${l}</button>`).join('');
+  const L = visibles();
+  document.getElementById('liste').innerHTML = L.length ? L.map((d) => `<button data-demande="${d.id}" class="${d.id === courante ? 'actif' : ''}">
+      <b>${esc(d.Titre || '(sans titre)')}</b>
+      <small>${dateHeure(d.Dernier_retour || d.CreeLe)}</small><br>
+      <span class="badge ${couleurStatut[d.Statut] || ''}">${esc(libelleStatut[d.Statut] || d.Statut || 'Envoyée')}</span>
+      ${filDe(d.id).length ? `<small>· 💬 ${filDe(d.id).filter((c) => c.Type !== 'Événement').length}</small>` : ''}
+    </button>`).join('') : '<p class="vide" style="padding:12px">Aucune demande ici.</p>';
+  document.getElementById('detail').innerHTML = courante === 'nouvelle' ? formulaire() : fiche(demandes.find((d) => d.id === courante));
+}
+
+function fiche(d) {
+  if (!d) return '<div class="fiche"><p class="vide">Sélectionnez une demande ou créez-en une nouvelle.</p></div>';
+  const ouvert = ticketOuvert(d);
+  return `<article class="fiche">
+    <header><h2>${esc(d.Titre || '(sans titre)')}</h2><span class="badge ${couleurStatut[d.Statut] || ''}">${esc(libelleStatut[d.Statut] || d.Statut || 'Envoyée')}</span></header>
+    <div class="meta">Demande n° ${d.id} · ${dateHeure(d.CreeLe)}${d.Categorie ? ' · ' + esc(d.Categorie) : ''}${d.Url_page ? ` · <a href="${esc(d.Url_page)}" target="_blank" rel="noopener">page concernée ↗</a>` : ''}</div>
+    ${conversation(d, filDe(d.id), 'demandeur')}
+    ${ouvert
+      ? `<div class="repondre"><textarea class="champ" id="reponse" placeholder="Votre message… (Ctrl+Entrée pour envoyer)"></textarea>
+         <button class="bouton primaire" id="envoyer" data-id="${d.id}">Envoyer</button></div>`
+      : `<div class="encadre succes" style="margin:12px 0 0">Cette demande est close. Si le problème persiste, <a href="#" data-nouvelle>créez une nouvelle demande</a> en citant le n° ${d.id}.</div>`}
+  </article>`;
+}
+
+function formulaire() {
+  return `<form class="fiche formulaire" id="formulaire">
+    <h2 style="font-size:19px;margin:0">Nouvelle demande</h2>
+    <label>Objet<input class="champ" name="Titre" required maxlength="140" placeholder="Ex. : Je n'arrive pas à modifier une opération"></label>
+    ${categories.length ? `<label>Catégorie<select class="champ" name="Categorie">${categories.map((c) => `<option>${esc(c)}</option>`).join('')}</select></label>` : ''}
+    <label>Description<textarea class="champ" name="Description" required placeholder="Que s'est-il passé ? Qu'attendiez-vous ? Sur quelle page ?"></textarea></label>
+    <label>Lien vers la page concernée (facultatif)<input class="champ" name="Url_page" type="url" placeholder="https://grist.numerique.gouv.fr/…"></label>
+    <p style="margin:0"><button class="bouton primaire" type="submit">Envoyer la demande</button></p>
+  </form>`;
+}
+
+/* ---------------- Actions ---------------- */
+async function creer(form) {
+  const champs = Object.fromEntries([...new FormData(form)].filter(([, v]) => String(v).trim()));
+  try {
+    const r = await grist.docApi.applyUserActions([['AddRecord', 'Support', null, champs]]);
+    courante = r.retValues[0]; filtre = 'ouvertes';
+    message('Demande envoyée. Le support vous répondra ici.');
+    await charger();
+  } catch (e) { message("Envoi refusé : vous n'avez peut-être pas les droits nécessaires.", true); }
+}
+
+async function envoyer(id) {
+  const zone = document.getElementById('reponse'); const texte = zone.value.trim(); if (!texte) return;
+  try {
+    await grist.docApi.applyUserActions([['AddRecord', 'Support_commentaires', null, { Demande: id, Message: texte, ...(typeCommentaire ? { Type: 'Message' } : {}) }]]);
+    await charger();
+  } catch (e) { message("Message refusé : vous n'avez peut-être pas les droits nécessaires.", true); }
+}
+
+/* ---------------- Évènements ---------------- */
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-nouvelle]') || e.target.id === 'nouvelle') { e.preventDefault(); courante = 'nouvelle'; return afficher(); }
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.filtre) { filtre = b.dataset.filtre; courante = visibles()[0]?.id ?? null; afficher(); }
+  else if (b.dataset.demande) { courante = Number(b.dataset.demande); afficher(); }
+  else if (b.id === 'envoyer') envoyer(Number(b.dataset.id));
+});
+document.addEventListener('submit', (e) => { e.preventDefault(); creer(e.target); });
+document.addEventListener('keydown', (e) => {
+  if (e.target.id === 'reponse' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) document.getElementById('envoyer')?.click();
+});
+
+/* ---------------- Démarrage ---------------- */
+grist.ready({ requiredAccess: 'full' });
+grist.onRecords(() => { if (courante !== 'nouvelle') charger(); });
+charger();
+</script>
+</body>
+</html>
