@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.1",
+  "version": "1.2",
   "sujet": "SUPPORT",
   "description": "Demandes des utilisateurs, lien vers la page concernée, fil d'échanges et archivage.",
   "tables": [
@@ -188,6 +188,20 @@
           "id": "Message",
           "label": "Message",
           "type": "Text"
+        },
+        {
+          "id": "Type",
+          "label": "Type",
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Message",
+              "Événement"
+            ]
+          },
+          "formula": "\"Message\"",
+          "isFormula": false,
+          "recalcWhen": 0
         },
         {
           "id": "CreeLe",

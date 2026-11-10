@@ -9,8 +9,9 @@ Le référentiel vivant est le document Grist **« Gouvernance »** ; ce dépôt
 |---|---|
 | `widget/administration.html` | **Panneau d'administration** : tableau de bord et contrôles de santé, utilisateurs (rôles, périmètre territorial, ajout en masse, export), droits rôle × table, support avec fil de commentaires, installation des sujets transverses, paramètres et journal. |
 | `widget/accueil.html` | **Page d'accueil** : message « accès réservé » et bouton de contact pour les personnes non inscrites ; mot d'accueil, nouveautés et documentation pour les autres. |
+| `widget/support.html` | **Support** côté utilisateur : créer une demande, suivre ses demandes et converser avec le support. La clôture et la réouverture se font dans le panneau d'administration. |
 | `widget/documentation.html` | **Documentation** : sommaire par rubrique, recherche, pages Markdown mises en forme, édition avec aperçu en direct. |
-| `widget/commun/` | Styles DSFR (Marianne, bleu France, bloc-marque) et outils partagés par les trois widgets. |
+| `widget/commun/` | Styles DSFR (Marianne, bleu France, bloc-marque) et outils partagés par les widgets. |
 | `widget/admin.html` | Ancien panneau (Boîte à outils de Florent Ballu, [balludgom/TableManager](https://github.com/balludgom/TableManager)), conservé le temps de basculer les documents vers `administration.html`. |
 | `scripts/installer-gouvernance.js` | Script commenté qui recrée les sujets transverses choisis dans n'importe quel document Grist (à coller dans la console du navigateur). |
 | `structure/*.json` | Structure de chaque sujet transverse (tables, colonnes, types, formules), **sans aucune donnée**. |
@@ -24,12 +25,13 @@ Pour chaque widget : ajouter une page ou un widget → **Personnalisée** → **
 |---|---|---|
 | Accueil | Accueil | `https://quentinlemire.github.io/gouvernance-grist/widget/accueil.html` |
 | Documentation | Documentation | `https://quentinlemire.github.io/gouvernance-grist/widget/documentation.html` |
+| Support | Support | `https://quentinlemire.github.io/gouvernance-grist/widget/support.html` |
 | Administration | (aucune) | `https://quentinlemire.github.io/gouvernance-grist/widget/administration.html` |
 
 Tant que GitHub Pages n'est pas activé (Settings → Pages → branche `main`, dossier racine), remplacer le début de l'adresse par
 `https://raw.githack.com/QuentinLemire/gouvernance-grist/main/`.
 
-Les widgets ne contournent jamais les règles d'accès Grist : une personne non inscrite ne lit que la page Accueil et la documentation marquée « Visible par tous ».
+Les widgets ne contournent jamais les règles d'accès Grist : une personne non inscrite ne lit que la page Accueil et la documentation marquée « Visible par tous ». Pour le support, cocher « Support : chacun ne voit que ses demandes » dans l'onglet Droits du panneau : chaque personne ne voit que ses demandes et seuls les Administrateurs changent le statut.
 
 ## Le logo DGOM
 
@@ -60,7 +62,7 @@ Dans les deux cas, rien n'est jamais supprimé : seules les tables et colonnes m
 | `referentiel_programmes.json` | Programmes | Programmes budgétaires (P123, P138) |
 | `parametres.json` | Parametres | Nom de l'application, contact, logo DGOM, version |
 | `accueil_public.json` | Accueil | Message affiché aux personnes sans droit (contact modifiable dans Parametres) |
-| `support.json` | Support, Support_commentaires | Demandes des utilisateurs, suivi et échanges |
+| `support.json` | Support, Support_commentaires | Demandes des utilisateurs et conversation avec le support (v1.2 : messages et événements de clôture / réouverture) |
 | `journal.json` | Journal_Admin | Trace des actions d'administration |
 | `documentation.json` | Documentation | Guides, procédures, FAQ et notes en Markdown |
 | `nouveautes.json` | Nouveautes | Journal des versions affiché sur l'accueil |

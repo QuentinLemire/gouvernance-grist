@@ -33,6 +33,7 @@
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
   <link rel="stylesheet" href="commun/dsfr-grist.css">
+  <script src="commun/outils.js"></script>
   <style>
     /* Compléments propres au panneau d'administration */
     .onglets { display: flex; gap: 0; flex-wrap: wrap; background: #fff; border-bottom: 1px solid var(--bordure); padding: 0 24px; position: sticky; top: 0; z-index: 5; }
@@ -49,14 +50,11 @@
     .matrice td, .matrice th { padding: 6px; }
     .matrice td.table { font-weight: 700; white-space: nowrap; }
     pre.apercu { background: #1e1e1e; color: #f0f0f0; padding: 14px; font-size: 12.5px; max-height: 320px; overflow: auto; white-space: pre-wrap; }
-    .ticket { border: 1px solid var(--bordure); background: #fff; padding: 14px 16px; margin-bottom: 12px; }
+    .ticket { background: #fff; border: 1px solid var(--bordure); padding: 16px 18px; }
     .ticket header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .ticket header b { flex: 1; font-size: 16px; }
-    .ticket .meta { color: var(--texte-doux); font-size: 13px; margin: 4px 0 8px; }
-    .ticket .fil { border-left: 3px solid var(--bleu-clair); margin: 10px 0; padding-left: 12px; }
-    .ticket .fil p { margin: 6px 0; }
-    .ticket .fil small { color: var(--texte-doux); }
-    .ticket .reglages { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .ticket header b { flex: 1; font-size: 17px; }
+    .ticket .meta { color: var(--texte-doux); font-size: 13px; margin: 4px 0 12px; }
+    .ticket .reglages { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bordure); }
     .perimetre { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 0; }
     .perimetre label { font-size: 13px; white-space: nowrap; }
     .sujet { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bordure); }
@@ -456,20 +454,21 @@ const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.mem
 
 /** Relit la matrice depuis les règles « [Admin] » déjà écrites. */
 function lireMatrice() {
-  const m = { niveaux: {}, perimetre: {}, bloquerAutres: false };
+  const m = { niveaux: {}, perimetre: {}, bloquerAutres: false, supportPrive: false };
   for (const r of reglesDuPanneau()) {
     const t = ressource(r.resource)?.tableId; if (!t) continue;
     const role = /user\.Profil\.Role == "((?:[^"\\]|\\.)*)"/.exec(r.aclFormula || '');
     if (role && !/rec\./.test(r.aclFormula)) (m.niveaux[t] = m.niveaux[t] || {})[JSON.parse('"' + role[1] + '"')] = NIVEAU_DE_PERM[r.permissionsText] || '';
     if (/rec\.Territoire not in user\.Profil\.Territoires/.test(r.aclFormula || '')) m.perimetre[t] = true;
     if ((r.aclFormula || '').trim().startsWith('user.Access != OWNER')) m.bloquerAutres = true;
+    if (/rec\.Demandeur != user\.Email/.test(r.aclFormula || '')) m.supportPrive = true;
   }
   return m;
 }
 
 /** Proposition raisonnable pour démarrer. */
 function matriceStandard() {
-  const m = { niveaux: {}, perimetre: {}, bloquerAutres: true };
+  const m = { niveaux: {}, perimetre: {}, bloquerAutres: true, supportPrive: true };
   const sensibles = ['Utilisateurs', 'Entites', 'Parametres', 'Territoires', 'Programmes'];
   for (const t of tablesGerees()) {
     m.niveaux[t] = {};
@@ -490,17 +489,34 @@ function matriceStandard() {
 
 const chaine = (s) => JSON.stringify(String(s));
 
+/** Rôle qui traite le support (voit toutes les demandes, les clôt ou les rouvre). */
+const ROLE_SUPPORT = 'Administrateur';
+const PAS_SUPPORT = `user.Profil.Role != ${JSON.stringify(ROLE_SUPPORT)} and user.Access != OWNER`;
+/** Règles de confidentialité du support, par table (colonnes « * » sauf mention). */
+const SUPPORT_PRIVE = {
+  Support: [
+    { formule: PAS_SUPPORT + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
+    { cols: 'Statut,Priorite,Assigne_a,Archive', formule: PAS_SUPPORT, perm: '-U' },
+  ],
+  Support_commentaires: [
+    { formule: PAS_SUPPORT + ' and rec.Demande.Demandeur != user.Email', perm: '-CRUD' },
+    { formule: PAS_SUPPORT + ' and rec.CreePar != user.Email', perm: '-UD' },
+  ],
+};
+
 /** Traduit la matrice en règles Grist, dans l'ordre où Grist les évalue. */
 function construireRegles() {
   const m = etat.droits, out = [];
   for (const t of tablesGerees()) {
     const lignes = Object.entries(m.niveaux[t] || {}).filter(([r, n]) => n && roles().includes(r));
-    if (!lignes.length && !m.bloquerAutres) continue;
+    if (!lignes.length && !m.bloquerAutres && !(m.supportPrive && SUPPORT_PRIVE[t])) continue;
     out.push({ table: t, formule: 'user.Access == OWNER', perm: '+CRUD' });
     if (m.perimetre[t] && colonne(t, 'Territoire')) {
       // Un AdminTerritoire ne voit que les lignes de ses territoires (s'il en a).
       out.push({ table: t, formule: 'user.Profil.Role == "AdminTerritoire" and user.Profil.Territoires and rec.Territoire not in user.Profil.Territoires', perm: '-CRUD' });
     }
+    // Support : chacun ne voit que ses propres demandes et seuls les administrateurs changent statut, priorité, assignation.
+    if (m.supportPrive && SUPPORT_PRIVE[t]) for (const r of SUPPORT_PRIVE[t]) out.push({ table: t, ...r });
     for (const [r, n] of lignes) out.push({ table: t, formule: 'user.Profil.Actif and user.Profil.Role == ' + chaine(r), perm: NIVEAUX.find((x) => x.code === n).perm });
     if (m.bloquerAutres) {
       // Les lignes marquées « Visible par tous » (ex. documentation publique) restent lisibles.
@@ -528,6 +544,7 @@ function ongletDroits() {
         <button class="bouton petit" data-action="standard">✨ Proposition standard</button>
         <button class="bouton petit" data-action="vider">Tout effacer</button>
         <label><input type="checkbox" id="bloquer-autres" ${m.bloquerAutres ? 'checked' : ''}> Bloquer toute personne sans rôle reconnu</label>
+        ${aTable('Support') ? `<label title="Seuls les ${ROLE_SUPPORT}s voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
       </div>
       <div class="defile"><table class="tableau matrice">
         <tr><th>Table</th>${roles().map((r) => `<th>${esc(r)}</th>`).join('')}${avecTerritoire ? '<th title="Les AdminTerritoire ne voient que leurs territoires">Périmètre</th>' : ''}</tr>
@@ -552,7 +569,7 @@ function majApercu() {
   const el = $('apercu-regles'); if (!el) return;
   const r = construireRegles();
   let t = '', tableEnCours = '';
-  for (const x of r) { if (x.table !== tableEnCours) { tableEnCours = x.table; t += '\n▸ ' + x.table + '\n'; } t += '   si ' + x.formule.padEnd(70) + ' → ' + x.perm + '\n'; }
+  for (const x of r) { if (x.table !== tableEnCours) { tableEnCours = x.table; t += '\n▸ ' + x.table + '\n'; } t += '   ' + (x.cols ? '[' + x.cols + '] ' : '') + 'si ' + x.formule.padEnd(70) + ' → ' + x.perm + '\n'; }
   el.textContent = r.length ? t.trim() : 'Aucune règle : le document reste ouvert à toute personne qui y a accès.';
 }
 
@@ -561,13 +578,14 @@ async function appliquerDroits(bouton, retirer) {
   await occupe(bouton, async () => {
     const regles = retirer ? [] : construireRegles();
     let ressources = etat.acl.ressources;
-    const besoin = regles.length ? [['*', '*'], ...[...new Set(regles.map((r) => r.table))].map((t) => [t, '*'])] : [];
+    const cles = [...new Set(regles.map((r) => r.table + '|' + (r.cols || '*')))].map((k) => k.split('|'));
+    const besoin = regles.length ? [['*', '*'], ...cles] : [];
     const manquantes = besoin.filter(([t, c]) => !ressources.some((r) => r.tableId === t && r.colIds === c));
     if (manquantes.length) {
       await agir([['BulkAddRecord', '_grist_ACLResources', manquantes.map(() => null), { tableId: manquantes.map((m) => m[0]), colIds: manquantes.map((m) => m[1]) }]]);
       ressources = (await lire('_grist_ACLResources')) || [];
     }
-    const idRes = (t) => ressources.find((r) => r.tableId === t && r.colIds === '*').id;
+    const idRes = (t, c = '*') => ressources.find((r) => r.tableId === t && r.colIds === c).id;
     // Les règles du panneau passent avant toutes les autres.
     let pos = Math.min(0, ...etat.acl.regles.map((r) => Number(r.rulePos) || 0)) - 1000;
     const nouvelles = [];
@@ -576,7 +594,7 @@ async function appliquerDroits(bouton, retirer) {
       nouvelles.push({ resource: idRes('*'), aclFormula: '', permissionsText: '', rulePos: pos++, memo: MARQUE + ' attribut',
         userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Email_cle') ? 'Email_cle' : 'Email' }) });
     }
-    for (const r of regles) nouvelles.push({ resource: idRes(r.table), aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE, userAttributes: '' });
+    for (const r of regles) nouvelles.push({ resource: idRes(r.table, r.cols), aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE, userAttributes: '' });
     // L'attribut user.Profil n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
     const anciennes = reglesDuPanneau().filter((r) => !json(r.userAttributes, {}).name);
     const actions = [];
@@ -621,38 +639,91 @@ async function poserGarde(bouton) {
 // 8. Onglet « Support »
 // =====================================================================
 
-const ticketOuvert = (t) => !t.Archive && !['Résolu', 'Fermé'].includes(t.Statut);
+const ticketOuvert = (t) => Outils.ticketOuvert(t);
 const couleurStatut = { 'Nouveau': 'bleu', 'En cours': 'orange', 'En attente': '', 'Résolu': 'vert', 'Fermé': '' };
+
+/** Échanges d'une demande, du plus ancien au plus récent. */
+const echanges = (id) => (etat.d.Support_commentaires || []).filter((c) => c.Demande === id).sort((a, b) => (a.CreeLe || 0) - (b.CreeLe || 0));
+
+/** Le dernier message vient du demandeur : la balle est dans le camp du support. */
+function aTraiter(t) {
+  if (!ticketOuvert(t)) return false;
+  const m = echanges(t.id).filter((c) => c.Type !== 'Événement');
+  const dernier = m.length ? m[m.length - 1].CreePar : t.Demandeur;
+  return cle(dernier) === cle(t.Demandeur) || t.Statut === 'Nouveau';
+}
 
 function ongletSupport() {
   if (!aTable('Support')) return `<div class="encadre alerte">Pas de table Support. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
   const f = etat.filtres.support;
   const T = (etat.d.Support || []).filter((t) => f === 'tous' || (f === 'ouverts' ? ticketOuvert(t) : f === 'archives' ? t.Archive : !ticketOuvert(t) && !t.Archive))
-    .sort((a, b) => (b.CreeLe || 0) - (a.CreeLe || 0));
+    .sort((a, b) => aTraiter(b) - aTraiter(a) || (b.Dernier_retour || b.CreeLe || 0) - (a.Dernier_retour || a.CreeLe || 0));
+  if (!T.some((t) => t.id === etat.ticket)) etat.ticket = T[0]?.id ?? null;
+  const t = T.find((x) => x.id === etat.ticket);
+  return `
+    <div class="barre-outils">
+      ${[['ouverts', 'Ouvertes'], ['traites', 'Closes'], ['archives', 'Archivées'], ['tous', 'Toutes']].map(([v, l]) => `<button class="bouton petit ${f === v ? 'primaire' : ''}" data-support="${v}">${l}</button>`).join('')}
+      <span class="espace"></span><span class="aide" style="margin:0"><span class="a-traiter"></span>${T.filter(aTraiter).length} en attente d'une réponse du support · ${T.length} demande(s)</span>
+    </div>
+    ${T.length ? `<div class="maitre-detail">
+      <nav class="liste-tickets">${T.map((x) => `<button data-ticket="${x.id}" class="${x.id === etat.ticket ? 'actif' : ''}">
+        <b>${aTraiter(x) ? '<span class="a-traiter" title="En attente d\'une réponse du support"></span>' : ''}${esc(x.Titre || '(sans titre)')}</b>
+        <small>${esc(x.Demandeur || '')} · ${dateFr(x.Dernier_retour || x.CreeLe)}</small><br>
+        <span class="badge ${couleurStatut[x.Statut] || ''}">${esc(x.Statut || 'Nouveau')}</span>
+        ${x.Priorite === 'Urgente' || x.Priorite === 'Haute' ? `<span class="badge ${x.Priorite === 'Urgente' ? 'rouge' : 'orange'}">${esc(x.Priorite)}</span>` : ''}
+        ${echanges(x.id).length ? `<small>· 💬 ${echanges(x.id).filter((c) => c.Type !== 'Événement').length}</small>` : ''}
+      </button>`).join('')}</nav>
+      ${t ? ficheTicket(t) : ''}
+    </div>` : '<p class="vide">Aucune demande dans cette vue.</p>'}`;
+}
+
+/** Détail d'une demande : conversation, réponse, clôture / réouverture et réglages. */
+function ficheTicket(t) {
+  const ouvert = ticketOuvert(t);
   const statuts = choix('Support', 'Statut').map((s) => [s, s]);
   const priorites = choix('Support', 'Priorite').map((s) => [s, s]);
   const personnes = (etat.d.Utilisateurs || []).filter((u) => u.Actif !== false).map((u) => [u.id, u.Nom || u.Email]);
-  const fils = (id) => (etat.d.Support_commentaires || []).filter((c) => c.Demande === id).sort((a, b) => (a.CreeLe || 0) - (b.CreeLe || 0));
-  return `
-    <div class="barre-outils">
-      ${[['ouverts', 'Ouvertes'], ['traites', 'Traitées'], ['archives', 'Archivées'], ['tous', 'Toutes']].map(([v, l]) => `<button class="bouton petit ${f === v ? 'primaire' : ''}" data-support="${v}">${l}</button>`).join('')}
-      <span class="espace"></span><span class="aide" style="margin:0">${T.length} demande(s)</span>
+  const avecFil = aTable('Support_commentaires');
+  return `<article class="ticket">
+    <header><b>${esc(t.Titre || '(sans titre)')}</b><span class="badge ${couleurStatut[t.Statut] || ''}">${esc(t.Statut || 'Nouveau')}</span>
+      ${ouvert ? `<button class="bouton petit primaire" data-action="clore" data-id="${t.id}">✅ Clore la demande</button>`
+               : `<button class="bouton petit" data-action="rouvrir" data-id="${t.id}">↩️ Rouvrir</button>`}</header>
+    <div class="meta">${esc(t.Demandeur || t.CreePar || '')} · ${dateFr(t.CreeLe)}${t.Categorie ? ' · ' + esc(t.Categorie) : ''}${t.Url_page ? ` · <a href="${esc(t.Url_page)}" target="_blank" rel="noopener">page concernée ↗</a>` : ''}</div>
+    ${avecFil ? Outils.conversation(t, echanges(t.id), 'support') : `<div class="encadre alerte">Installez la version 1.2 du sujet Support pour converser. <button class="bouton petit" data-onglet-aller="structure">Structure →</button></div>`}
+    ${avecFil ? `<div class="repondre">
+      <textarea class="champ" id="rep-${t.id}" placeholder="${ouvert ? 'Votre réponse… (Ctrl+Entrée pour envoyer)' : 'Écrire rouvrira la demande…'}"></textarea>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="bouton primaire" data-action="repondre" data-id="${t.id}">Envoyer</button>
+        ${ouvert ? `<button class="bouton petit" data-action="repondre-clore" data-id="${t.id}">Envoyer et clore</button>` : ''}
+      </div></div>` : ''}
+    <div class="reglages">
+      <select class="champ" data-t="${t.id}" data-col="Statut" title="Statut">${options(statuts, t.Statut)}</select>
+      <select class="champ" data-t="${t.id}" data-col="Priorite" title="Priorité">${options(priorites, t.Priorite, 'Priorité')}</select>
+      <select class="champ" data-t="${t.id}" data-col="Assigne_a" data-type="ref" title="Assignée à">${options(personnes, t.Assigne_a, 'Assigner à…')}</select>
+      ${colonne('Support', 'Archive') ? `<button class="bouton petit" data-action="archiver" data-id="${t.id}" data-val="${t.Archive ? '0' : '1'}">${t.Archive ? 'Désarchiver' : 'Archiver'}</button>` : ''}
     </div>
-    ${T.map((t) => `<article class="ticket">
-      <header><b>${esc(t.Titre || '(sans titre)')}</b>
-        ${t.Priorite ? `<span class="badge ${t.Priorite === 'Urgente' ? 'rouge' : t.Priorite === 'Haute' ? 'orange' : ''}">${esc(t.Priorite)}</span>` : ''}
-        <span class="badge ${couleurStatut[t.Statut] || ''}">${esc(t.Statut || 'Nouveau')}</span></header>
-      <div class="meta">${esc(t.Demandeur || t.CreePar || '')} · ${dateFr(t.CreeLe)}${t.Categorie ? ' · ' + esc(t.Categorie) : ''}${t.Url_page ? ` · <a href="${esc(t.Url_page)}" target="_blank" rel="noopener">page concernée ↗</a>` : ''}</div>
-      ${t.Description ? `<div>${esc(t.Description).replace(/\n/g, '<br>')}</div>` : ''}
-      ${aTable('Support_commentaires') ? `<div class="fil">${fils(t.id).map((c) => `<p><small>${esc(c.CreePar)} · ${dateFr(c.CreeLe)}</small><br>${esc(c.Message).replace(/\n/g, '<br>')}</p>`).join('') || '<p class="vide">Pas encore d\'échange.</p>'}
-        <div class="barre-outils"><input class="champ" style="flex:1" placeholder="Répondre…" id="rep-${t.id}"><button class="bouton petit primaire" data-action="repondre" data-id="${t.id}">Envoyer</button></div></div>` : ''}
-      <div class="reglages">
-        <select class="champ" data-t="${t.id}" data-col="Statut">${options(statuts, t.Statut)}</select>
-        <select class="champ" data-t="${t.id}" data-col="Priorite">${options(priorites, t.Priorite, 'Priorité')}</select>
-        <select class="champ" data-t="${t.id}" data-col="Assigne_a" data-type="ref">${options(personnes, t.Assigne_a, 'Assigner à…')}</select>
-        ${colonne('Support', 'Archive') ? `<button class="bouton petit" data-action="archiver" data-id="${t.id}" data-val="${t.Archive ? '0' : '1'}">${t.Archive ? 'Désarchiver' : 'Archiver'}</button>` : ''}
-      </div>
-    </article>`).join('') || '<p class="vide">Aucune demande dans cette vue.</p>'}`;
+  </article>`;
+}
+
+/**
+ * Répond, clôt ou rouvre une demande. Chaque changement d'état laisse une trace
+ * « Événement » dans le fil, visible aussi par le demandeur.
+ */
+async function traiterTicket(bouton, id, { texte = '', statut = null, evenement = '' }) {
+  await occupe(bouton, async () => {
+    const t = etat.d.Support.find((x) => x.id === id);
+    const fil = aTable('Support_commentaires'), type = colonne('Support_commentaires', 'Type');
+    const a = [];
+    if (texte && fil) a.push(['AddRecord', 'Support_commentaires', null, { Demande: id, Message: texte, ...(type ? { Type: 'Message' } : {}) }]);
+    // Écrire sur une demande close la rouvre ; répondre à une demande nouvelle la passe « En cours ».
+    if (!statut && texte && (!ticketOuvert(t) || t.Statut === 'Nouveau')) { statut = 'En cours'; evenement = ticketOuvert(t) ? '' : '↩️ Demande rouverte'; }
+    if (statut) a.push(['UpdateRecord', 'Support', id, { Statut: statut, ...(statut === 'En cours' && t.Archive ? { Archive: false } : {}) }]);
+    if (evenement && fil && type) a.push(['AddRecord', 'Support_commentaires', null, { Demande: id, Message: evenement, Type: 'Événement' }]);
+    if (!a.length) return;
+    await agir(a);
+    if (statut) await tracer('Support : ' + statut, '#' + id + ' ' + (t.Titre || ''));
+    await actualiser();
+  });
 }
 
 // =====================================================================
@@ -818,6 +889,7 @@ document.addEventListener('change', async (e) => {
   if (el.dataset.matTable) { const t = el.dataset.matTable; (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {})[el.dataset.matRole] = el.value; return majApercu(); }
   if (el.dataset.perim) { etat.droits.perimetre[el.dataset.perim] = el.checked; return majApercu(); }
   if (el.id === 'bloquer-autres') { etat.droits.bloquerAutres = el.checked; return majApercu(); }
+  if (el.id === 'support-prive') { etat.droits.supportPrive = el.checked; return majApercu(); }
 });
 
 // Recherche à la frappe, en gardant le curseur dans le champ.
@@ -839,11 +911,19 @@ async function groupe(champs, libelle) {
   });
 }
 
+// Ctrl+Entrée envoie la réponse en cours de saisie.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.id?.startsWith('rep-')) {
+    document.querySelector(`[data-action="repondre"][data-id="${e.target.id.slice(4)}"]`)?.click();
+  }
+});
+
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.onglet) return allerA(b.dataset.onglet);
   if (b.dataset.ongletAller) return allerA(b.dataset.ongletAller);
   if (b.dataset.support) { etat.filtres.support = b.dataset.support; return afficher(); }
+  if (b.dataset.ticket) { etat.ticket = Number(b.dataset.ticket); return afficher(); }
   const id = Number(b.dataset.id);
   switch (b.dataset.action) {
     case 'actualiser': etat.sujets = null; return actualiser();
@@ -867,19 +947,14 @@ document.addEventListener('click', async (e) => {
       return occupe(b, async () => { await agir([['ModifyColumn', 'Utilisateurs', 'Role', { widgetOptions: JSON.stringify(wo) }]]); await tracer('Rôle ajouté', r); await actualiser(); });
     }
     case 'standard': etat.droits = matriceStandard(); return afficher();
-    case 'vider': etat.droits = { niveaux: {}, perimetre: {}, bloquerAutres: false }; return afficher();
+    case 'vider': etat.droits = { niveaux: {}, perimetre: {}, bloquerAutres: false, supportPrive: false }; return afficher();
     case 'appliquer-droits': return appliquerDroits(b, false);
     case 'retirer-droits': return appliquerDroits(b, true);
     case 'garde': return poserGarde(b);
-    case 'repondre': {
-      const txt = $('rep-' + id).value.trim(); if (!txt) return;
-      return occupe(b, async () => {
-        const a = [['AddRecord', 'Support_commentaires', null, { Demande: id, Message: txt }]];
-        const t = etat.d.Support.find((x) => x.id === id);
-        if (t && t.Statut === 'Nouveau') a.push(['UpdateRecord', 'Support', id, { Statut: 'En cours' }]);
-        await agir(a); await actualiser();
-      });
-    }
+    case 'repondre': { const texte = $('rep-' + id).value.trim(); return texte && traiterTicket(b, id, { texte }); }
+    case 'repondre-clore': return traiterTicket(b, id, { texte: $('rep-' + id).value.trim(), statut: 'Résolu', evenement: '✅ Demande close' });
+    case 'clore': return traiterTicket(b, id, { statut: 'Résolu', evenement: '✅ Demande close' });
+    case 'rouvrir': return traiterTicket(b, id, { statut: 'En cours', evenement: '↩️ Demande rouverte' });
     case 'archiver': return occupe(b, async () => { await agir([['UpdateRecord', 'Support', id, { Archive: b.dataset.val === '1' }]]); await actualiser(); });
     case 'installer': return installerSujet(b, b.dataset.sujet);
     case 'tracabilite': {
