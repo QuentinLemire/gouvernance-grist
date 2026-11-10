@@ -10,6 +10,7 @@ Le référentiel vivant est le document Grist **« Gouvernance »** ; ce dépôt
 | `widget/admin.html` | Panneau d'administration (utilisateurs, rôles, permissions, support, modèle DGOM, export de structure). Basé sur la « Boîte à outils Grist » de Florent Ballu ([balludgom/TableManager](https://github.com/balludgom/TableManager)), au style de l'État (DSFR). |
 | `scripts/installer-gouvernance.js` | Script commenté qui recrée les sujets transverses choisis dans n'importe quel document Grist (à coller dans la console du navigateur). |
 | `structure/*.json` | Structure de chaque sujet transverse (tables, colonnes, types, formules), **sans aucune donnée**. |
+| `donnees/*.json` | Données de référence publiques livrées avec un sujet (13 territoires, programmes P123 / P138). |
 
 ## Installer le panneau dans un document Grist
 

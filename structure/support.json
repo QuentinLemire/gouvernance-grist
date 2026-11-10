@@ -1,7 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "1.0",
+  "version": "1.1",
   "sujet": "SUPPORT",
+  "description": "Demandes des utilisateurs, lien vers la page concernée, fil d'échanges et archivage.",
   "tables": [
     {
       "tableId": "Support",
@@ -124,6 +125,77 @@
           "type": "Text"
         },
         {
+          "id": "Url_page",
+          "label": "Lien vers la page concernée",
+          "type": "Text",
+          "widgetOptions": {
+            "widget": "HyperLink"
+          }
+        },
+        {
+          "id": "Archive",
+          "label": "Archivé",
+          "type": "Bool"
+        },
+        {
+          "id": "Nb_commentaires",
+          "label": "Nb échanges",
+          "type": "Numeric",
+          "isFormula": true,
+          "formula": "return len(Support_commentaires.lookupRecords(Demande=$id))"
+        },
+        {
+          "id": "Dernier_retour",
+          "label": "Dernier échange",
+          "type": "DateTime:Europe/Paris",
+          "isFormula": true,
+          "formula": "c = Support_commentaires.lookupRecords(Demande=$id, sort_by=\"CreeLe\")\nreturn c[-1].CreeLe if c else None"
+        },
+        {
+          "id": "CreeLe",
+          "label": "Créé le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 0
+        },
+        {
+          "id": "CreePar",
+          "label": "Créé par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "ModifieLe",
+          "label": "Modifié le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 2
+        },
+        {
+          "id": "ModifiePar",
+          "label": "Modifié par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 2
+        }
+      ]
+    },
+    {
+      "tableId": "Support_commentaires",
+      "columns": [
+        {
+          "id": "Demande",
+          "label": "Demande",
+          "type": "Ref:Support",
+          "visibleCol": "Titre"
+        },
+        {
+          "id": "Message",
+          "label": "Message",
+          "type": "Text"
+        },
+        {
           "id": "CreeLe",
           "label": "Créé le",
           "type": "DateTime:Europe/Paris",
@@ -153,5 +225,8 @@
         }
       ]
     }
+  ],
+  "dependances": [
+    "UTILISATEURS"
   ]
 }

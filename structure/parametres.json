@@ -1,7 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "1.0",
+  "version": "1.1",
   "sujet": "PARAMETRES",
+  "description": "Clé / valeur : Nom_application, Direction, Contact_support, Logo_DGOM, Version_structure, Depot_Git.",
   "tables": [
     {
       "tableId": "Parametres",

@@ -1,0 +1,28 @@
+{
+  "format": "grist-structure",
+  "version": "1.1",
+  "sujet": "REFERENTIEL_PROGRAMMES",
+  "description": "Programmes budgétaires de la mission Outre-mer (P123, P138).",
+  "tables": [
+    {
+      "tableId": "Programmes",
+      "columns": [
+        {
+          "id": "Code",
+          "label": "Code",
+          "type": "Text"
+        },
+        {
+          "id": "Libelle",
+          "label": "Libellé",
+          "type": "Text"
+        },
+        {
+          "id": "Mission",
+          "label": "Mission",
+          "type": "Text"
+        }
+      ]
+    }
+  ]
+}

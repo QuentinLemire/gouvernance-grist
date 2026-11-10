@@ -1,0 +1,96 @@
+{
+  "tableId": "Territoires",
+  "records": [
+    {
+      "Code_COG": "971",
+      "Nom": "Guadeloupe",
+      "Statut": "DROM",
+      "Bassin": "Atlantique",
+      "Chef_lieu": "Basse-Terre"
+    },
+    {
+      "Code_COG": "972",
+      "Nom": "Martinique",
+      "Statut": "DROM",
+      "Bassin": "Atlantique",
+      "Chef_lieu": "Fort-de-France"
+    },
+    {
+      "Code_COG": "973",
+      "Nom": "Guyane",
+      "Statut": "DROM",
+      "Bassin": "Atlantique",
+      "Chef_lieu": "Cayenne"
+    },
+    {
+      "Code_COG": "974",
+      "Nom": "La Réunion",
+      "Statut": "DROM",
+      "Bassin": "Océan Indien",
+      "Chef_lieu": "Saint-Denis"
+    },
+    {
+      "Code_COG": "976",
+      "Nom": "Mayotte",
+      "Statut": "DROM",
+      "Bassin": "Océan Indien",
+      "Chef_lieu": "Mamoudzou"
+    },
+    {
+      "Code_COG": "975",
+      "Nom": "Saint-Pierre-et-Miquelon",
+      "Statut": "COM",
+      "Bassin": "Atlantique",
+      "Chef_lieu": "Saint-Pierre"
+    },
+    {
+      "Code_COG": "977",
+      "Nom": "Saint-Barthélemy",
+      "Statut": "COM",
+      "Bassin": "Atlantique",
+      "Chef_lieu": "Gustavia"
+    },
+    {
+      "Code_COG": "978",
+      "Nom": "Saint-Martin",
+      "Statut": "COM",
+      "Bassin": "Atlantique",
+      "Chef_lieu": "Marigot"
+    },
+    {
+      "Code_COG": "986",
+      "Nom": "Wallis-et-Futuna",
+      "Statut": "COM",
+      "Bassin": "Pacifique",
+      "Chef_lieu": "Mata-Utu"
+    },
+    {
+      "Code_COG": "987",
+      "Nom": "Polynésie française",
+      "Statut": "COM",
+      "Bassin": "Pacifique",
+      "Chef_lieu": "Papeete"
+    },
+    {
+      "Code_COG": "988",
+      "Nom": "Nouvelle-Calédonie",
+      "Statut": "Collectivité sui generis",
+      "Bassin": "Pacifique",
+      "Chef_lieu": "Nouméa"
+    },
+    {
+      "Code_COG": "984",
+      "Nom": "Terres australes et antarctiques françaises",
+      "Statut": "TAAF",
+      "Bassin": "Austral",
+      "Chef_lieu": "Saint-Pierre (La Réunion)"
+    },
+    {
+      "Code_COG": "989",
+      "Nom": "Île de Clipperton",
+      "Statut": "Domaine public de l'État",
+      "Bassin": "Pacifique",
+      "Chef_lieu": ""
+    }
+  ]
+}
