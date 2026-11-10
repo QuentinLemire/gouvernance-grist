@@ -1,8 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "1.2",
+  "version": "1.3",
   "sujet": "UTILISATEURS",
-  "description": "Annuaire, rôles (dont AdminTerritoire avec périmètre), arborescence des services ; base des droits.",
+  "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
   "tables": [
     {
       "tableId": "Entites",
@@ -110,8 +110,6 @@
           "widgetOptions": {
             "choices": [
               "Administrateur",
-              "AdminTerritoire",
-              "AdminRPROG",
               "Gestionnaire",
               "Contributeur",
               "Lecteur"
@@ -119,14 +117,6 @@
             "choiceOptions": {
               "Administrateur": {
                 "fillColor": "#000091",
-                "textColor": "#FFFFFF"
-              },
-              "AdminTerritoire": {
-                "fillColor": "#009081",
-                "textColor": "#FFFFFF"
-              },
-              "AdminRPROG": {
-                "fillColor": "#A558A0",
                 "textColor": "#FFFFFF"
               },
               "Gestionnaire": {
@@ -156,12 +146,6 @@
           "type": "Bool",
           "formula": "True",
           "recalcWhen": 0
-        },
-        {
-          "id": "Territoires",
-          "label": "Territoires (périmètre)",
-          "type": "RefList:Territoires",
-          "visibleCol": "Nom"
         },
         {
           "id": "Courriel_valide",
@@ -207,8 +191,5 @@
         }
       ]
     }
-  ],
-  "dependances": [
-    "REFERENTIEL_TERRITOIRES"
   ]
 }
