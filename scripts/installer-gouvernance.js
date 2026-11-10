@@ -36,7 +36,6 @@ let DOC_CIBLE = null;
 // Jeux de données de référence livrés avec certains sujets (dossier donnees/ du dépôt).
 const DONNEES_DE_REFERENCE = {
   referentiel_territoires: 'territoires.json',
-  referentiel_programmes: 'programmes.json',
 };
 
 // ---------------------------------------------------------------------
@@ -247,7 +246,7 @@ async function installerGouvernance(sujets, { docId = null, depot = DEPOT_PAR_DE
   const tables = [...lus.values()].flatMap((def) => def.tables);
   const rapport = await creerStructure(tables);
 
-  // 3. Données de référence (territoires, programmes…) si leur table est vide.
+  // 3. Données de référence (territoires…) si leur table est vide.
   rapport.donnees = [];
   for (const sujet of lus.keys()) {
     if (DONNEES_DE_REFERENCE[sujet]) rapport.donnees.push(await chargerDonnees(depot, DONNEES_DE_REFERENCE[sujet]));

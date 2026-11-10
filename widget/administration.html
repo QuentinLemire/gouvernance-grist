@@ -108,7 +108,6 @@ const DEPOT = 'https://raw.githubusercontent.com/QuentinLemire/gouvernance-grist
 const SUJETS = [
   { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
   { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins', obligatoire: true },
-  { fichier: 'referentiel_programmes', nom: 'Programmes budgétaires', obligatoire: false },
   { fichier: 'parametres', nom: 'Paramètres', obligatoire: true },
   { fichier: 'accueil_public', nom: "Page d'accueil publique", obligatoire: true },
   { fichier: 'support', nom: 'Support', obligatoire: true },
@@ -118,7 +117,7 @@ const SUJETS = [
 ];
 
 /** Données de référence livrées avec certains sujets (dossier donnees/ du dépôt). */
-const DONNEES = { referentiel_territoires: 'territoires.json', referentiel_programmes: 'programmes.json' };
+const DONNEES = { referentiel_territoires: 'territoires.json' };
 
 /** Niveaux de droit proposés dans la matrice, et leur traduction en permissions Grist. */
 const NIVEAUX = [
@@ -244,7 +243,7 @@ async function chargerStructure() {
 }
 
 async function chargerDonnees() {
-  const utiles = ['Utilisateurs', 'Entites', 'Territoires', 'Programmes', 'Support', 'Support_commentaires', 'Journal_Admin', 'Parametres'];
+  const utiles = ['Utilisateurs', 'Entites', 'Territoires', 'Support', 'Support_commentaires', 'Journal_Admin', 'Parametres'];
   etat.d = {};
   await Promise.all(utiles.filter(aTable).map(async (t) => { etat.d[t] = (await lire(t)) || []; }));
   etat.acl = { ressources: (await lire('_grist_ACLResources')) || [], regles: await lire('_grist_ACLRules') };
@@ -303,7 +302,7 @@ function controles() {
     }
   }
   // Tables de référence ou techniques : pas besoin de savoir qui les a modifiées ligne par ligne.
-  const sansObjet = ['Journal_Admin', 'Accueil', 'Parametres', 'Territoires', 'Programmes'];
+  const sansObjet = ['Journal_Admin', 'Accueil', 'Parametres', 'Territoires'];
   const sansTraca = etat.meta.tables.filter((t) => !sansObjet.includes(t.tableId) && !t.colonnes.some((c) => c.colId === 'ModifiePar'));
   if (sansTraca.length) out.push({ ok: false, texte: sansTraca.length + ' table(s) sans traçabilité : ' + sansTraca.map((t) => esc(t.tableId)).join(', ') + '.', onglet: 'structure' });
   return out;
@@ -469,7 +468,7 @@ function lireMatrice() {
 /** Proposition raisonnable pour démarrer. */
 function matriceStandard() {
   const m = { niveaux: {}, perimetre: {}, bloquerAutres: true, supportPrive: true };
-  const sensibles = ['Utilisateurs', 'Entites', 'Parametres', 'Territoires', 'Programmes'];
+  const sensibles = ['Utilisateurs', 'Entites', 'Parametres', 'Territoires'];
   for (const t of tablesGerees()) {
     m.niveaux[t] = {};
     for (const r of roles()) {
@@ -797,7 +796,7 @@ async function installerSujet(bouton, fichier) {
       (def.dependances || []).forEach((d) => aFaire.push(d.toLowerCase()));
     }
     await creerStructure(tables);
-    // Données de référence publiques (territoires, programmes) si la table est encore vide.
+    // Données de référence publiques (territoires) si la table est encore vide.
     for (const f of vus) {
       if (!DONNEES[f]) continue;
       const jeu = await (await fetch(DEPOT + 'donnees/' + DONNEES[f])).json();
