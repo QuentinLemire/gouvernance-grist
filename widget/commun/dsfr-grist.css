@@ -1,0 +1,156 @@
+/*
+ * =====================================================================
+ *  Styles communs des widgets « Gouvernance Grist » — charte de l'État (DSFR)
+ * =====================================================================
+ *  Police Marianne, bleu France, composants simples (en-tête, tuiles,
+ *  cartes, badges, boutons, tableaux). Aucune dépendance au CSS complet du
+ *  DSFR : seul le bloc-marque (« fr-logo ») est chargé depuis le DSFR officiel.
+ */
+
+@font-face { font-family: "Marianne"; font-weight: 400; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/fonts/Marianne-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Marianne"; font-weight: 500; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/fonts/Marianne-Medium.woff2") format("woff2"); }
+@font-face { font-family: "Marianne"; font-weight: 700; font-display: swap;
+  src: url("https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/fonts/Marianne-Bold.woff2") format("woff2"); }
+
+/* ---------- Couleurs (jetons DSFR) ---------- */
+:root {
+  --bleu: #000091;          /* bleu France */
+  --bleu-survol: #1212ff;
+  --bleu-clair: #e3e3fd;
+  --rouge: #e1000f;         /* rouge Marianne */
+  --texte: #161616;
+  --texte-doux: #666666;
+  --fond: #f6f6f6;
+  --carte: #ffffff;
+  --bordure: #dddddd;
+  --succes: #18753c;  --succes-fond: #b8fec9;
+  --alerte: #b34000;  --alerte-fond: #ffe9e6;
+  --erreur: #ce0500;  --erreur-fond: #ffe9e9;
+  --info: #0063cb;    --info-fond: #e8edff;
+  --text-black-white-grey: #161616; /* utilisé par le bloc-marque DSFR */
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: "Marianne", arial, sans-serif;
+  font-size: 15px; line-height: 1.5;
+  color: var(--texte); background: var(--fond);
+}
+a { color: var(--bleu); }
+h1, h2, h3 { line-height: 1.25; margin: 0 0 .5em; }
+
+/* ---------- En-tête : bloc-marque + DGOM + titre ---------- */
+.entete {
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  padding: 14px 24px; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 18, .16);
+}
+.entete .fr-logo { margin: 0; padding: 0; font-family: "Marianne", arial, sans-serif; }
+.entete .dgom {
+  display: flex; align-items: center; min-height: 48px;
+  padding-left: 24px; border-left: 1px solid var(--bordure);
+}
+.entete .dgom img { max-height: 56px; max-width: 160px; display: block; }
+.entete .dgom span { font-weight: 700; font-size: 18px; color: var(--bleu); letter-spacing: .02em; }
+.entete .titres { flex: 1; min-width: 200px; }
+.entete .titres h1 { font-size: 20px; margin: 0; }
+.entete .titres p { margin: 0; color: var(--texte-doux); font-size: 14px; }
+.entete .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+main { padding: 24px; max-width: 1280px; margin: 0 auto; }
+
+/* ---------- Tuiles de chiffres clés ---------- */
+.tuiles { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 24px; }
+.tuile { background: var(--carte); border: 1px solid var(--bordure); border-bottom: 4px solid var(--bleu); padding: 16px 18px; }
+.tuile .valeur { font-size: 32px; font-weight: 700; color: var(--bleu); line-height: 1.1; }
+.tuile .libelle { color: var(--texte-doux); font-size: 13px; margin-top: 4px; }
+.tuile.vert { border-bottom-color: var(--succes); }  .tuile.vert .valeur { color: var(--succes); }
+.tuile.orange { border-bottom-color: var(--alerte); } .tuile.orange .valeur { color: var(--alerte); }
+.tuile.rouge { border-bottom-color: var(--erreur); }  .tuile.rouge .valeur { color: var(--erreur); }
+
+/* ---------- Cartes et grilles ---------- */
+.carte { background: var(--carte); border: 1px solid var(--bordure); padding: 20px 22px; margin-bottom: 20px; }
+.carte > h2 { font-size: 18px; }
+.aide, .carte .aide { color: var(--texte-doux); font-size: 13px; margin: -4px 0 12px; }
+.grille-2 { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+.grille-2 > .carte { margin-bottom: 0; }
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; white-space: nowrap;
+  background: #eeeeee; color: var(--texte);
+}
+.badge.vert { background: var(--succes-fond); color: var(--succes); }
+.badge.orange { background: #feecc2; color: #716043; }
+.badge.rouge { background: var(--erreur-fond); color: var(--erreur); }
+.badge.bleu { background: var(--bleu-clair); color: var(--bleu); }
+
+/* ---------- Boutons et champs ---------- */
+.bouton {
+  font: inherit; font-weight: 500; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid var(--bleu); background: #fff; color: var(--bleu);
+}
+.bouton:hover { background: #f6f6f6; }
+.bouton.primaire { background: var(--bleu); color: #fff; }
+.bouton.primaire:hover { background: var(--bleu-survol); border-color: var(--bleu-survol); }
+.bouton.petit { padding: 4px 10px; font-size: 13px; }
+.bouton:disabled { opacity: .5; cursor: not-allowed; }
+input.champ, select.champ, textarea.champ {
+  font: inherit; color: var(--texte); background: #eeeeee;
+  border: none; border-bottom: 2px solid #3a3a3a; border-radius: 4px 4px 0 0; padding: 8px 12px;
+}
+input.champ:focus, select.champ:focus, textarea.champ:focus { outline: 2px solid #0a76f6; outline-offset: 2px; }
+
+/* ---------- Encadrés d'alerte ---------- */
+.encadre { border-left: 4px solid var(--info); background: var(--info-fond); padding: 14px 18px; margin-bottom: 20px; }
+.encadre.alerte { border-left-color: var(--alerte); background: var(--alerte-fond); }
+.encadre.erreur { border-left-color: var(--erreur); background: var(--erreur-fond); }
+.encadre.succes { border-left-color: var(--succes); background: #dffee6; }
+
+/* ---------- Tableaux ---------- */
+.tableau { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tableau th { text-align: left; font-size: 13px; color: var(--texte-doux); font-weight: 700;
+  background: #f6f6f6; padding: 8px 10px; border-bottom: 2px solid var(--texte); position: sticky; top: 0; }
+.tableau td { padding: 8px 10px; border-bottom: 1px solid var(--bordure); vertical-align: top; }
+.tableau tr:hover td { background: #fafaff; }
+.defile { max-height: 520px; overflow: auto; }
+
+/* ---------- Barres horizontales (graphiques sans bibliothèque) ---------- */
+.barre { display: flex; height: 22px; background: #eeeeee; overflow: hidden; }
+.barre > span { display: block; height: 100%; }
+.ligne-barre { display: grid; grid-template-columns: 170px 1fr 48px; gap: 10px; align-items: center; margin: 6px 0; font-size: 14px; }
+.ligne-barre .nom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne-barre .nb { text-align: right; font-weight: 700; }
+.legende { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--texte-doux); margin-top: 10px; }
+.legende i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; }
+
+/* ---------- Contenu Markdown ---------- */
+.markdown h1 { font-size: 26px; } .markdown h2 { font-size: 20px; margin-top: 1.2em; } .markdown h3 { font-size: 17px; }
+.markdown table { border-collapse: collapse; margin: 12px 0; }
+.markdown th, .markdown td { border: 1px solid var(--bordure); padding: 6px 10px; text-align: left; }
+.markdown th { background: #f6f6f6; }
+.markdown blockquote { margin: 12px 0; padding: 10px 16px; border-left: 4px solid var(--bleu); background: var(--bleu-clair); }
+.markdown code { background: #eeeeee; padding: 1px 4px; font-size: 13px; }
+.markdown pre { background: #1e1e1e; color: #f0f0f0; padding: 12px; overflow: auto; }
+.markdown pre code { background: none; color: inherit; }
+
+/* ---------- Messages éphémères ---------- */
+#messages { position: fixed; right: 16px; bottom: 16px; z-index: 50; max-width: 420px; }
+.message { margin-top: 8px; padding: 10px 14px; background: #dffee6; color: var(--succes); border-left: 4px solid var(--succes);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .12); }
+.message.erreur { background: var(--erreur-fond); color: var(--erreur); border-left-color: var(--erreur); }
+
+.vide { color: var(--texte-doux); font-style: italic; }
+.masque { display: none !important; }
+
+@media (max-width: 640px) {
+  .entete { padding: 12px 16px; gap: 14px; }
+  .entete .dgom { padding-left: 14px; }
+  main { padding: 16px; }
+  .ligne-barre { grid-template-columns: 110px 1fr 40px; }
+}

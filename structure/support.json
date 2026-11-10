@@ -18,12 +18,6 @@
           "type": "Text"
         },
         {
-          "id": "Application",
-          "label": "Application",
-          "type": "Ref:Applications",
-          "visibleCol": "Nom"
-        },
-        {
           "id": "Categorie",
           "label": "Catégorie",
           "type": "Choice",

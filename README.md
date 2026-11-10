@@ -7,30 +7,47 @@ Le référentiel vivant est le document Grist **« Gouvernance »** ; ce dépôt
 
 | Dossier | Rôle |
 |---|---|
-| `widget/admin.html` | Panneau d'administration (utilisateurs, rôles, permissions, support, modèle DGOM, export de structure). Basé sur la « Boîte à outils Grist » de Florent Ballu ([balludgom/TableManager](https://github.com/balludgom/TableManager)), au style de l'État (DSFR). |
+| `widget/administration.html` | **Panneau d'administration** : tableau de bord et contrôles de santé, utilisateurs (rôles, périmètre territorial, ajout en masse, export), droits rôle × table, support avec fil de commentaires, installation des sujets transverses, paramètres et journal. |
+| `widget/accueil.html` | **Page d'accueil** : message « accès réservé » et bouton de contact pour les personnes non inscrites ; mot d'accueil, nouveautés et documentation pour les autres. |
+| `widget/documentation.html` | **Documentation** : sommaire par rubrique, recherche, pages Markdown mises en forme, édition avec aperçu en direct. |
+| `widget/commun/` | Styles DSFR (Marianne, bleu France, bloc-marque) et outils partagés par les trois widgets. |
+| `widget/admin.html` | Ancien panneau (Boîte à outils de Florent Ballu, [balludgom/TableManager](https://github.com/balludgom/TableManager)), conservé le temps de basculer les documents vers `administration.html`. |
 | `scripts/installer-gouvernance.js` | Script commenté qui recrée les sujets transverses choisis dans n'importe quel document Grist (à coller dans la console du navigateur). |
 | `structure/*.json` | Structure de chaque sujet transverse (tables, colonnes, types, formules), **sans aucune donnée**. |
 | `donnees/*.json` | Données de référence publiques livrées avec un sujet (13 territoires, programmes P123 / P138). |
 
-## Installer le panneau dans un document Grist
+## Installer les widgets dans un document Grist
 
-1. Ajouter une page → **Personnalisée** → **URL personnalisée**.
-2. Coller l'adresse : `https://quentinlemire.github.io/gouvernance-grist/widget/admin.html` (GitHub Pages).
-3. Niveau d'accès : **Accès complet au document**.
+Pour chaque widget : ajouter une page ou un widget → **Personnalisée** → **URL personnalisée**, niveau d'accès **Accès complet au document**.
+
+| Page | Table liée | Adresse |
+|---|---|---|
+| Accueil | Accueil | `https://quentinlemire.github.io/gouvernance-grist/widget/accueil.html` |
+| Documentation | Documentation | `https://quentinlemire.github.io/gouvernance-grist/widget/documentation.html` |
+| Administration | (aucune) | `https://quentinlemire.github.io/gouvernance-grist/widget/administration.html` |
+
+Tant que GitHub Pages n'est pas activé (Settings → Pages → branche `main`, dossier racine), remplacer le début de l'adresse par
+`https://raw.githack.com/QuentinLemire/gouvernance-grist/main/`.
+
+Les widgets ne contournent jamais les règles d'accès Grist : une personne non inscrite ne lit que la page Accueil et la documentation marquée « Visible par tous ».
+
+## Le logo DGOM
+
+Renseigner son adresse (image PNG ou SVG publique) dans la table **Parametres**, clé `Logo_DGOM`. Sans logo, l'en-tête affiche « DGOM » en texte.
 
 ## Mettre à jour un sujet transverse
 
 1. Modifier le sujet dans le Grist « Gouvernance » (tables *Sujets transverses*, *Structure des tables*, *Structure des colonnes*).
-2. Exporter la structure (onglet **📦 Structure & Git** du panneau) et remplacer le fichier dans `structure/`.
+2. Exporter la structure (onglet **Structure** du panneau) et remplacer le fichier dans `structure/`.
 3. Noter la version dans la table *Versions Git* du Grist.
 4. Dans chaque application, réimporter le `structure.json` : le panneau ajoute seulement ce qui manque, il ne supprime jamais rien.
 
 ## Installer les sujets transverses dans une nouvelle application
 
 Deux possibilités, au choix :
-- **Depuis le panneau** : onglet **🧩 Modèles** (modèle DGOM en un clic) ou **📦 Structure & Git** (coller un fichier de `structure/`).
+- **Depuis le panneau** : onglet **Structure**, qui compare le document au dépôt et installe en un clic les sujets manquants (avec leurs dépendances et les données de référence).
 - **Par script** : ouvrir le document Grist, console du navigateur (F12), coller `scripts/installer-gouvernance.js` puis
-  `await installerGouvernance(['utilisateurs', 'support', 'journal', 'parametres', 'accueil_public'])`.
+  `await installerGouvernance(['utilisateurs', 'parametres', 'accueil_public', 'support', 'journal', 'documentation', 'nouveautes'])`.
 
 Dans les deux cas, rien n'est jamais supprimé : seules les tables et colonnes manquantes sont ajoutées.
 
@@ -38,9 +55,13 @@ Dans les deux cas, rien n'est jamais supprimé : seules les tables et colonnes m
 
 | Fichier | Tables | Rôle |
 |---|---|---|
-| `utilisateurs.json` | Entites, Utilisateurs | Annuaire, rôles, arborescence des services ; base des droits |
-| `support.json` | Support | Demandes des utilisateurs et suivi |
-| `journal.json` | Journal_Admin | Trace des actions d'administration |
+| `utilisateurs.json` | Entites, Utilisateurs | Annuaire, rôles (Administrateur, AdminTerritoire, AdminRPROG, Gestionnaire, Contributeur, Lecteur), périmètre territorial ; base des droits |
+| `referentiel_territoires.json` | Territoires | Les 13 territoires ultramarins (codes COG) |
+| `referentiel_programmes.json` | Programmes | Programmes budgétaires (P123, P138) |
 | `parametres.json` | Parametres | Nom de l'application, contact, logo DGOM, version |
 | `accueil_public.json` | Accueil | Message affiché aux personnes sans droit (contact modifiable dans Parametres) |
+| `support.json` | Support, Support_commentaires | Demandes des utilisateurs, suivi et échanges |
+| `journal.json` | Journal_Admin | Trace des actions d'administration |
+| `documentation.json` | Documentation | Guides, procédures, FAQ et notes en Markdown |
+| `nouveautes.json` | Nouveautes | Journal des versions affiché sur l'accueil |
 | `catalogue_gouvernance.json` | Applications, Sujets_transverses, Structure_tables, Structure_colonnes, Versions_Git | Propre au Grist « Gouvernance » |

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  Page d'accueil — DGOM (charte de l'État / DSFR)
+  =====================================================================
+  Widget à poser sur la page « Accueil », lié à la table Accueil, niveau
+  d'accès « Accès complet au document ».
+
+  Ce que voit chaque personne (les règles d'accès Grist font le tri) :
+    - non inscrite : le message « accès réservé » (Accueil.Message, calculé
+      depuis Parametres) avec un bouton pour écrire au contact, et les pages
+      de documentation marquées « Visible par tous » ;
+    - inscrite : un mot d'accueil, les dernières nouveautés et la documentation.
+  =====================================================================
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accueil</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
+  <link rel="stylesheet" href="commun/dsfr-grist.css">
+  <script src="commun/outils.js"></script>
+  <style>
+    .bandeau { background: var(--bleu); color: #fff; padding: 36px 24px; }
+    .bandeau > div { max-width: 1280px; margin: 0 auto; }
+    .bandeau h2 { font-size: 30px; margin: 0 0 8px; }
+    .bandeau p { margin: 0; font-size: 17px; opacity: .92; }
+    .acces-reserve { border-left: 6px solid var(--erreur); background: #fff; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,18,.12); }
+    .acces-reserve h1 { font-size: 24px; }
+    .docs { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+    .doc { background: #fff; border: 1px solid var(--bordure); border-bottom: 4px solid var(--bleu); padding: 18px; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+    .doc:hover { background: #fafaff; }
+    .doc h3 { font-size: 17px; margin: 8px 0 0; }
+    .lecture { background: #fff; border: 1px solid var(--bordure); padding: 24px 28px; margin-top: 20px; }
+    .nouveaute { padding: 12px 0; border-bottom: 1px solid var(--bordure); }
+    .nouveaute:last-child { border-bottom: none; }
+    .nouveaute small { color: var(--texte-doux); }
+  </style>
+</head>
+<body>
+
+<header class="entete">
+  <p class="fr-logo">Ministère<br>des Outre-mer</p>
+  <div class="dgom" id="logo-dgom"><span>DGOM</span></div>
+  <div class="titres">
+    <h1 id="titre-appli">Application DGOM</h1>
+    <p>Direction générale des Outre-mer</p>
+  </div>
+</header>
+
+<div id="page"><main><p class="vide">Chargement…</p></main></div>
+
+<script>
+'use strict';
+const { esc, lire, parametres, entete, markdown } = window.Outils;
+let docsPubliques = [];
+
+/** Une personne est « inscrite » si les règles d'accès la laissent lire la table Utilisateurs. */
+async function afficher() {
+  const [accueil, utilisateurs, docs, nouveautes, p] = await Promise.all([
+    lire('Accueil'), lire('Utilisateurs'), lire('Documentation'), lire('Nouveautes'), parametres(),
+  ]);
+  entete(p);
+  const inscrit = Array.isArray(utilisateurs);
+  docsPubliques = (docs || []).filter((d) => inscrit || d.Visible_par_tous)
+    .sort((a, b) => String(a.Rubrique).localeCompare(String(b.Rubrique)) || (a.Ordre || 0) - (b.Ordre || 0));
+  const message = (accueil || [])[0]?.Message || '';
+  const contact = p.Contact_support || (message.match(/mailto:([^)\s]+)/) || [])[1] || '';
+
+  let html = '';
+  if (inscrit) {
+    html += `<section class="bandeau"><div><h2>Bienvenue dans ${esc(p.Nom_application || "l'application")}</h2>
+      <p>Utilisez le menu de gauche pour accéder aux données. En cas de besoin, la documentation est ci-dessous${p.Contact_support ? ' et le support répond à ' + esc(p.Contact_support) : ''}.</p></div></section><main>`;
+    const N = (nouveautes || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0)).slice(0, 3);
+    if (N.length) html += `<section class="carte"><h2>📰 Nouveautés</h2>${N.map((n) => `<div class="nouveaute"><small>${n.Date ? new Date(n.Date * 1000).toLocaleDateString('fr-FR') : ''}${n.Version ? ' · version ' + esc(n.Version) : ''}</small><br><b>${esc(n.Titre)}</b><div class="markdown">${markdown(n.Detail)}</div></div>`).join('')}</section>`;
+  } else {
+    html += `<main><section class="acces-reserve markdown">${markdown(message || "# ⛔ Accès réservé\n\nPour avoir accès aux données, rapprochez-vous des administrateurs.")}
+      ${contact ? `<p><a class="bouton primaire" href="mailto:${esc(contact)}?subject=${encodeURIComponent('Demande d\'accès à ' + (p.Nom_application || "l'application Grist"))}">✉️ Demander un accès</a></p>` : ''}</section>`;
+  }
+  if (docsPubliques.length) {
+    html += `<section><h2>📖 Documentation</h2><div class="docs">${docsPubliques.map((d, i) => `<button class="doc" data-doc="${i}">
+      ${d.Rubrique ? `<span class="badge bleu">${esc(d.Rubrique)}</span>` : ''}<h3>${esc(d.Titre)}</h3></button>`).join('')}</div><div id="lecture"></div></section>`;
+  }
+  document.getElementById('page').innerHTML = html + '</main>';
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-doc]'); if (!b) return;
+  const d = docsPubliques[Number(b.dataset.doc)];
+  const zone = document.getElementById('lecture');
+  zone.innerHTML = `<article class="lecture markdown"><h1>${esc(d.Titre)}</h1>${markdown(d.Contenu)}</article>`;
+  zone.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+grist.ready({ requiredAccess: 'full' });
+grist.onRecords(afficher);   // se met à jour quand la table Accueil change
+afficher();
+</script>
+</body>
+</html>
