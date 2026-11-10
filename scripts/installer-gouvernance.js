@@ -181,7 +181,6 @@ async function poserReglesDeBase() {
   const parDefaut = await ressource('*');
   const accueil = await ressource('Accueil');
   const tablesDuDoc = (await api('/tables')).tables.map((t) => t.id);
-  const documentation = tablesDuDoc.includes('Documentation') ? await ressource('Documentation') : null;
 
   const regle = (resource, aclFormula, permissionsText, rulePos, memo, extra = {}) =>
     ['AddRecord', '_grist_ACLRules', null, { resource, aclFormula, permissionsText, rulePos, memo, ...extra }];
@@ -193,10 +192,6 @@ async function poserReglesDeBase() {
     regle(accueil, 'user.Access == OWNER', 'all', 2, "[Gouvernance] Propriétaires : modifier la page d'accueil"),
     regle(accueil, 'True', '+R-CUD', 3, '[Gouvernance] Accueil lisible par tous'),
     regle(parDefaut, 'user.Access == OWNER', 'all', 4, '[Gouvernance] Propriétaires : tous les droits'),
-    // Pages de documentation marquées « Visible par tous » : lisibles même sans inscription.
-    ...(documentation ? [regle(documentation,
-      'user.Access != OWNER and (not user.Profil or not user.Profil.Actif) and rec.Visible_par_tous',
-      '+R-CUD', 3.5, '[Gouvernance] Documentation publique lisible par tous')] : []),
     regle(parDefaut, 'not user.Profil or not user.Profil.Actif', 'none', 5, '[Gouvernance] Non inscrits ou inactifs : Accueil seulement'),
   ]);
   return 'posées';

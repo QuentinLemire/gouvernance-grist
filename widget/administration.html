@@ -509,8 +509,7 @@ function construireRegles() {
     if (m.supportPrive && SUPPORT_PRIVE[t]) for (const r of SUPPORT_PRIVE[t]) out.push({ table: t, ...r });
     for (const [r, n] of lignes) out.push({ table: t, formule: 'user.Profil.Actif and user.Profil.Role == ' + chaine(r), perm: NIVEAUX.find((x) => x.code === n).perm });
     if (m.bloquerAutres) {
-      // Les lignes marquées « Visible par tous » (ex. documentation publique) restent lisibles.
-      out.push({ table: t, formule: colonne(t, 'Visible_par_tous') ? 'user.Access != OWNER and not rec.Visible_par_tous' : 'user.Access != OWNER', perm: '-CRUD' });
+      out.push({ table: t, formule: 'user.Access != OWNER', perm: '-CRUD' });
     }
   }
   return out;
