@@ -21,6 +21,7 @@ Toute table métier a, en dernier :
 - Tables et colonnes : première lettre en majuscule, sans accent ni espace (`Nom`, `Nom_complet`, `Courriel_cle`). Le libellé affiché, lui, est en français normal.
 - Noms en français : une adresse électronique s'appelle **`Courriel`** (`Courriel`, `Courriel_pro`, `Courriel_cle`), jamais `Email` ni `Mail`. Seule la variable Grist `user.Email`, qu'on ne peut pas renommer, garde son nom dans les formules.
 - Les colonnes de traçabilité gardent leur forme historique `CreeLe`, `CreePar`, `ModifieLe`, `ModifiePar` (voir les points ouverts de `decisions.md`).
+- L'identifiant d'une colonne est **détaché de son libellé** : on peut retoucher le libellé sans renommer la colonne (et sans casser formules, règles et widgets).
 - Une colonne Référence porte le nom de ce qu'elle désigne (`Entite`, `Demandeur`), pas `id_…`.
 - **Portée** : **toutes** les colonnes, métier comprises (décision du 2026-11-23 : plus de tolérance). Une application existante renomme ses colonnes (`RenameColumn` : Grist met à jour formules et règles d'accès) et adapte en même temps le code de ses widgets. Seules exceptions : les colonnes techniques de Grist (`manualSort`, `gristHelper_…`, `group` des tables de résumé).
 

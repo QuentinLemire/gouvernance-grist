@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <!--
-  =====================================================================
   Panneau d'administration Grist — DGOM (charte de l'État / DSFR)
-  =====================================================================
   Widget personnalisé à poser sur une page du document, avec le niveau
   d'accès « Accès complet au document ». Réservé aux propriétaires pour
   l'onglet Droits (Grist n'autorise qu'eux à modifier les règles d'accès).
@@ -53,7 +51,6 @@
     - Les règles d'accès écrites portent la mention « [Admin] » : elles se
       réécrivent ou se retirent proprement, les autres règles sont conservées.
     - Toute écriture passe par une transaction Grist : elle s'annule avec Ctrl+Z.
-  =====================================================================
 -->
 <html lang="fr">
 <head>
@@ -134,9 +131,7 @@
 <script>
 'use strict';
 
-// =====================================================================
-// 1. Configuration
-// =====================================================================
+// --- 1. Configuration ----------------------------------------------------------------------------
 
 /**
  * Mention placée en tête du mémo de chaque règle d'accès écrite par ce panneau.
@@ -183,7 +178,7 @@ const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.10';
+const VERSION_WIDGET = '2026-11-23.11';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -254,9 +249,7 @@ const TRACABILITE = [
   { id: 'ModifiePar', label: 'Modifié par', type: 'Text', formula: 'user.Email', recalcWhen: 2 },
 ];
 
-// =====================================================================
-// 2. État du panneau
-// =====================================================================
+// --- 2. État du panneau --------------------------------------------------------------------------
 
 /**
  * État du panneau : ce qui a été lu dans le document et ce que la personne a choisi à l'écran.
@@ -275,9 +268,7 @@ const etat = {
   pages: null,                                        // pages du menu (onglet Structure)
 };
 
-// =====================================================================
-// 3. Outils
-// =====================================================================
+// --- 3. Outils -----------------------------------------------------------------------------------
 
 // Petits raccourcis utilisés partout :
 //   $           élément de la page par son identifiant
@@ -375,9 +366,7 @@ function telecharger(nom, contenu, type = 'text/plain') {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// =====================================================================
-// 4. Chargement de la structure et des données
-// =====================================================================
+// --- 4. Chargement de la structure et des données ------------------------------------------------
 
 // Accès rapides à la structure chargée :
 //   aTable  la table existe-t-elle dans le document ?
@@ -449,9 +438,7 @@ function majEntete() {
 /** Paramètres de l'application sous la forme { Cle: Valeur } (vide si la table Parametres n'existe pas). */
 const parametres = () => Object.fromEntries((etat.d.Parametres || []).map((r) => [r.Cle, r.Valeur]));
 
-// =====================================================================
-// 5. Onglet « Tableau de bord »
-// =====================================================================
+// --- 5. Onglet « Tableau de bord » ---------------------------------------------------------------
 
 /**
  * Contrôles de santé du tableau de bord : administrateurs, courriels, rôles, règles d'accès,
@@ -536,9 +523,7 @@ function ongletAccueil() {
     </div>`;
 }
 
-// =====================================================================
-// 6. Onglet « Utilisateurs »
-// =====================================================================
+// --- 6. Onglet « Utilisateurs » ------------------------------------------------------------------
 
 /**
  * Utilisateurs à afficher selon les filtres choisis (texte, rôle, statut), triés par courriel.
@@ -659,9 +644,7 @@ function exporterCsv() {
   telecharger('utilisateurs.csv', '﻿' + csv, 'text/csv');
 }
 
-// =====================================================================
-// 7. Onglet « Droits » : matrice rôle × table → règles d'accès Grist
-// =====================================================================
+// --- 7. Onglet « Droits » : matrice rôle × table → règles d'accès Grist --------------------------
 
 // ressource : cible d'une règle (table et colonnes visées) ; reglesDuPanneau : règles portant la mention [Admin].
 const ressource = (id) => etat.acl.ressources.find((r) => r.id === id);
@@ -895,9 +878,7 @@ async function poserGarde(bouton) {
   });
 }
 
-// =====================================================================
-// 8. Onglet « Support »
-// =====================================================================
+// --- 8. Onglet « Support » -----------------------------------------------------------------------
 
 // ticketOuvert : règle commune à tous les widgets (commun/outils.js) ; couleurStatut : couleur du badge de chaque statut.
 const ticketOuvert = (t) => Outils.ticketOuvert(t);
@@ -1007,9 +988,7 @@ async function traiterTicket(bouton, id, { texte = '', statut = null, evenement 
   });
 }
 
-// =====================================================================
-// 9. Onglet « Structure » : sujets transverses du dépôt Git
-// =====================================================================
+// --- 9. Onglet « Structure » : sujets transverses du dépôt Git -----------------------------------
 
 /**
  * Dépôt de la norme à utiliser : un GitLab si Parametres le configure (Gitlab_API et Gitlab_projet),
@@ -1346,7 +1325,8 @@ function ongletStructure() {
 async function creerStructure(tables) {
   const simple = (c) => !c.isFormula && !/^(Ref|RefList):/.test(c.type || '');
   const info = (c) => ({ type: c.type || 'Any', label: c.label || c.id, isFormula: !!c.isFormula, formula: c.formula || '', recalcWhen: c.recalcWhen || 0,
-    widgetOptions: c.widgetOptions ? (typeof c.widgetOptions === 'string' ? c.widgetOptions : JSON.stringify(c.widgetOptions)) : '' });
+    widgetOptions: c.widgetOptions ? (typeof c.widgetOptions === 'string' ? c.widgetOptions : JSON.stringify(c.widgetOptions)) : '',
+    untieColIdFromLabel: true });   // corriger un libellé ne doit jamais renommer la colonne
   for (const t of tables) {
     if (aTable(t.tableId)) continue;
     await agir([['AddTable', t.tableId, t.columns.filter(simple).map((c) => ({ id: c.id, ...info(c) }))]]);
@@ -1394,9 +1374,7 @@ async function rangerColonnes(tables) {
   if (a.length) await agir(a);
 }
 
-// ---------------------------------------------------------------------
-// Pages standard du menu
-// ---------------------------------------------------------------------
+// --- Pages standard du menu ----------------------------------------------------------------------
 
 /**
  * Le menu commun à toutes les applications, dans l'ordre. Les pages métier se placent
@@ -1565,9 +1543,7 @@ async function installerTablesSujet(fichier) {
   }
 }
 
-// =====================================================================
-// 10. Onglet « Paramètres »
-// =====================================================================
+// --- 10. Onglet « Paramètres » -------------------------------------------------------------------
 
 /**
  * Contenu de l'onglet « Paramètres » : valeurs modifiables directement (les jetons sont masqués
@@ -1589,9 +1565,7 @@ function ongletParametres() {
 }
 
 
-// =====================================================================
-// 11. Onglet « Aide » : mode d'emploi du panneau (texte fixe, sans donnée)
-// =====================================================================
+// --- 11. Onglet « Aide » : mode d'emploi du panneau (texte fixe, sans donnée) --------------------
 
 /**
  * Contenu de l'onglet « Aide ». Pour faire évoluer le mode d'emploi, modifier directement le texte ci-dessous.
@@ -1640,9 +1614,7 @@ function ongletAide() {
     </section>`;
 }
 
-// =====================================================================
-// 12. Affichage et événements
-// =====================================================================
+// --- 12. Affichage et événements -----------------------------------------------------------------
 
 /** Onglet → fonction qui produit son contenu. Ajouter un onglet : une entrée ici et un bouton dans <nav id="onglets">. */
 const ONGLETS = { aide: ongletAide, accueil: ongletAccueil, utilisateurs: ongletUtilisateurs, droits: ongletDroits, support: ongletSupport, structure: ongletStructure, parametres: ongletParametres };
@@ -1767,9 +1739,7 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// =====================================================================
-// 13. Démarrage
-// =====================================================================
+// --- 13. Démarrage -------------------------------------------------------------------------------
 
 // Demande à Grist l'accès complet au document (indispensable pour lire la structure et les règles d'accès).
 grist.ready({ requiredAccess: 'full' });

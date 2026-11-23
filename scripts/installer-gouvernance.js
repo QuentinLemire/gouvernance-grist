@@ -151,6 +151,8 @@ function versColonneGrist(c) {
     formula: c.formula || '',
     recalcWhen: c.recalcWhen || 0,       // 0 = à la création, 2 = à chaque modification
     widgetOptions: c.widgetOptions ? JSON.stringify(c.widgetOptions) : '',
+    // l'identifiant ne suit pas le libellé : corriger un libellé dans Grist ne renomme pas la colonne
+    untieColIdFromLabel: true,
   };
 }
 

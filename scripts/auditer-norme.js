@@ -1,7 +1,5 @@
 /* =====================================================================
    AUDIT DE CONFORMITÉ À LA NORME DGOM — applications Grist
-   =====================================================================
-
    À QUOI SERT CE SCRIPT
    ---------------------
    Il compare un document Grist à la norme décrite dans ce dépôt
@@ -39,9 +37,7 @@
    ===================================================================== */
 
 
-// =====================================================================
-// 1. Réglages
-// =====================================================================
+// --- 1. Réglages ---------------------------------------------------------------------------------
 
 /** Norme lue sur GitHub (branche main) : toujours la version publiée la plus récente. */
 const DEPOT_NORME = 'https://raw.githubusercontent.com/QuentinLemire/gouvernance-grist/main/';
@@ -70,9 +66,7 @@ const WIDGETS_GENERIQUES = ['accueil.html', 'documentation.html', 'support.html'
 const OK = '✅', PARTIEL = '⚠️', ABSENT = '❌';
 
 
-// =====================================================================
-// 2. Lecture du document et de la norme
-// =====================================================================
+// --- 2. Lecture du document et de la norme -------------------------------------------------------
 
 /** Identifiant du document ouvert, lu dans l'adresse de la page. */
 function idDuDocument() {
@@ -131,9 +125,7 @@ async function chargerTout(docId, depot) {
 }
 
 
-// =====================================================================
-// 3. Outils de comparaison
-// =====================================================================
+// --- 3. Outils de comparaison --------------------------------------------------------------------
 
 /**
  * Décrit une colonne du document au format des fichiers de la norme
@@ -177,10 +169,8 @@ const etat = (bons, total) => (total === 0 || bons === total ? OK : bons === 0 ?
 const liste = (l, n = 6) => (l.length <= n ? l.join(', ') : l.slice(0, n).join(', ') + ` … et ${l.length - n} autres`);
 
 
-// =====================================================================
-// 4. Contrôles, un par principe
+// --- 4. Contrôles, un par principe ---------------------------------------------------------------
 //    Chaque contrôle rend des lignes { principe, objet, etat, detail }.
-// =====================================================================
 
 /** P1 — Socle : chaque table de la norme est-elle présente et complète ? */
 function controlerSocle(d) {
@@ -368,9 +358,7 @@ async function controlerFormules(d) {
 }
 
 
-// =====================================================================
-// 5. Mise en forme du rapport
-// =====================================================================
+// --- 5. Mise en forme du rapport -----------------------------------------------------------------
 
 /** Tableau Markdown au format de norme/applications/<application>.md. */
 function enMarkdown(lignes, titre) {
@@ -388,9 +376,7 @@ function enMarkdown(lignes, titre) {
 }
 
 
-// =====================================================================
-// 6. Point d'entrée
-// =====================================================================
+// --- 6. Point d'entrée ---------------------------------------------------------------------------
 
 /**
  * Audite le document et rend { lignes, synthese, markdown }.

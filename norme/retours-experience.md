@@ -35,6 +35,10 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - `RenameColumn` ne suit pas les lectures indirectes : `$group[0].nom`, `p = $agent; p.statut`. Les chercher dans toutes les formules (motif `.nom` / `$nom`) et les corriger ; ne jamais toucher `user.Email` (variable de Grist).
 - Le pare-feu du serveur refuse l'envoi de code par l'API REST ; la connexion de la page Grist (`docData.sendActions`) passe, et permet de recopier un code collé une fois dans les autres sections.
 
+### Le libellé qui renomme la colonne
+- Par défaut, l'identifiant d'une colonne Grist **suit son libellé** : corriger « Courriel pro » en « Courriel professionnel » a renommé `Courriel_pro` en `Courriel_professionnel` et cassé l'annuaire et la fiche.
+- **Parade** : identifiant détaché du libellé (`untieColIdFromLabel`) sur toutes les colonnes ; l'installateur et le widget Administration créent désormais les colonnes ainsi.
+
 ### Renommer des colonnes
 - `RenameColumn` met à jour **toutes les formules et toutes les règles d'accès** (y compris `user.<attribut>.<colonne>` et la colonne de recherche de l'attribut). Le code des widgets, lui, est à adapter à la main.
 - Vérifier ensuite les formules d'affichage (`$ref.colonne`) et les tables de résumé.
