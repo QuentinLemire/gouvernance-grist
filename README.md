@@ -23,9 +23,9 @@ Chaque fichier ne contient que la structure (tables, colonnes, types, formules),
 
 ```
 Territoires ◄── Entites ◄── Utilisateurs ◄──┬── Support ◄── Support_commentaires
-                  ▲ │ (Parent)               ├── Support_commentaires.Auteur
-                  └─┘                        ├── Journal_Admin.Personne
-                                             └── Documentation.Auteur
+                  ▲ │ (Parent)              ├── Support_commentaires.Auteur
+                  └─┘                       ├── Journal_Admin.Personne
+                                            └── Documentation.Auteur
 Parametres ──► Accueil (le message lit le nom et le contact)
 ```
 
