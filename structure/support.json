@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.5",
+  "version": "1.6",
   "sujet": "SUPPORT",
   "description": "Demandes des utilisateurs, lien vers la page concernée, fil d'échanges ; seul le support clôt ou rouvre.",
   "tables": [
@@ -186,15 +186,14 @@
           "id": "Type",
           "label": "Type",
           "type": "Choice",
+          "formula": "\"Message\"",
+          "recalcWhen": 0,
           "widgetOptions": {
             "choices": [
               "Message",
               "Événement"
             ]
-          },
-          "formula": "\"Message\"",
-          "isFormula": false,
-          "recalcWhen": 0
+          }
         },
         {
           "id": "Message",
