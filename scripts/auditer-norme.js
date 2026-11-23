@@ -186,6 +186,9 @@ const liste = (l, n = 6) => (l.length <= n ? l.join(', ') : l.slice(0, n).join('
 function controlerSocle(d) {
   const lignes = [];
   for (const sujet of d.norme) {
+    // Module facultatif non installé (aucune de ses tables propres) : rien à contrôler, ce n'est pas un écart.
+    const propresDuSujet = sujet.def.tables.filter((t) => !t.extension);
+    if (!sujet.obligatoire && propresDuSujet.every((t) => !d.colonnesDe.get(t.tableId))) continue;
     for (const t of sujet.def.tables) {
       const cols = d.colonnesDe.get(t.tableId);
       const objet = `P1 ${t.tableId}` + (t.extension ? ' (colonnes du sujet ' + sujet.fichier + ')' : '') + (sujet.obligatoire ? '' : ' (hors socle)');
