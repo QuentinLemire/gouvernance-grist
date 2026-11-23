@@ -10,14 +10,16 @@ Les règles écrites, le journal des décisions, la checklist d'audit et l'état
 | Fichier | Tables | Rôle |
 |---|---|---|
 | `utilisateurs.json` | Entites, Utilisateurs | Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur) ; base des droits |
-| `referentiel_territoires.json` | Territoires | Les 13 territoires ultramarins (codes COG, données dans `donnees/`) ; chaque entité y est rattachée |
+| `referentiel_territoires.json` | Territoires *(hors socle)* | Les 13 territoires ultramarins (codes COG, données dans `donnees/`) ; ajoute la colonne `Entites.Territoire` |
 | `parametres.json` | Parametres | Nom de l'application, contact, logo DGOM |
 | `accueil_public.json` | Accueil | Message affiché aux personnes sans droit |
-| `support.json` | Support, Support_commentaires | Demandes et conversation avec le support |
+| `support.json` | Support, Support_commentaires *(hors socle)* | Demandes et conversation avec le support |
 | `journal.json` | Journal_Admin | Trace des actions d'administration |
-| `documentation.json` | Documentation | Guides, procédures, FAQ, notes et nouveautés en Markdown |
+| `documentation.json` | Documentation *(hors socle)* | Guides, procédures, FAQ, notes et nouveautés en Markdown |
 
 Chaque fichier ne contient que la structure (tables, colonnes, types, formules), jamais de données.
+
+**Socle** : `utilisateurs`, `parametres`, `accueil_public`, `journal`. **Hors socle** (bouton « Installer » dans Administration → Structure) : `support`, `documentation`, `referentiel_territoires`.
 
 ### Comment les tables sont liées
 
@@ -51,7 +53,7 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Documentation | Documentation | `documentation.html` | Sommaire, recherche, pages Markdown, édition avec aperçu |
 | Support | Support | `support.html` | Créer une demande et converser avec le support |
 | Administration | (aucune) | `administration.html` | Utilisateurs, droits, support (clore / rouvrir), mise à la norme, paramètres, journal, aide |
-| Boîte à outils *(hors socle : bouton « Installer »)* | Parametres | `boite-a-outils.html` | Outil de Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)) : schéma, gestion des tables et colonnes |
+| Boîte à outils | Parametres | `boite-a-outils.html` | Outil de Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)) : schéma, gestion des tables et colonnes |
 
 Adresse : `https://raw.githack.com/QuentinLemire/gouvernance-grist/main/widget/<fichier>`
 (ou `https://quentinlemire.github.io/gouvernance-grist/widget/<fichier>` une fois GitHub Pages activé).

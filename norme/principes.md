@@ -3,9 +3,9 @@
 Chaque principe a un identifiant (P1, P2…) pour y renvoyer depuis les audits et les décisions.
 
 ## P1 — Socle de tables standard
-Toute application contient les tables du socle (`../structure/`) : **Territoires, Entites, Utilisateurs, Parametres, Accueil, Support, Support_commentaires, Journal_Admin**. `Documentation` est facultative.
+**Socle** (présent dans toute application) : **Utilisateurs & Entités**, **Accueil** (avec **Paramètres**, que la page d'accueil lit : nom de l'application, contact, logo) et **Journal_Admin**.
+**Hors socle** (bouton « Installer » dans Administration → Structure) : **Support** (+ Support_commentaires), **Documentation**, **Territoires** (qui ajoute aussi la colonne `Entites.Territoire`).
 Les colonnes propres à l'application **s'ajoutent après** celles de la norme ; on ne renomme ni ne retire une colonne de la norme.
-**Territoires** est une table de référence (la colonne `Entites.Territoire` pointe dessus) : elle est toujours installée, mais n'a pas besoin de page dans le menu.
 
 ## P2 — Traçabilité
 Toute table métier a, en dernier :
@@ -39,7 +39,7 @@ Les pages filtrent selon l'état. Cela évite les doublons de colonnes et les co
 
 ## P7 — Widgets
 - Les widgets **génériques** (Accueil, Documentation, Support, Administration, Boîte à outils) sont chargés **par URL** depuis ce dépôt, jamais collés dans le document.
-- Pages du **socle** : Accueil (› Documentation, Support) et Administration (› Utilisateurs). **Hors socle** : Boîte à outils (outil de développeur), installée à la demande par son bouton « Installer » (Administration → Structure).
+- Pages du **socle** : Accueil, Administration (› Utilisateurs, Boîte à outils). Pages **hors socle** : Documentation et Support, rangées sous l'Accueil, créées par leur bouton « Installer » (qui installe aussi leurs tables).
 - Les widgets **métier** peuvent rester collés dans le document (« Custom widget builder »), à une condition : **un seul code par widget**. Les variantes passent par un réglage (ex. `<body data-type="…">`), jamais par des copies modifiées ; toute correction est reportée à l'identique sur chaque page qui l'utilise.
 - Les héberger dans un dépôt reste possible, mais n'est pas exigé (le code métier n'a pas vocation à être public).
 

@@ -3,15 +3,17 @@
 À dérouler pour chaque application. Résultat à noter dans `applications/<nom>.md` (✅ conforme, ⚠️ partiel, ❌ absent).
 
 ## Socle (P1)
-- [ ] Territoires présente, données à jour (13 territoires)
-- [ ] Entites : `Nom`, `Parent`, `Nom_complet`, `Territoire`, `Actif`, `Membres`, `Nbre`
+- [ ] Entites : `Nom`, `Parent`, `Nom_complet`, `Actif`, `Membres`, `Nbre`
 - [ ] Utilisateurs : `Nom`, `Email`, `Entite`, `Perimetre`, `Entites_vues`, `Role`, `Actif`, `Email_cle`, `Courriel_valide`, `Doublon`
 - [ ] Bureaux et services rangés comme sous-entités (`Entites.Parent`), pas dans une table à part
-- [ ] Parametres (avec `Nom_application`, `Contact_support`, `Logo_DGOM`)
-- [ ] Accueil
-- [ ] Support + Support_commentaires
+- [ ] Parametres (avec `Nom_application`, `Contact_support`, `Logo_DGOM`) et Accueil
 - [ ] Journal_Admin
-- [ ] Documentation (facultatif)
+- [ ] Pages : Accueil, Administration › Utilisateurs, Boîte à outils
+
+## Hors socle (si installés, ils doivent être complets)
+- [ ] Support + Support_commentaires (page Support sous l'Accueil)
+- [ ] Documentation (page sous l'Accueil)
+- [ ] Territoires (13 territoires) et `Entites.Territoire`
 
 ## Traçabilité (P2)
 - [ ] Chaque table métier a `CreeLe`, `CreePar`, `ModifieLe`, `ModifiePar`

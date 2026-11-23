@@ -168,12 +168,14 @@ const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
  * « obligatoire » : sujet du socle, dont l'absence est signalée au tableau de bord.
  */
 const SUJETS = [
-  { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins', obligatoire: true },
+  // Socle : présent dans toute application.
   { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
-  { fichier: 'parametres', nom: 'Paramètres', obligatoire: true },
+  { fichier: 'parametres', nom: "Paramètres (nom, contact, logo : lus par la page d'accueil)", obligatoire: true },
   { fichier: 'accueil_public', nom: "Page d'accueil publique", obligatoire: true },
-  { fichier: 'support', nom: 'Support', obligatoire: true },
   { fichier: 'journal', nom: "Journal d'administration", obligatoire: true },
+  // Hors socle : à installer si l'application en a besoin (bouton « Installer »).
+  { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins (ajoute aussi Entites.Territoire)', obligatoire: false },
+  { fichier: 'support', nom: 'Support', obligatoire: false },
   { fichier: 'documentation', nom: 'Documentation', obligatoire: false },
 ];
 
@@ -1015,7 +1017,15 @@ async function publierNorme(bouton) {
     const fichiers = [];
     for (const s of SUJETS) {
       const x = etat.sujets[s.fichier]; if (!x?.def || x.etat === 'absent') continue;
-      const tables = x.def.tables.filter((t) => aTable(t.tableId)).map((t) => ({ tableId: t.tableId, columns: etat.meta.parId[t.tableId].colonnes.map(decrireColonne) }));
+      // Une table peut être partagée entre sujets (ex. Entites, complétée par le sujet Territoires) :
+      // chaque sujet ne publie que ses colonnes ; les colonnes nouvelles vont au sujet « principal » de la table.
+      const autres = (tableId) => new Set(SUJETS.filter((o) => o.fichier !== s.fichier).flatMap((o) => (etat.sujets[o.fichier]?.def?.tables || [])
+        .filter((u) => u.tableId === tableId).flatMap((u) => u.columns.map((c) => c.id))));
+      const tables = x.def.tables.filter((t) => aTable(t.tableId)).map((t) => {
+        const miennes = new Set(t.columns.map((c) => c.id)), pris = autres(t.tableId);
+        const garder = (c) => miennes.has(c.colId) || (!t.extension && !pris.has(c.colId));
+        return { tableId: t.tableId, ...(t.extension ? { extension: true } : {}), columns: etat.meta.parId[t.tableId].colonnes.filter(garder).map(decrireColonne) };
+      });
       const avant = JSON.stringify(x.def.tables), apres = JSON.stringify(tables);
       if (avant === apres) continue;
       const v = String(x.def.version || '1.0').split('.'); v[1] = Number(v[1] || 0) + 1;
@@ -1095,10 +1105,10 @@ function cartePages() {
   const presentes = new Set(etat.pages.map((p) => p.cle));
   const manquent = PAGES.filter((x) => !presentes.has(x.cle) && !x.facultative);
   return `<section class="carte"><h2>🧭 Pages standard</h2>
-    <p class="aide">Socle : Accueil (› Documentation, Support), vos pages métier, puis Administration (› Utilisateurs). Hors socle, à installer si besoin : Boîte à outils.</p>
+    <p class="aide">Socle : Accueil, vos pages métier, puis Administration (› Utilisateurs, Boîte à outils). Hors socle, à installer si besoin : Documentation et Support (rangées sous l'Accueil).</p>
     ${PAGES.map((x) => `<div class="sujet"><div><b>${esc(x.nom)}</b> ${x.facultative ? '<span class="badge">hors socle</span>' : '<span class="badge bleu">socle</span>'}</div>${presentes.has(x.cle) ? '<span class="badge vert">présente</span>'
-      : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>'
-      : x.facultative ? `<button class="bouton petit" data-action="page-installer" data-valeur="${x.cle}">Installer</button>` : '<span class="badge orange">manquante</span>'}</div>`).join('')}
+      : x.facultative ? `<button class="bouton petit" data-action="page-installer" data-valeur="${x.cle}">Installer</button>`
+      : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>' : '<span class="badge orange">manquante</span>'}</div>`).join('')}
     <p><button class="bouton primaire" data-action="pages">${manquent.length ? '➕ Créer les pages standard et ranger le menu' : '↕️ Ranger le menu'}</button></p>
   </section>`;
 }
@@ -1174,7 +1184,8 @@ async function rangerColonnes(tables) {
     const table = etat.meta.parId[t.tableId]; if (!table) continue;
     // Colonnes de la norme, puis celles de l'application, et la traçabilité toujours en dernier (P4).
     const trace = ['CreeLe', 'CreePar', 'ModifieLe', 'ModifiePar'];
-    const norme = t.columns.map((c) => c.id).filter((id) => !trace.includes(id));
+    // Table « extension » (ex. Entites.Territoire, ajoutée par le sujet Territoires) : on ne reclasse que la traçabilité.
+    const norme = t.extension ? [] : t.columns.map((c) => c.id).filter((id) => !trace.includes(id));
     const rang = (colId) => { if (trace.includes(colId)) return norme.length + 1 + trace.indexOf(colId); const i = norme.indexOf(colId); return i < 0 ? norme.length : i; };
     const ordre = [...table.colonnes].sort((x, y) => rang(x.colId) - rang(y.colId)); // tri stable : le reste garde son ordre
     a.push(['BulkUpdateRecord', '_grist_Tables_column', ordre.map((c) => c.id), { parentPos: ordre.map((_, i) => i + 1) }]);
@@ -1199,12 +1210,12 @@ async function rangerColonnes(tables) {
  */
 const PAGES = [
   { cle: 'accueil', nom: '🏠 Accueil', table: 'Accueil', fichier: 'accueil.html' },
-  { cle: 'documentation', nom: '📖 Documentation', table: 'Documentation', fichier: 'documentation.html' },
-  { cle: 'support', nom: '🆘 Support', table: 'Support', fichier: 'support.html' },
+  // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
+  { cle: 'documentation', nom: '📖 Documentation', table: 'Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
+  { cle: 'support', nom: '🆘 Support', table: 'Support', fichier: 'support.html', facultative: true, sujet: 'support' },
   { cle: 'administration', nom: '🛡️ Administration', fichier: 'administration.html' },
   { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Utilisateurs', sousPage: true },
-  // Hors socle : la Boîte à outils (outil de développeur) n'est créée que si on clique sur son bouton « Installer ».
-  { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Parametres', fichier: 'boite-a-outils.html', sousPage: true, facultative: true },
+  { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Parametres', fichier: 'boite-a-outils.html', sousPage: true },
 ];
 
 /**
@@ -1238,6 +1249,11 @@ async function creerPages(bouton, seulement = null) {
     const creees = [];
     // Sans précision : toutes les pages du socle qui manquent. Avec « seulement » : la page hors socle demandée.
     const voulue = (x) => (seulement ? seulement.includes(x.cle) : !x.facultative);
+    // Page hors socle demandée dont la table manque : on installe d'abord son sujet (tables, dépendances, données).
+    for (const x of PAGES.filter((p) => seulement && seulement.includes(p.cle) && p.sujet && !aTable(p.table))) {
+      await installerTablesSujet(x.sujet);
+      await chargerStructure();
+    }
     for (const page of PAGES.filter((x) => !presentes.has(x.cle) && x.table && tableRef(x.table) && voulue(x))) {
       if (page.fichier) {
         const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
@@ -1301,11 +1317,24 @@ async function rangerMenu() {
  */
 async function installerSujet(bouton, fichier) {
   await occupe(bouton, async () => {
+    const vus = await installerTablesSujet(fichier);
+    message('✅ Installé : ' + esc([...vus].join(', ')));
+    etat.sujets = null;
+    await actualiser();
+  });
+}
+
+/**
+ * Installe les tables d'un sujet de la norme et de ses dépendances, puis leurs données de référence
+ * (si la table est vide). Ne supprime rien. Rend la liste des sujets installés.
+ */
+async function installerTablesSujet(fichier) {
+  {
     // On installe aussi les sujets dont celui-ci dépend.
     const aFaire = [fichier], vus = new Set(), tables = [];
     while (aFaire.length) {
       const f = aFaire.shift(); if (vus.has(f)) continue; vus.add(f);
-      const def = etat.sujets[f]?.def || await lireDepot('structure/' + f + '.json');
+      const def = etat.sujets?.[f]?.def || await lireDepot('structure/' + f + '.json');
       tables.push(...def.tables);
       (def.dependances || []).forEach((d) => aFaire.push(d.toLowerCase()));
     }
@@ -1320,10 +1349,8 @@ async function installerSujet(bouton, fichier) {
       }
     }
     await tracer('Sujet installé', [...vus].join(', '));
-    message('✅ Installé : ' + esc([...vus].join(', ')));
-    etat.sujets = null;
-    await actualiser();
-  });
+    return vus;
+  }
 }
 
 // =====================================================================

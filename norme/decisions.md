@@ -4,6 +4,14 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-23 — Nouveau socle : Utilisateurs, Accueil, Journal (+ Boîte à outils)
+**Décision** : le **socle** comprend Utilisateurs & Entités, la page d'accueil (avec Paramètres, qu'elle lit), le Journal d'administration, et les pages Accueil, Administration, Utilisateurs, Boîte à outils. **Hors socle**, à installer en un clic : Support, Documentation, Territoires.
+**Conséquences** :
+- la colonne `Entites.Territoire` passe du sujet Utilisateurs au sujet Territoires (`utilisateurs.json` 1.7, `referentiel_territoires.json` 1.3) : une application sans Territoires n'a plus cette colonne ;
+- chaque sujet ne publie que ses propres colonnes d'une table partagée ;
+- bouton « Installer » pour les pages Documentation et Support (tables comprises).
+**Remplace** les deux décisions précédentes du jour sur les pages facultatives.
+
 ### 2026-11-23 — Socle et hors socle : Utilisateurs dans le socle, Boîte à outils à installer
 **Décision** : les pages du **socle** sont Accueil (› Documentation, Support) et Administration (› **Utilisateurs**). La **Boîte à outils** (outil de développeur) est **hors socle** : elle a son propre bouton « Installer » dans Administration → Structure. **Territoires** reste installée (référencée par `Entites.Territoire`) mais n'a pas besoin de page.
 **Raison** : la gestion des utilisateurs fait partie du socle ; ce qui n'en fait pas partie doit pouvoir s'ajouter en un clic, sans être imposé.

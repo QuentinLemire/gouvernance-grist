@@ -261,7 +261,8 @@ async function rangerColonnes(tables) {
     if (!ici.length) continue;
     // Ordre : colonnes de la norme, puis colonnes propres à l'application, et la traçabilité toujours en dernier (P4).
     const trace = ['CreeLe', 'CreePar', 'ModifieLe', 'ModifiePar'];
-    const norme = table.columns.map((c) => c.id).filter((id) => !trace.includes(id));
+    // Table « extension » (colonnes ajoutées par un autre sujet, ex. Entites.Territoire) : on ne reclasse que la traçabilité.
+    const norme = table.extension ? [] : table.columns.map((c) => c.id).filter((id) => !trace.includes(id));
     const rang = (colId) => (trace.includes(colId) ? norme.length + 1 + trace.indexOf(colId)
       : norme.includes(colId) ? norme.indexOf(colId) : norme.length);
     const ordre = [...ici].sort((a, b) => rang(a.colId) - rang(b.colId)); // tri stable : le reste garde son ordre

@@ -48,12 +48,12 @@ const DEPOT_NORME = 'https://raw.githubusercontent.com/QuentinLemire/gouvernance
 
 /** Sujets de la norme, dans l'ordre d'installation. `obligatoire` = fait partie du socle (P1). */
 const SUJETS_NORME = [
-  { fichier: 'referentiel_territoires', obligatoire: true },
   { fichier: 'utilisateurs', obligatoire: true },
-  { fichier: 'parametres', obligatoire: true },
+  { fichier: 'parametres', obligatoire: true },        // lu par la page d'accueil
   { fichier: 'accueil_public', obligatoire: true },
-  { fichier: 'support', obligatoire: true },
   { fichier: 'journal', obligatoire: true },
+  { fichier: 'referentiel_territoires', obligatoire: false },   // hors socle : bouton « Installer »
+  { fichier: 'support', obligatoire: false },
   { fichier: 'documentation', obligatoire: false },
 ];
 
@@ -188,12 +188,14 @@ function controlerSocle(d) {
   for (const sujet of d.norme) {
     for (const t of sujet.def.tables) {
       const cols = d.colonnesDe.get(t.tableId);
-      const objet = `P1 ${t.tableId}` + (sujet.obligatoire ? '' : ' (facultative)');
+      const objet = `P1 ${t.tableId}` + (t.extension ? ' (colonnes du sujet ' + sujet.fichier + ')' : '') + (sujet.obligatoire ? '' : ' (hors socle)');
       if (!cols) { lignes.push({ principe: 'P1', objet, etat: sujet.obligatoire ? ABSENT : '➖', detail: 'Table absente' }); continue; }
       const doc = new Map(cols.map((c) => [c.colId, decrire(c, d.colParId)]));
       const manquantes = t.columns.filter((c) => !doc.has(c.id)).map((c) => c.id);
       const differentes = t.columns.filter((c) => doc.has(c.id) && !equivalente(c, doc.get(c.id))).map((c) => c.id);
-      const propres = cols.map((c) => c.colId).filter((id) => !t.columns.some((c) => c.id === id));
+      // Colonnes propres à l'application : ni dans ce sujet, ni dans un autre sujet de la norme (tables partagées).
+      const deLaNorme = new Set(d.norme.flatMap((x) => x.def.tables.filter((u) => u.tableId === t.tableId).flatMap((u) => u.columns.map((c) => c.id))));
+      const propres = cols.map((c) => c.colId).filter((id) => !deLaNorme.has(id));
       const bons = t.columns.length - manquantes.length - differentes.length;
       const detail = [
         manquantes.length && `manquantes : ${liste(manquantes)}`,
@@ -210,7 +212,9 @@ function controlerSocle(d) {
 function controlerTracabilite(d) {
   const sansTout = [], incompletes = [], malReglees = [];
   // Les tables du socle sans traçabilité dans la norme (Territoires, Parametres, Accueil) sont exclues.
-  const socleSansTrace = d.norme.flatMap((s) => s.def.tables).filter((t) => !t.columns.some((c) => c.id === 'CreeLe')).map((t) => t.tableId);
+  // (une table partagée entre sujets, comme Entites, est tracée si l'une de ses définitions l'est)
+  const defs = d.norme.flatMap((s) => s.def.tables);
+  const socleSansTrace = [...new Set(defs.map((t) => t.tableId))].filter((id) => !defs.some((t) => t.tableId === id && t.columns.some((c) => c.id === 'CreeLe')));
   const tables = d.metier.filter((t) => !socleSansTrace.includes(t));
   for (const t of tables) {
     const cols = new Map(d.colonnesDe.get(t).map((c) => [c.colId, c]));

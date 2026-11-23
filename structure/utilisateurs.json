@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.6",
+  "version": "1.7",
   "sujet": "UTILISATEURS",
   "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
   "tables": [
@@ -24,12 +24,6 @@
           "type": "Text",
           "isFormula": true,
           "formula": "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom + \"/\" + nom\n    parent = parent.Parent\nreturn nom"
-        },
-        {
-          "id": "Territoire",
-          "label": "Territoire",
-          "type": "Ref:Territoires",
-          "visibleCol": "Nom"
         },
         {
           "id": "Actif",
@@ -205,8 +199,5 @@
         }
       ]
     }
-  ],
-  "dependances": [
-    "REFERENTIEL_TERRITOIRES"
   ]
 }

@@ -1,8 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "1.2",
+  "version": "1.3",
   "sujet": "REFERENTIEL_TERRITOIRES",
-  "description": "Les 13 territoires ultramarins (code COG, statut, bassin). Données de référence fournies avec le modèle.",
+  "description": "Les 13 territoires ultramarins (code COG, statut, bassin). Données de référence fournies avec le modèle. Installé, ce sujet ajoute aussi la colonne Territoire aux Entités.",
   "tables": [
     {
       "tableId": "Territoires",
@@ -90,6 +90,21 @@
           }
         }
       ]
+    },
+    {
+      "tableId": "Entites",
+      "extension": true,
+      "columns": [
+        {
+          "id": "Territoire",
+          "label": "Territoire",
+          "type": "Ref:Territoires",
+          "visibleCol": "Nom"
+        }
+      ]
     }
+  ],
+  "dependances": [
+    "UTILISATEURS"
   ]
 }
