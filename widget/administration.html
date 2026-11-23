@@ -177,7 +177,7 @@ const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.7';
+const VERSION_WIDGET = '2026-11-23.8';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -415,6 +415,9 @@ function majEntete() {
   const p = parametres();
   $('logo-dgom').innerHTML = p.Logo_DGOM ? '<img alt="DGOM" src="' + esc(p.Logo_DGOM) + '">' : '<span>DGOM</span>';
   $('titre-appli').textContent = 'Administration' + (p.Nom_application ? ' · ' + p.Nom_application : '');
+  // Onglet Support : seulement si le module Support (hors socle) est installé.
+  document.querySelector('[data-onglet="support"]').hidden = !aTable('Support');
+  if (etat.onglet === 'support' && !aTable('Support')) etat.onglet = 'accueil';
 }
 /** Paramètres de l'application sous la forme { Cle: Valeur } (vide si la table Parametres n'existe pas). */
 const parametres = () => Object.fromEntries((etat.d.Parametres || []).map((r) => [r.Cle, r.Valeur]));
@@ -492,7 +495,7 @@ function ongletAccueil() {
     <div class="tuiles">
       <div class="tuile"><div class="valeur">${actifs}</div><div class="libelle">utilisateurs actifs sur ${U.length}</div></div>
       <div class="tuile"><div class="valeur">${roles().length}</div><div class="libelle">rôles</div></div>
-      <div class="tuile ${ouverts ? 'orange' : 'vert'}"><div class="valeur">${ouverts}</div><div class="libelle">demandes de support ouvertes</div></div>
+      ${aTable('Support') ? `<div class="tuile ${ouverts ? 'orange' : 'vert'}"><div class="valeur">${ouverts}</div><div class="libelle">demandes de support ouvertes</div></div>` : ''}
       <div class="tuile"><div class="valeur">${etat.meta.tables.length}</div><div class="libelle">tables dans le document</div></div>
       <div class="tuile ${ko ? 'rouge' : 'vert'}"><div class="valeur">${ko ? ko : '✓'}</div><div class="libelle">${ko ? 'point(s) à corriger' : 'document en bonne santé'}</div></div>
     </div>
