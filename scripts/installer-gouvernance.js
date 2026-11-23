@@ -211,6 +211,10 @@ async function creerStructure(tables) {
 
     if (!existantes.has(table.tableId)) {
       await appliquer([['AddTable', table.tableId, maintenant.map(([, c]) => ({ id: c.id, ...versColonneGrist(c) }))]]);
+      // AddTable ignore le réglage de recalcul : on le repose colonne par colonne (sinon ModifieLe / ModifiePar
+      // ne seraient remplis qu'à la création de la ligne).
+      const aRecalculer = maintenant.filter(([, c]) => !c.isFormula && c.formula && c.recalcWhen);
+      if (aRecalculer.length) await appliquer(aRecalculer.map(([t, c]) => ['ModifyColumn', t, c.id, { recalcWhen: c.recalcWhen }]));
       existantes.add(table.tableId);
       rapport.tables.push(table.tableId);
     } else if (maintenant.length) {
@@ -254,8 +258,11 @@ async function rangerColonnes(tables) {
   for (const table of tables) {
     const ici = colonnes.filter((c) => c.tableId === table.tableId);
     if (!ici.length) continue;
-    const norme = table.columns.map((c) => c.id);
-    const rang = (colId) => (norme.includes(colId) ? norme.indexOf(colId) : norme.length);
+    // Ordre : colonnes de la norme, puis colonnes propres à l'application, et la traçabilité toujours en dernier (P4).
+    const trace = ['CreeLe', 'CreePar', 'ModifieLe', 'ModifiePar'];
+    const norme = table.columns.map((c) => c.id).filter((id) => !trace.includes(id));
+    const rang = (colId) => (trace.includes(colId) ? norme.length + 1 + trace.indexOf(colId)
+      : norme.includes(colId) ? norme.indexOf(colId) : norme.length);
     const ordre = [...ici].sort((a, b) => rang(a.colId) - rang(b.colId)); // tri stable : le reste garde son ordre
     actions.push(['BulkUpdateRecord', '_grist_Tables_column', ordre.map((c) => c.id), { parentPos: ordre.map((_, i) => i + 1) }]);
     const position = Object.fromEntries(ordre.map((c, i) => [c.id, i]));

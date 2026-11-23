@@ -158,6 +158,18 @@ function decrire(c, colParId) {
  */
 const empreinte = (o) => JSON.stringify(Object.keys(o).filter((k) => !(k === 'isFormula' && o[k] === false)).sort().map((k) => [k, o[k]]));
 
+/**
+ * Une colonne du document est-elle conforme à sa définition dans la norme ?
+ * Pour une liste de choix (ex. Role), l'application peut AJOUTER des valeurs (rôles métier, P5) :
+ * il suffit que tous les choix de la norme soient présents ; les couleurs ne comptent pas.
+ */
+function equivalente(norme, doc) {
+  if (norme.type !== 'Choice' && norme.type !== 'ChoiceList') return empreinte(norme) === empreinte(doc);
+  const sansOptions = (o) => { const x = { ...o }; delete x.widgetOptions; return x; };
+  const choix = (o) => (o.widgetOptions && o.widgetOptions.choices) || [];
+  return empreinte(sansOptions(norme)) === empreinte(sansOptions(doc)) && choix(norme).every((c) => choix(doc).includes(c));
+}
+
 /** État d'un principe à partir du nombre de points conformes sur le total. */
 const etat = (bons, total) => (total === 0 || bons === total ? OK : bons === 0 ? ABSENT : PARTIEL);
 
@@ -180,7 +192,7 @@ function controlerSocle(d) {
       if (!cols) { lignes.push({ principe: 'P1', objet, etat: sujet.obligatoire ? ABSENT : '➖', detail: 'Table absente' }); continue; }
       const doc = new Map(cols.map((c) => [c.colId, decrire(c, d.colParId)]));
       const manquantes = t.columns.filter((c) => !doc.has(c.id)).map((c) => c.id);
-      const differentes = t.columns.filter((c) => doc.has(c.id) && empreinte(c) !== empreinte(doc.get(c.id))).map((c) => c.id);
+      const differentes = t.columns.filter((c) => doc.has(c.id) && !equivalente(c, doc.get(c.id))).map((c) => c.id);
       const propres = cols.map((c) => c.colId).filter((id) => !t.columns.some((c) => c.id === id));
       const bons = t.columns.length - manquantes.length - differentes.length;
       const detail = [
@@ -225,17 +237,19 @@ function controlerTracabilite(d) {
  * existantes qui ne la suivent pas sont tolérées (décision du 2026-11-23) : signalées, pas pénalisées.
  */
 function controlerNommage(d) {
-  const socle = new Set(d.norme.flatMap((s) => s.def.tables.map((t) => t.tableId)));
+  // Colonnes définies par la norme : elles doivent suivre la convention. Toutes les autres sont des colonnes
+  // propres à l'application (y compris dans les tables du socle) : tolérées si elles existaient déjà.
+  const colonnesNorme = new Set(d.norme.flatMap((s) => s.def.tables.flatMap((t) => t.columns.map((c) => `${t.tableId}.${c.id}`))));
   const conforme = (id) => /^[A-Z][A-Za-z0-9_]*$/.test(id);
   const fautivesSocle = [], tolerees = [];
   for (const t of d.metier) {
     for (const c of d.colonnesDe.get(t)) {
       if (conforme(c.colId)) continue;
-      (socle.has(t) ? fautivesSocle : tolerees).push(`${t}.${c.colId}`);
+      (colonnesNorme.has(`${t}.${c.colId}`) ? fautivesSocle : tolerees).push(`${t}.${c.colId}`);
     }
   }
   const detail = [
-    fautivesSocle.length ? `tables du socle hors convention : ${liste(fautivesSocle)}` : 'tables du socle conformes',
+    fautivesSocle.length ? `colonnes de la norme hors convention : ${liste(fautivesSocle)}` : 'colonnes de la norme conformes',
     tolerees.length && `${tolerees.length} colonne(s) métier existante(s) tolérée(s), ex. ${liste(tolerees, 4)}`,
   ].filter(Boolean).join(' ; ');
   return [{ principe: 'P3', objet: 'P3 Nommage', etat: fautivesSocle.length ? PARTIEL : OK, detail }];

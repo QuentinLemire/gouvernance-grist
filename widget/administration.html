@@ -1140,7 +1140,13 @@ async function creerStructure(tables) {
   const simple = (c) => !c.isFormula && !/^(Ref|RefList):/.test(c.type || '');
   const info = (c) => ({ type: c.type || 'Any', label: c.label || c.id, isFormula: !!c.isFormula, formula: c.formula || '', recalcWhen: c.recalcWhen || 0,
     widgetOptions: c.widgetOptions ? (typeof c.widgetOptions === 'string' ? c.widgetOptions : JSON.stringify(c.widgetOptions)) : '' });
-  for (const t of tables) if (!aTable(t.tableId)) await agir([['AddTable', t.tableId, t.columns.filter(simple).map((c) => ({ id: c.id, ...info(c) }))]]);
+  for (const t of tables) {
+    if (aTable(t.tableId)) continue;
+    await agir([['AddTable', t.tableId, t.columns.filter(simple).map((c) => ({ id: c.id, ...info(c) }))]]);
+    // AddTable ignore le réglage de recalcul : on le repose (sinon ModifieLe / ModifiePar ne suivraient pas les modifications).
+    const aRecalculer = t.columns.filter((c) => simple(c) && c.formula && c.recalcWhen);
+    if (aRecalculer.length) await agir(aRecalculer.map((c) => ['ModifyColumn', t.tableId, c.id, { recalcWhen: c.recalcWhen }]));
+  }
   await chargerStructure();
   for (const t of tables) for (const c of t.columns) if (!colonne(t.tableId, c.id)) await agir([['AddColumn', t.tableId, c.id, info(c)]]);
   await chargerStructure();
@@ -1165,8 +1171,10 @@ async function rangerColonnes(tables) {
   const a = [];
   for (const t of tables) {
     const table = etat.meta.parId[t.tableId]; if (!table) continue;
-    const norme = t.columns.map((c) => c.id);
-    const rang = (colId) => { const i = norme.indexOf(colId); return i < 0 ? norme.length : i; };
+    // Colonnes de la norme, puis celles de l'application, et la traçabilité toujours en dernier (P4).
+    const trace = ['CreeLe', 'CreePar', 'ModifieLe', 'ModifiePar'];
+    const norme = t.columns.map((c) => c.id).filter((id) => !trace.includes(id));
+    const rang = (colId) => { if (trace.includes(colId)) return norme.length + 1 + trace.indexOf(colId); const i = norme.indexOf(colId); return i < 0 ? norme.length : i; };
     const ordre = [...table.colonnes].sort((x, y) => rang(x.colId) - rang(y.colId)); // tri stable : le reste garde son ordre
     a.push(['BulkUpdateRecord', '_grist_Tables_column', ordre.map((c) => c.id), { parentPos: ordre.map((_, i) => i + 1) }]);
     const position = Object.fromEntries(ordre.map((c, i) => [c.id, i]));
