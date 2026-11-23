@@ -4,6 +4,11 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-23 — Pages Utilisateurs et Boîte à outils facultatives
+**Décision** : seules Accueil (› Documentation, Support) et Administration sont des pages obligatoires. **Utilisateurs** (doublon de l'onglet Utilisateurs de l'Administration) et **Boîte à outils** (outil de développeur) sont facultatives : le widget Administration ne les crée que sur demande. **Territoires** reste installée (référencée par `Entites.Territoire`) mais n'a pas besoin de page.
+**Raison** : ne garder dans le menu que ce qui sert au quotidien ; constaté sur Arrivées-Départs.
+**Conséquences** : bouton « Ajouter aussi » pour les pages facultatives ; retirées du menu d'Arrivées-Départs.
+
 ### 2026-11-23 — Menu : Documentation et Support sous l'Accueil ; une page de documentation modèle
 **Décision** : dans le menu, **Documentation** et **Support** sont des sous-pages de **Accueil** (l'aide et le contact sont rangés avec la page d'entrée). À l'installation du sujet Documentation, une **page modèle « à modifier »** est créée (titre, objet, qui fait quoi, pas à pas, contact) ; le bouton « Nouvelle page » part du même canevas.
 **Raison** : un menu plus logique, et une documentation qui ne démarre jamais vide.

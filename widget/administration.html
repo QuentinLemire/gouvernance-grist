@@ -1093,12 +1093,14 @@ async function chargerSujets() {
 function cartePages() {
   if (!etat.pages) { lirePages().then((p) => { etat.pages = p; afficher(); }); return ''; }
   const presentes = new Set(etat.pages.map((p) => p.cle));
-  const manquent = PAGES.filter((x) => !presentes.has(x.cle));
+  const manquent = PAGES.filter((x) => !presentes.has(x.cle) && !x.facultative);
+  const facultativesAbsentes = PAGES.filter((x) => !presentes.has(x.cle) && x.facultative);
   return `<section class="carte"><h2>🧭 Pages standard</h2>
-    <p class="aide">Menu commun : Accueil, Documentation, Support, vos pages métier, puis Administration › Utilisateurs et Boîte à outils.</p>
-    ${PAGES.map((x) => `<div class="sujet"><div><b>${esc(x.nom)}</b></div>${presentes.has(x.cle) ? '<span class="badge vert">présente</span>'
-      : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>' : '<span class="badge orange">manquante</span>'}</div>`).join('')}
-    <p><button class="bouton primaire" data-action="pages">${manquent.length ? '➕ Créer les pages standard et ranger le menu' : '↕️ Ranger le menu'}</button></p>
+    <p class="aide">Menu commun : Accueil (› Documentation, Support), vos pages métier, puis Administration (› Utilisateurs et Boîte à outils, facultatives).</p>
+    ${PAGES.map((x) => `<div class="sujet"><div><b>${esc(x.nom)}</b>${x.facultative ? ' <span class="badge">facultative</span>' : ''}</div>${presentes.has(x.cle) ? '<span class="badge vert">présente</span>'
+      : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>' : x.facultative ? '<span class="badge">non créée</span>' : '<span class="badge orange">manquante</span>'}</div>`).join('')}
+    <p><button class="bouton primaire" data-action="pages">${manquent.length ? '➕ Créer les pages standard et ranger le menu' : '↕️ Ranger le menu'}</button>
+      ${facultativesAbsentes.length ? `<button class="bouton" data-action="pages-facultatives">➕ Ajouter aussi : ${facultativesAbsentes.map((x) => esc(x.nom)).join(', ')}</button>` : ''}</p>
   </section>`;
 }
 
@@ -1201,8 +1203,10 @@ const PAGES = [
   { cle: 'documentation', nom: '📖 Documentation', table: 'Documentation', fichier: 'documentation.html' },
   { cle: 'support', nom: '🆘 Support', table: 'Support', fichier: 'support.html' },
   { cle: 'administration', nom: '🛡️ Administration', fichier: 'administration.html' },
-  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Utilisateurs', sousPage: true },
-  { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Parametres', fichier: 'boite-a-outils.html', sousPage: true },
+  // Facultatives : l'onglet Utilisateurs de l'Administration suffit au quotidien ; la Boîte à outils est un outil
+  // de développeur. Elles ne sont créées que si on le demande (bouton dédié).
+  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Utilisateurs', sousPage: true, facultative: true },
+  { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Parametres', fichier: 'boite-a-outils.html', sousPage: true, facultative: true },
 ];
 
 /**
@@ -1229,12 +1233,13 @@ async function lirePages() {
  * Page Utilisateurs : annuaire et fiche liée, côte à côte.
  * @param {HTMLElement} bouton
  */
-async function creerPages(bouton) {
+async function creerPages(bouton, avecFacultatives = false) {
   await occupe(bouton, async () => {
     const presentes = new Set((await lirePages()).map((p) => p.cle));
     const tableRef = (t) => etat.meta.parId[t]?.id;
     const creees = [];
-    for (const page of PAGES.filter((x) => !presentes.has(x.cle) && x.table && tableRef(x.table))) {
+    // Les pages facultatives (Utilisateurs, Boîte à outils) ne sont créées que sur demande explicite.
+    for (const page of PAGES.filter((x) => !presentes.has(x.cle) && x.table && tableRef(x.table) && (avecFacultatives || !x.facultative))) {
       if (page.fichier) {
         const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
         await agir([
@@ -1518,6 +1523,7 @@ document.addEventListener('click', async (e) => {
     }
     case 'publier': return publierNorme(b);
     case 'pages': return creerPages(b);
+    case 'pages-facultatives': return creerPages(b, true);
   }
 });
 

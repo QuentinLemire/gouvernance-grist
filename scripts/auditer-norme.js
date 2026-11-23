@@ -64,7 +64,7 @@ const TRACABILITE = { CreeLe: 0, CreePar: 0, ModifieLe: 2, ModifiePar: 2 };
 const ROLES_GENERIQUES = ['Administrateur', 'Gestionnaire', 'Contributeur', 'Lecteur'];
 
 /** Pages génériques qui doivent être chargées par URL depuis ce dépôt (P7). */
-const WIDGETS_GENERIQUES = ['accueil.html', 'documentation.html', 'support.html', 'administration.html', 'boite-a-outils.html'];
+const WIDGETS_GENERIQUES = ['accueil.html', 'documentation.html', 'support.html', 'administration.html', 'boite-a-outils.html'];   // la Boîte à outils est facultative
 
 /** Symboles du rapport. */
 const OK = '✅', PARTIEL = '⚠️', ABSENT = '❌';

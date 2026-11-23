@@ -51,7 +51,7 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Documentation | Documentation | `documentation.html` | Sommaire, recherche, pages Markdown, édition avec aperçu |
 | Support | Support | `support.html` | Créer une demande et converser avec le support |
 | Administration | (aucune) | `administration.html` | Utilisateurs, droits, support (clore / rouvrir), mise à la norme, paramètres, journal, aide |
-| Boîte à outils | Parametres | `boite-a-outils.html` | Outil de Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)) : schéma, gestion des tables et colonnes |
+| Boîte à outils *(facultative)* | Parametres | `boite-a-outils.html` | Outil de Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)) : schéma, gestion des tables et colonnes |
 
 Adresse : `https://raw.githack.com/QuentinLemire/gouvernance-grist/main/widget/<fichier>`
 (ou `https://quentinlemire.github.io/gouvernance-grist/widget/<fichier>` une fois GitHub Pages activé).

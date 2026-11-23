@@ -16,11 +16,11 @@
 | P4 Ordre des colonnes | ✅ | Traçabilité en dernier |
 | P5 Droits | ✅ | `user.Profil` ; rôles génériques + rôles métier (ci-dessous) ; non-inscrits : Accueil seulement ; 245 règles |
 | P6 Registre unique | ✅ | Agents partis dans `Personnel` (colonne `parti`) |
-| P7 Widgets | ✅ | Accueil, Documentation, Support, Administration, Boîte à outils chargés depuis le dépôt ; fiches (4 pages) et pilotage (3 pages) collés dans le document, un code chacun, copie versionnée localement |
+| P7 Widgets | ✅ | Accueil, Documentation, Support, Administration chargés depuis le dépôt (Utilisateurs et Boîte à outils, facultatives, non retenues) ; fiches (4 pages) et pilotage (3 pages) collés dans le document, un code chacun, copie versionnée localement |
 | Formules en erreur | ✅ | Aucune |
 
 ## Menu
-Accueil (Documentation, Support) · Fiche d'arrivée · Fiche de départ · Bannette du bureau · Pilotage (Personnel présent, Personnel parti, Fiches des agents partis, Annuaire) · Administration (Utilisateurs, Référentiel, Données des agents, Boîte à outils).
+Accueil (Documentation, Support) · Fiche d'arrivée · Fiche de départ · Bannette du bureau · Pilotage (Personnel présent, Personnel parti, Fiches des agents partis, Annuaire) · Administration (Référentiel, Données des agents). Les utilisateurs se gèrent dans l'onglet Utilisateurs de l'Administration.
 ⚠️ Ne pas utiliser « Ranger le menu » du widget Administration dans ce document : il remettrait Référentiel et Données des agents (pages métier) sous Pilotage.
 Les pages d'administration portent un « Verrou administration » (section sur la table `VueAdmin`, illisible hors administrateurs) : elles n'apparaissent pas aux autres rôles.
 
