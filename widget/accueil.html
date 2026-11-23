@@ -136,9 +136,9 @@ async function afficher() {
   const mailto = contact ? `mailto:${esc(contact)}?subject=${encodeURIComponent("Demande d'accès à " + appli)}&body=${encodeURIComponent("Bonjour,\n\nJe souhaite accéder à " + appli + ".\nMon service :\nMotif :\n\nMerci.")}` : '';
   let html;
 
-  // Choix de l'écran selon le résultat de la lecture de Utilisateurs :
-  // une liste = personne inscrite ; null = personne sans accès.
-  if (!Array.isArray(utilisateurs)) {
+  // Choix de l'écran selon le résultat de la lecture de Utilisateurs : une personne inscrite y voit au moins
+  // sa propre ligne ; une personne sans accès reçoit null (table interdite) ou une liste vide (lignes masquées).
+  if (!Array.isArray(utilisateurs) || !utilisateurs.length) {
     // Personne sans accès : tout l'écran est consacré à l'obtenir.
     html = `<main><section class="acces-reserve markdown">${markdown(message || "# ⛔ Accès réservé\n\nPour avoir accès aux données, rapprochez-vous des administrateurs.")}</section>
       <section class="carte"><h2>Comment obtenir un accès ?</h2>
