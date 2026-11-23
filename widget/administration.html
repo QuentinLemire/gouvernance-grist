@@ -177,7 +177,7 @@ const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.5';
+const VERSION_WIDGET = '2026-11-23.6';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -1099,15 +1099,18 @@ async function verifierVersionWidget() {
 }
 
 /**
- * Dernier commit de la branche du dépôt (identifiant complet), lu par l'API GitHub sans cache.
- * @returns {Promise<string>}
+ * Dernier commit de la branche qui modifie les widgets (dossier widget/), lu par l'API GitHub sans cache :
+ * un commit qui ne touche que la documentation ou la structure ne demande pas de mettre les pages à jour.
+ * @returns {Promise<string>} identifiant complet du commit
  */
 async function derniereVersion() {
-  const entetes = { Accept: 'application/vnd.github.sha' };
+  const entetes = { Accept: 'application/vnd.github+json' };
   if (depot().jeton && !depot().gitlab) entetes.Authorization = 'Bearer ' + depot().jeton;
-  const r = await fetch(`https://api.github.com/repos/${GITHUB.proprietaire}/${GITHUB.depot}/commits/${GITHUB.branche}`, { headers: entetes, cache: 'no-store' });
+  const r = await fetch(`https://api.github.com/repos/${GITHUB.proprietaire}/${GITHUB.depot}/commits?sha=${GITHUB.branche}&path=widget&per_page=1`, { headers: entetes, cache: 'no-store' });
   if (!r.ok) throw new Error('Dépôt injoignable (' + r.status + ')');
-  return (await r.text()).trim();
+  const [dernier] = await r.json();
+  if (!dernier) throw new Error('Aucun widget dans le dépôt');
+  return dernier.sha;
 }
 
 /**
