@@ -15,7 +15,7 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 ### 2026-11-23 — Mise à la norme d'une application existante : par phases
 **Décision** : (A) ajouts sans incidence — tables du socle qui ne dépendent pas des utilisateurs, traçabilité ; (B) Entites / Utilisateurs et droits ; (C) nommage. Chaque phase est vérifiée (formules, widgets) avant la suivante.
 **Raison** : sur Arrivées-Départs, l'installateur complet aurait doublé des colonnes et posé des règles par-dessus 224 règles existantes.
-**Appliqué** : phase A sur Arrivées-Départs.
+**Appliqué** : phases A et B sur Arrivées-Départs (conforme 16/16 le 2026-11-23).
 
 ### 2026-11-23 — Plusieurs entités par personne : Entité + Périmètre (P5)
 **Décision** : `Utilisateurs.Entite` reste le rattachement principal (une seule entité). On ajoute :
@@ -48,4 +48,4 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 ## Points ouverts
 
 - **Forme des noms de colonnes** : la norme mélange `Nom_complet` (mots séparés par `_`) et `CreeLe` (mots collés). Choisir une forme unique pour les nouvelles colonnes, sans renommer l'existant.
-- **Attribut `user.Profil`** : renommer `user.Moi` en `user.Profil` dans les applications existantes (touche toutes les règles d'accès).
+- **Bureaux en sous-entités** : dans les applications qui ont une table de bureaux propre (Arrivées-Départs), la passer en sous-entités de `Entites` — à faire quand une évolution le justifie.

@@ -22,6 +22,19 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - Une formule comme `rec.Cle.endswith("_jeton")` est acceptée à l'enregistrement, mais Grist ne sait pas l'évaluer : la règle passe en erreur et **bloque toute la table, propriétaires compris**.
 - **Parade** : comparaisons simples, `in` sur une liste explicite (`rec.Cle in ["Github_jeton", "Gitlab_jeton"]`), `and` / `or` / `not`. Après chaque nouvelle règle, relire la table avec un compte propriétaire.
 
+### Renommer des colonnes
+- `RenameColumn` met à jour **toutes les formules et toutes les règles d'accès** (y compris `user.<attribut>.<colonne>` et la colonne de recherche de l'attribut). Le code des widgets, lui, est à adapter à la main.
+- Vérifier ensuite les formules d'affichage (`$ref.colonne`) et les tables de résumé.
+
+### Éditeur de règles « Invalide »
+- Une règle **sans condition** dans les règles par défaut, suivie des règles intégrées de Grist, met l'éditeur en « Invalide » (le moteur, lui, l'applique). Écrire `True` à la place d'une condition vide.
+
+### L'installateur et les tables nouvelles
+- `AddTable` ignore le réglage de recalcul des colonnes : sans correction, `ModifieLe` / `ModifiePar` ne sont remplis qu'à la création. Corrigé le 2026-11-23 dans l'installateur et le widget Administration ; à contrôler avec le script d'audit (P2).
+
+### Tester les droits
+- Permissions avancées → **« Voir en tant que »** : on voit le menu et les données exactement comme un utilisateur donné. À faire pour chaque rôle après une modification des règles.
+
 ### Widgets copiés en plusieurs exemplaires
 - Un même code collé dans plusieurs pages diverge vite et chaque correction doit être faite N fois. Voir P7.
 
