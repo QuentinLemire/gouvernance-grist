@@ -177,7 +177,7 @@ const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.8';
+const VERSION_WIDGET = '2026-11-23.9';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -1203,7 +1203,9 @@ async function chargerSujets() {
       // Colonnes du document absentes de la norme : à publier si ce document est la source.
       // (pas pour une table « extension » : ses autres colonnes appartiennent au sujet principal)
       for (const t of def.tables.filter((u) => !u.extension)) for (const c of (etat.meta.parId[t.tableId]?.colonnes || [])) if (!t.columns.some((x) => x.id === c.colId)) ajouts.push(t.tableId + '.' + c.colId);
-      const absent = def.tables.every((t) => !aTable(t.tableId));
+      // Absent : aucune de ses tables propres (une table « extension », comme Entites pour Territoires, appartient au socle)
+      const propres = def.tables.filter((t) => !t.extension);
+      const absent = (propres.length ? propres : def.tables).every((t) => !aTable(t.tableId));
       // Hors document source : colonnes présentes mais pas dans l'ordre de la norme.
       const desordre = !estSource() && def.tables.some((t) => {
         const ici = (etat.meta.parId[t.tableId]?.colonnes || []).map((c) => c.colId).filter((id) => t.columns.some((x) => x.id === id));
