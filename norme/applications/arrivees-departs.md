@@ -2,7 +2,7 @@
 
 - **Document** : https://grist.numerique.gouv.fr/o/arrivees-departsmom/7vFZ964YgDgJ/ArriveesdepartsMOM
 - **Rôle** : fiches d'arrivée et de départ des agents (DGOM, SMA, CABMOM), circuit RH → bureau → BSSIOM, annuaire.
-- **Dernier audit** : 2026-11-23 — **conforme : 16 points sur 16** (`scripts/auditer-norme.js`).
+- **Dernier audit** : 2026-11-23 — **conforme : 17 points sur 17** (`scripts/auditer-norme.js`), nommage strict compris.
 
 ## État par principe (audit automatique du 2026-11-23)
 
@@ -12,7 +12,7 @@
 | P1 Entites | ✅ | Colonnes de la norme + colonnes propres : `libelle`, `emetteur`, `utilise`, `etape_bureau` |
 | P1 Utilisateurs | ✅ | Colonnes de la norme (`Entite` + `Perimetre`, `Entites_vues`, `Actif`…) + colonnes propres : `qualite`, `est_moi`, `utilise`, `bureaux`, `par_bureau` |
 | P2 Traçabilité | ✅ | Les 17 tables métier |
-| P3 Nommage | ✅ | Colonnes de la norme conformes ; 175 colonnes métier existantes tolérées |
+| P3 Nommage | ✅ | Toutes les colonnes en majuscule initiale (≈ 190 renommées le 2026-11-23) ; `Courriel`, `Courriel_cle`, `Courriel_pro` |
 | P4 Ordre des colonnes | ✅ | Traçabilité en dernier |
 | P5 Droits | ✅ | `user.Profil` ; rôles génériques + rôles métier (ci-dessous) ; non-inscrits, inactifs ou sans rôle : Accueil seulement ; 133 règles (245 avant simplification du 2026-11-23) |
 | P6 Registre unique | ✅ | Agents partis dans `Personnel` (colonne `parti`) |
@@ -28,6 +28,7 @@ Les pages d'administration portent un « Verrou administration » (section sur l
 ## Vérifié « en tant que » (2026-11-23)
 - Gestionnaire SMA : menu sans Administration ; Personnel présent = les 3 agents du SMA.
 - Chef du bureau BCL : Personnel présent = le seul agent du BCL.
+- Personne non inscrite : seulement l'Accueil, avec l'écran « Demander un accès ».
 - BSSIOM : les 13 agents présents, menu sans Administration ; coche et décoche les applications ouvertes sur une fiche signée, refusé sur une fiche non signée.
 
 ## Simplification des règles d'accès (2026-11-23)
@@ -53,8 +54,12 @@ Décision du 2026-11-23 : Entité + Périmètre.
 - pages standard créées (widgets du dépôt), anciennes pages d'administration retirées du menu.
 - **Reste pour plus tard** : la table `Bureaux` reste une table métier (11 colonnes Référence, 24 règles) ; la passer en sous-entités de `Entites` est une étape à part.
 
-### Phase C — nommage (P3)
-Renommer les colonnes en `Majuscule_initiale` : Grist met à jour formules et règles, mais le code des widgets est à adapter en même temps.
+### Phase C — nommage (P3) (faite le 2026-11-23)
+- ≈ 190 colonnes renommées (`nom` → `Nom`, `email_pro` → `Courriel_pro`, `Email` → `Courriel`…) par `RenameColumn` : Grist a mis à jour formules et règles d'accès.
+- **À reprendre à la main** : les formules qui lisent une autre ligne (`$group[0].nom` dans l'annuaire, `p = …; p.statut`) — 20 formules corrigées ; le code des fiches et du pilotage (script `migration/renommer_code.py` de la copie locale, exceptions : classes CSS, identifiants d'éléments, état des filtres, fichiers de l'export Excel).
+- Vérifié : aucune formule en erreur, 7 widgets à jour, circuit complet (RH → chef de bureau → BSSIOM → « Installé ») rejoué avec un agent de test, droits par rôle inchangés.
+- ⚠️ Les flux n8n qui lisent l'annuaire (`Personnel_summary_Cle`) par l'API doivent utiliser les nouveaux noms (`Nom`, `Prenom`, `Courriel`, `Telephone`…).
+- Corrigés au passage : la Bannette ne se chargeait pas (aucune lecture au démarrage) et y affichait des fiches déjà signées (une section non lue effaçait la signature connue de Personnel).
 
 ## Rôles métier propres à l'application
 - **Chef de bureau / Adjoint au chef de bureau** : signent les fiches des agents de leurs bureaux.

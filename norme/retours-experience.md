@@ -30,6 +30,11 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - Les règles qui se répètent dans chaque groupe de colonnes (`+U` administrateur, `-U` hors entité, `-U` final) sont déjà couvertes par les règles de la table et les règles par défaut : les retirer ne change aucun droit.
 - Méthode : sauvegarder les règles (export JSON), simplifier, vérifier que l'éditeur affiche « Enregistré » sans règle invalide, puis tester **chaque rôle** en « Voir en tant que », lecture **et** écriture (une case cochée puis décochée). Arrivées-Départs : 245 → 133 règles.
 
+### Renommer beaucoup de colonnes d'une application existante
+- Préparer **d'abord** le code des widgets (copie locale), renommer ensuite, puis déployer aussitôt : la fenêtre où les fiches sont cassées reste courte.
+- `RenameColumn` ne suit pas les lectures indirectes : `$group[0].nom`, `p = $agent; p.statut`. Les chercher dans toutes les formules (motif `.nom` / `$nom`) et les corriger ; ne jamais toucher `user.Email` (variable de Grist).
+- Le pare-feu du serveur refuse l'envoi de code par l'API REST ; la connexion de la page Grist (`docData.sendActions`) passe, et permet de recopier un code collé une fois dans les autres sections.
+
 ### Renommer des colonnes
 - `RenameColumn` met à jour **toutes les formules et toutes les règles d'accès** (y compris `user.<attribut>.<colonne>` et la colonne de recherche de l'attribut). Le code des widgets, lui, est à adapter à la main.
 - Vérifier ensuite les formules d'affichage (`$ref.colonne`) et les tables de résumé.
