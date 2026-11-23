@@ -3,6 +3,8 @@
 Ce dépôt décrit **les tables et les principes communs** à toutes les applications Grist de la DGOM, et les widgets qui vont avec.
 Le Grist **« Gouvernance »** en est la base source ; le Grist **« Modèle DGOM »** est le point de départ de toute nouvelle application.
 
+Les règles écrites, le journal des décisions, la checklist d'audit et l'état de chaque application sont dans le dossier [`norme/`](norme/README.md).
+
 ## Les tables standard (`structure/`)
 
 | Fichier | Tables | Rôle |
