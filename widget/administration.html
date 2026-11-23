@@ -172,7 +172,7 @@ const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.2';
+const VERSION_WIDGET = '2026-11-23.3';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -1156,43 +1156,69 @@ async function chargerSujets() {
 }
 
 /**
- * Carte « Pages standard » : ce qui manque dans le menu et le bouton pour le créer.
- * Au premier appel, lance la lecture des pages et redessine l'onglet quand elle est finie.
- * @returns {string} HTML de la carte
+ * Ligne d'un sujet de tables dans l'onglet Structure : nom, description, ce qui manque, état.
+ * @param {object} s sujet (SUJETS)
  */
-function cartePages() {
-  if (!etat.pages) { lirePages().then((p) => { etat.pages = p; afficher(); }); return ''; }
-  const presentes = new Set(etat.pages.map((p) => p.cle));
-  const manquent = PAGES.filter((x) => !presentes.has(x.cle) && !x.facultative);
-  return `<section class="carte"><h2>🧭 Pages standard</h2>
-    <p class="aide">Socle : Accueil, vos pages métier, puis Administration (› Utilisateurs, Boîte à outils). Hors socle, à installer si besoin : Documentation et Support (rangées sous l'Accueil).</p>
-    ${PAGES.map((x) => `<div class="sujet"><div><b>${esc(x.nom)}</b> ${x.facultative ? '<span class="badge">hors socle</span>' : '<span class="badge bleu">socle</span>'}</div>${presentes.has(x.cle) ? '<span class="badge vert">présente</span>'
-      : x.facultative ? `<button class="bouton petit" data-action="page-installer" data-valeur="${x.cle}">Installer</button>`
-      : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>' : '<span class="badge orange">manquante</span>'}</div>`).join('')}
-    <p><button class="bouton primaire" data-action="pages">${manquent.length ? '➕ Créer les pages standard et ranger le menu' : '↕️ Ranger le menu'}</button></p>
-  </section>`;
+function ligneSujet(s) {
+  const x = etat.sujets[s.fichier];
+  // Colonnes propres au document, à publier : sans celles qu'apporte un module (ex. Entites.Territoire)
+  const ajouts = (x.ajouts || []).filter((a) => { const [t, c] = a.split('.'); return !colonnesDesExtensions(t, s.fichier).has(c); });
+  const details = (x.manques?.length && x.etat === 'partiel' ? '<br>Manque : ' + esc(x.manques.slice(0, 8).join(', ')) + (x.manques.length > 8 ? '…' : '') : '')
+    + (x.desordre && x.etat === 'partiel' ? '<br>Colonnes à remettre dans l\'ordre de la norme' : '');
+  return { ajouts, details, x };
 }
 
 /**
- * Contenu de l'onglet « Structure » : publication (document source seulement), état de chaque
- * sujet de la norme, pages standard du menu et ajout de la traçabilité.
- * Au premier affichage, lance la lecture du dépôt et redessine quand elle est terminée.
+ * Contenu de l'onglet « Structure » : publication (document source seulement), le socle (tables et pages
+ * présentes dans toute application), les modules facultatifs (bouton « Installer ») et la traçabilité.
+ * Au premier affichage, lance la lecture du dépôt et des pages, et redessine quand elle est terminée.
  * @returns {string} HTML de l'onglet
  */
 function ongletStructure() {
   if (!etat.sujets) { chargerSujets().then(afficher); return '<p class="vide">Lecture du dépôt Git…</p>'; }
-  const badge = { present: '<span class="badge vert">installé</span>', partiel: '<span class="badge orange">incomplet</span>', absent: '<span class="badge">absent</span>', inconnu: '<span class="badge rouge">dépôt injoignable</span>' };
+  if (!etat.pages) { lirePages().then((p) => { etat.pages = p; afficher(); }); return '<p class="vide">Lecture du menu…</p>'; }
+  const presentes = new Set(etat.pages.map((p) => p.cle));
+  const aPublier = (a) => estSource() && a.length ? '<span class="badge bleu" title="' + esc(a.join(', ')) + '">à publier</span>' : '';
+  const etatSocle = { present: '<span class="badge vert">installé</span>', partiel: '<span class="badge orange">incomplet</span>', absent: '<span class="badge orange">absent</span>', inconnu: '<span class="badge rouge">dépôt injoignable</span>' };
+
+  // Socle : tables, puis pages
+  const socle = SUJETS.filter((s) => s.obligatoire).map((s) => {
+    const { ajouts, details, x } = ligneSujet(s);
+    return `<div class="sujet"><div><b>${esc(s.nom)}</b><br><small>${x.def ? esc(x.def.description || '') : ''}${details}</small></div>
+      ${aPublier(ajouts)} ${etatSocle[x.etat]} ${x.etat === 'absent' || x.etat === 'partiel' ? `<button class="bouton petit primaire" data-action="installer" data-sujet="${s.fichier}">Réparer</button>` : ''}</div>`;
+  }).join('');
+  const pagesSocle = PAGES.filter((x) => !x.facultative);
+  const manquent = pagesSocle.filter((x) => !presentes.has(x.cle));
+  const lignesPages = pagesSocle.map((x) => `<div class="sujet"><div><b>${esc(x.nom)}</b> <small>page</small></div>${presentes.has(x.cle) ? '<span class="badge vert">présente</span>'
+    : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>' : '<span class="badge orange">manquante</span>'}</div>`).join('');
+
+  // Modules facultatifs : une ligne par module (ses tables et, s'il en a une, sa page)
+  const modules = SUJETS.filter((s) => !s.obligatoire).map((s) => {
+    const { ajouts, details, x } = ligneSujet(s);
+    const page = PAGES.find((p) => p.sujet === s.fichier);
+    const pageOk = !page || presentes.has(page.cle);
+    const complet = x.etat === 'present' && pageOk;
+    const action = x.etat === 'inconnu' ? etatSocle.inconnu
+      : complet ? '<span class="badge">installé</span>'
+      : `<button class="bouton petit primaire" data-action="module" data-sujet="${s.fichier}">${x.etat === 'absent' ? 'Installer' : 'Compléter'}</button>`;
+    const reste = !complet && x.etat !== 'absent' ? (x.etat !== 'present' ? details : '') + (pageOk ? '' : '<br>Page « ' + esc(page.nom) + ' » à créer') : '';
+    return `<div class="sujet"><div><b>${page ? esc(page.nom) : esc(s.nom)}</b>${page ? ' <small>(tables et page)</small>' : ''}<br><small>${x.def ? esc(x.def.description || '') : ''}${reste}</small></div>
+      ${aPublier(ajouts)} ${action}</div>`;
+  }).join('');
+
   return `
     ${estSource() ? `<section class="carte" style="border-left:4px solid var(--bleu)"><h2>📤 Ce document est la source de la norme</h2>
       <p class="aide">Modifiez ici les tables standard, puis publiez : toutes les applications verront la nouvelle norme à leur prochaine ouverture. ${depot().jeton ? '' : '<br><b>Sans jeton</b> (Paramètres → Github_jeton), les fichiers sont téléchargés et la page du dépôt s\'ouvre pour les déposer.'}</p>
       <button class="bouton primaire" data-action="publier">📤 Publier la norme</button></section>` : ''}
-    <section class="carte"><h2>🧱 Tables standard de la norme DGOM</h2>
-      <p class="aide">Lues en direct sur le <a href="${PAGE_DEPOT}" target="_blank" rel="noopener">dépôt Git</a>. « Installer » ajoute ce qui manque et range les colonnes dans l'ordre de la norme : rien n'est jamais supprimé.</p>
-      ${SUJETS.map((s) => { const x = etat.sujets[s.fichier]; return `<div class="sujet"><div><b>${esc(s.nom)}</b> ${s.obligatoire ? '<span class="badge bleu">socle</span>' : ''}<br>
-        <small>${x.def ? esc(x.def.description || '') : ''}${x.manques?.length && x.etat === 'partiel' ? '<br>Manque : ' + esc(x.manques.slice(0, 8).join(', ')) + (x.manques.length > 8 ? '…' : '') : ''}${x.desordre && x.etat === 'partiel' ? '<br>Colonnes à remettre dans l\'ordre de la norme' : ''}</small></div>
-        ${estSource() && x.ajouts?.length ? '<span class="badge bleu" title="' + esc(x.ajouts.join(', ')) + '">à publier</span>' : ''} ${badge[x.etat]} ${x.etat === 'absent' || x.etat === 'partiel' ? `<button class="bouton petit primaire" data-action="installer" data-sujet="${s.fichier}">Installer</button>` : ''}</div>`; }).join('')}
+    <section class="carte"><h2>🧱 Socle</h2>
+      <p class="aide">Présent dans toute application. Lu en direct sur le <a href="${PAGE_DEPOT}" target="_blank" rel="noopener">dépôt Git</a> ; « Réparer » ajoute ce qui manque et range les colonnes dans l'ordre de la norme : rien n'est jamais supprimé.</p>
+      ${socle}${lignesPages}
+      <p><button class="bouton primaire" data-action="pages">${manquent.length ? '➕ Créer les pages du socle et ranger le menu' : '↕️ Ranger le menu'}</button></p>
     </section>
-    ${cartePages()}
+    <section class="carte"><h2>🧩 Modules facultatifs</h2>
+      <p class="aide">À installer si l'application en a besoin : « Installer » ajoute les tables, leurs données de référence et la page du menu.</p>
+      ${modules}
+    </section>
     <section class="carte"><h2>🕓 Traçabilité</h2>
         <p class="aide">Ajoute « Créé le / par » et « Modifié le / par » à une table métier.</p>
         <div class="barre-outils"><select class="champ" id="traca-table">${options(etat.meta.tables.filter((t) => !t.colonnes.some((c) => c.colId === 'ModifiePar')).map((t) => [t.tableId, t.tableId]), '', 'Table…')}</select>
@@ -1310,7 +1336,7 @@ async function creerPages(bouton, seulement = null) {
     // Sans précision : toutes les pages du socle qui manquent. Avec « seulement » : la page hors socle demandée.
     const voulue = (x) => (seulement ? seulement.includes(x.cle) : !x.facultative);
     // Page hors socle demandée dont la table manque : on installe d'abord son sujet (tables, dépendances, données).
-    for (const x of PAGES.filter((p) => seulement && seulement.includes(p.cle) && p.sujet && !aTable(p.table))) {
+    for (const x of PAGES.filter((p) => seulement && seulement.includes(p.cle) && p.sujet && (!aTable(p.table) || etat.sujets?.[p.sujet]?.etat !== 'present'))) {
       await installerTablesSujet(x.sujet);
       await chargerStructure();
     }
@@ -1382,6 +1408,16 @@ async function installerSujet(bouton, fichier) {
     etat.sujets = null;
     await actualiser();
   });
+}
+
+/**
+ * Installe un module facultatif : ses tables (et dépendances, données de référence) puis sa page, s'il en a une.
+ * @param {HTMLElement} bouton
+ * @param {string} fichier sujet du module
+ */
+function installerModule(bouton, fichier) {
+  const page = PAGES.find((p) => p.sujet === fichier);
+  return page ? creerPages(bouton, [page.cle]) : installerSujet(bouton, fichier);
 }
 
 /**
@@ -1610,6 +1646,7 @@ document.addEventListener('click', async (e) => {
     case 'publier': return publierNorme(b);
     case 'pages': return creerPages(b);
     case 'page-installer': return creerPages(b, [b.dataset.valeur]);
+    case 'module': return installerModule(b, b.dataset.sujet);
   }
 });
 
