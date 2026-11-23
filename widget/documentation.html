@@ -232,7 +232,9 @@ function afficherPage() {
  */
 function editer(d) {
   enEdition = true;
-  d = d || { Titre: '', Rubrique: rubriques[0] || '', Ordre: 0, Contenu: '## Objet\n\n…' };
+  // Nouvelle page : un modèle prêt à compléter (titre, objet, public, étapes, contact), pour des pages homogènes.
+  d = d || { Titre: 'Titre de la page (à modifier)', Rubrique: rubriques[0] || '', Ordre: 0,
+    Contenu: '## Objet\nÀ quoi sert cette page, en une ou deux phrases.\n\n## Qui est concerné\n…\n\n## Pas à pas\n1. …\n2. …\n3. …\n\n## Contact\nUne question ? Page **🆘 Support**.' };
   document.getElementById('page').innerHTML = `<div class="champs">
       <input class="champ" id="e-titre" placeholder="Titre de la page" value="${esc(d.Titre)}">
       <select class="champ" id="e-rubrique">${['', ...rubriques].map((r) => `<option ${r === d.Rubrique ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>

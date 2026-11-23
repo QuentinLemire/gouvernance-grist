@@ -4,6 +4,11 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-23 — Menu : Documentation et Support sous l'Accueil ; une page de documentation modèle
+**Décision** : dans le menu, **Documentation** et **Support** sont des sous-pages de **Accueil** (l'aide et le contact sont rangés avec la page d'entrée). À l'installation du sujet Documentation, une **page modèle « à modifier »** est créée (titre, objet, qui fait quoi, pas à pas, contact) ; le bouton « Nouvelle page » part du même canevas.
+**Raison** : un menu plus logique, et une documentation qui ne démarre jamais vide.
+**Conséquences** : bouton « Ranger le menu » du widget Administration ; `donnees/documentation.json` chargé par l'installateur si la table est vide.
+
 ### 2026-11-23 — Norme assouplie : nommage, rôles métier, widgets métier (P3, P5, P7)
 **Décision** :
 - **P3** : la convention de nommage s'impose au socle et aux nouvelles colonnes ; les colonnes métier existantes sont tolérées.

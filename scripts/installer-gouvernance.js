@@ -70,6 +70,7 @@ let DOC_CIBLE = null;
 // sous la forme « sujet : fichier ». Ils ne sont chargés que si la table est vide.
 const DONNEES_DE_REFERENCE = {
   referentiel_territoires: 'territoires.json',
+  documentation: 'documentation.json',   // une page modèle « à modifier », pour démarrer la documentation
 };
 
 // ===== 2. Accès à l'API Grist du document =====
