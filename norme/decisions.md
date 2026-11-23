@@ -70,6 +70,13 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 **Décision** : le widget Administration porte `VERSION_WIDGET` (à changer à chaque modification) ; « Publier la norme » refuse si la version du dépôt est différente. Une table d'un sujet qui dépend d'un autre sujet définissant la même table est traitée comme « extension », même sans la marque.
 **Raison** : le 2026-11-23, une publication faite avec une copie en cache (raw.githack) a remis `Entites.Territoire` dans Utilisateurs et retiré la marque `extension` de Territoires. Fichiers remis en état (Utilisateurs 1.9, Territoires 1.5).
 
+### 2026-11-23 — Pages de la norme liées à un commit
+**Décision** : les widgets standard sont chargés depuis un commit précis du dépôt, pas depuis la branche `main`. Administration → Structure affiche la version des pages et celle du dépôt, et les met à jour d'un clic.
+**Raison** : par la branche, raw.githack sert l'ancienne version plusieurs minutes après un commit ; une page liée à un commit est servie immédiatement et ne change plus sans action de l'administrateur (mise à jour maîtrisée).
+
+### 2026-11-23 — Onglet Structure : socle et modules
+**Décision** : l'onglet Structure sépare le **socle** (vert « installé », « Réparer » si incomplet) et les **modules facultatifs** (Territoires, Support, Documentation : bouton « Installer » qui pose les tables, les données de référence et la page ; badge gris « installé » sinon).
+
 ### 2026-11-23 — Création du dossier `norme/`
 **Décision** : les règles écrites, les décisions et les audits vivent dans ce dépôt, à côté de la structure.
 

@@ -161,6 +161,11 @@ const GITHUB = { proprietaire: 'QuentinLemire', depot: 'gouvernance-grist', bran
 // Adresse de lecture directe des fichiers du dépôt, et page web du dépôt (pour y déposer des fichiers à la main).
 const DEPOT = `https://raw.githubusercontent.com/${GITHUB.proprietaire}/${GITHUB.depot}/${GITHUB.branche}/`;
 const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
+// Adresse des widgets pour une version donnée (branche ou commit). Liée à un commit, l'adresse est neuve
+// pour raw.githack : servie tout de suite et toujours identique (la branche, elle, reste en cache plusieurs minutes).
+const URL_WIDGETS = (version) => `https://raw.githack.com/${GITHUB.proprietaire}/${GITHUB.depot}/${version}/widget/`;
+// Reconnaît une adresse de widget de la norme : version (branche ou commit) et fichier.
+const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]+)/widget/([^?#]+)`);
 
 /**
  * Sujets transverses de la norme, dans l'ordre d'installation conseillé.
@@ -172,7 +177,7 @@ const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.3';
+const VERSION_WIDGET = '2026-11-23.4';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -400,7 +405,7 @@ async function chargerDonnees() {
 async function actualiser() {
   try { await chargerStructure(); await chargerDonnees(); }
   catch (e) { $('contenu').innerHTML = '<div class="encadre erreur">' + esc(e.message) + '</div>'; return; }
-  etat.droits = null; etat.pages = null;
+  etat.droits = null; etat.pages = null; etat.versions = null;
   majEntete();
   afficher();
 }
@@ -1089,8 +1094,57 @@ async function verifierVersionWidget() {
       { headers: { Accept: 'application/vnd.github.raw' }, cache: 'no-store' });
     if (!r.ok) return;
     const v = ((await r.text()).match(/const VERSION_WIDGET = '([^']+)'/) || [])[1];
-    if (v && v !== VERSION_WIDGET) throw new Error('Cette page Administration est une copie périmée (version ' + VERSION_WIDGET + ', dépôt : ' + v + '). Rechargez la page (Ctrl+Maj+R) dans quelques minutes, puis publiez.');
+    if (v && v !== VERSION_WIDGET) throw new Error('Cette page Administration est une copie périmée (version ' + VERSION_WIDGET + ', dépôt : ' + v + '). Cliquez sur « Mettre les pages à la dernière version » (onglet Structure), puis publiez.');
   } catch (e) { if (/périmée/.test(e.message)) throw e; }
+}
+
+/**
+ * Dernier commit de la branche du dépôt (identifiant complet), lu par l'API GitHub sans cache.
+ * @returns {Promise<string>}
+ */
+async function derniereVersion() {
+  const entetes = { Accept: 'application/vnd.github.sha' };
+  if (depot().jeton && !depot().gitlab) entetes.Authorization = 'Bearer ' + depot().jeton;
+  const r = await fetch(`https://api.github.com/repos/${GITHUB.proprietaire}/${GITHUB.depot}/commits/${GITHUB.branche}`, { headers: entetes, cache: 'no-store' });
+  if (!r.ok) throw new Error('Dépôt injoignable (' + r.status + ')');
+  return (await r.text()).trim();
+}
+
+/**
+ * Sections du document qui affichent un widget de la norme, avec leur version (branche ou commit) et leur fichier.
+ * @returns {Promise<{id: number, options: object, vue: object, version: string, fichier: string}[]>}
+ */
+async function sectionsWidgets() {
+  return ((await lire('_grist_Views_section')) || []).map((s) => {
+    const options = json(s.options, {}), vue = json(options.customView, {});
+    const m = (vue.url || '').match(ADRESSE_WIDGET);
+    return m ? { id: s.id, options, vue, version: m[1], fichier: m[2] } : null;
+  }).filter(Boolean);
+}
+
+/** Lit la version des pages et celle du dépôt (affichées dans l'onglet Structure), puis redessine. */
+async function chargerVersions() {
+  const [sections, derniere] = await Promise.all([sectionsWidgets(), derniereVersion().catch(() => '')]);
+  etat.versions = { pages: [...new Set(sections.map((s) => s.version))], derniere };
+  afficher();
+}
+
+/**
+ * Fait pointer toutes les pages de la norme (Accueil, Documentation, Support, Administration, Boîte à outils)
+ * sur le dernier commit du dépôt. Les pages se rechargent d'elles-mêmes, sans attendre aucun cache.
+ * @param {HTMLElement} bouton
+ */
+async function mettreAJourPages(bouton) {
+  await occupe(bouton, async () => {
+    const version = await derniereVersion(), sections = await sectionsWidgets();
+    const aFaire = sections.filter((s) => s.version !== version);
+    if (!aFaire.length) return message('✅ Les pages sont déjà à la dernière version (' + version.slice(0, 7) + ').');
+    await tracer('Pages mises à jour', 'version ' + version.slice(0, 7) + ' : ' + [...new Set(aFaire.map((s) => s.fichier))].join(', '));
+    // En dernier : cette page-ci se recharge aussitôt sa propre adresse changée.
+    await agir(aFaire.map((s) => ['UpdateRecord', '_grist_Views_section', s.id, { options: JSON.stringify({ ...s.options,
+      customView: JSON.stringify({ ...s.vue, url: URL_WIDGETS(version) + s.fichier }) }) }]));
+    message('✅ ' + aFaire.length + ' page(s) mises à la version ' + version.slice(0, 7) + '.');
+  });
 }
 
 /**
@@ -1169,6 +1223,18 @@ function ligneSujet(s) {
 }
 
 /**
+ * Ligne « Version des pages » : version affichée par les pages de la norme, comparée au dépôt.
+ * @returns {string} HTML
+ */
+function ligneVersion() {
+  if (!etat.versions) { chargerVersions(); return ''; }
+  const { pages, derniere } = etat.versions, court = (v) => (/^[0-9a-f]{40}$/.test(v) ? v.slice(0, 7) : v);
+  const ajour = derniere && pages.length === 1 && pages[0] === derniere;
+  return `<div class="sujet"><div><b>Version des pages</b><br><small>Pages : ${esc(pages.map(court).join(', ') || '—')}${derniere ? ' · dépôt : ' + esc(court(derniere)) : ''}${pages.includes(GITHUB.branche) ? ' · « ' + esc(GITHUB.branche) + ' » suit le dépôt mais avec plusieurs minutes de cache' : ''}</small></div>
+    ${ajour ? '<span class="badge vert">à jour</span>' : `<button class="bouton petit primaire" data-action="versions">🔄 Mettre les pages à la dernière version</button>`}</div>`;
+}
+
+/**
  * Contenu de l'onglet « Structure » : publication (document source seulement), le socle (tables et pages
  * présentes dans toute application), les modules facultatifs (bouton « Installer ») et la traçabilité.
  * Au premier affichage, lance la lecture du dépôt et des pages, et redessine quand elle est terminée.
@@ -1213,6 +1279,7 @@ function ongletStructure() {
     <section class="carte"><h2>🧱 Socle</h2>
       <p class="aide">Présent dans toute application. Lu en direct sur le <a href="${PAGE_DEPOT}" target="_blank" rel="noopener">dépôt Git</a> ; « Réparer » ajoute ce qui manque et range les colonnes dans l'ordre de la norme : rien n'est jamais supprimé.</p>
       ${socle}${lignesPages}
+      ${ligneVersion()}
       <p><button class="bouton primaire" data-action="pages">${manquent.length ? '➕ Créer les pages du socle et ranger le menu' : '↕️ Ranger le menu'}</button></p>
     </section>
     <section class="carte"><h2>🧩 Modules facultatifs</h2>
@@ -1644,6 +1711,7 @@ document.addEventListener('click', async (e) => {
       return occupe(b, async () => { await creerStructure([{ tableId: t, columns: TRACABILITE }]); await tracer('Traçabilité ajoutée', t); message('✅ Traçabilité ajoutée à ' + esc(t)); await actualiser(); });
     }
     case 'publier': return publierNorme(b);
+    case 'versions': return mettreAJourPages(b);
     case 'pages': return creerPages(b);
     case 'page-installer': return creerPages(b, [b.dataset.valeur]);
     case 'module': return installerModule(b, b.dataset.sujet);

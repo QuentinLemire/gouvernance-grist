@@ -48,7 +48,7 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 
 ### Widgets chargés depuis le dépôt : cache de raw.githack
 - Après un commit, raw.githack peut servir l'ancienne version plusieurs minutes. Une action faite pendant ce délai (ex. publier la norme) tourne avec l'ancien code.
-- **Parade** : attendre quelques minutes et recharger (Ctrl+Maj+R) ; « Publier la norme » vérifie maintenant sa version avant d'écrire.
+- **Parade** : les pages pointent sur un **commit précis** (`raw.githack.com/<compte>/<dépôt>/<commit>/widget/…`), adresse neuve donc servie tout de suite et toujours identique. Bouton Administration → Structure → « 🔄 Mettre les pages à la dernière version » après chaque évolution des widgets. « Publier la norme » vérifie aussi sa version avant d'écrire.
 
 ### Sauvegardes
 - Grist garde des sauvegardes automatiques (Historique du document → Versions). Vérifier qu'il y en a une récente avant une modification lourde.
