@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.5",
+  "version": "1.6",
   "sujet": "UTILISATEURS",
   "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
   "tables": [
@@ -100,6 +100,20 @@
           "id": "Entite",
           "label": "Entité",
           "type": "Ref:Entites",
+          "visibleCol": "Nom"
+        },
+        {
+          "id": "Perimetre",
+          "label": "Périmètre (autres entités)",
+          "type": "RefList:Entites",
+          "visibleCol": "Nom"
+        },
+        {
+          "id": "Entites_vues",
+          "label": "Entités vues",
+          "type": "RefList:Entites",
+          "isFormula": true,
+          "formula": "# Entité principale + périmètre, avec toutes leurs sous-entités (hiérarchie Parent)\nvues = set()\na_voir = [e for e in [$Entite] + list($Perimetre) if e]\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
           "visibleCol": "Nom"
         },
         {

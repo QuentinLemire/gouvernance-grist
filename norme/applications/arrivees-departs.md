@@ -23,7 +23,11 @@
 ## Plan de mise à la norme
 
 1. **Sans risque (ajouts seulement)** : installer Territoires, Parametres, Accueil, Support, Support_commentaires, Journal_Admin (widget Administration → « Installer ») ; ajouter la traçabilité aux tables métier.
-2. **Après décision sur les entités multiples** (voir `decisions.md`, points ouverts) : Entites et Utilisateurs — ajouter les colonnes de la norme calculées depuis l'existant, ou migrer (réécriture des règles d'accès et d'une partie du code).
+2. **Entites et Utilisateurs** (décision du 2026-11-23 : Entité + Périmètre) :
+   - les **bureaux** (table `Bureaux`, 24 lignes, déjà rattachés à une entité) deviennent des **sous-entités** de `Entites` ;
+   - `Utilisateurs.entites` (plusieurs entités) et `bureaux` → `Entite` (la principale) + `Perimetre` (les autres) ; `entites_vues` est remplacée par `Entites_vues` de la norme ;
+   - `par_bureau` (chefs limités à leurs bureaux) devient naturel : leur périmètre est leurs bureaux ;
+   - à réécrire : les règles d'accès qui lisent `entites_vues`, `bureaux`, `par_bureau`, et les références `bureau` → `Entite` dans Personnel et les sections.
 3. **Plus tard** : nommage (P3) et `user.Profil` (P5) — touchent toutes les formules et règles ; à faire en une fois.
 
 ## Rôles métier propres à l'application

@@ -28,6 +28,7 @@ D'abord ce qui identifie la ligne, puis le contenu, les liens, l'état, et en de
 - Le rôle vient de la table Utilisateurs, via l'attribut utilisateur **`user.Profil`**.
 - Rôles génériques : **Administrateur, Gestionnaire, Contributeur, Lecteur**. Une application peut ajouter des rôles métier, documentés dans son fichier `applications/…`.
 - Une personne non inscrite ou inactive ne voit **que la page d'accueil**.
+- **Périmètre** : `Entite` = rattachement principal ; `Perimetre` = autres entités gérées (facultatif) ; `Entites_vues` (calculée) = les deux avec toutes leurs sous-entités. Un bureau est une sous-entité (`Parent`). Règle d'accès type : `rec.Entite in user.Profil.Entites_vues`.
 
 ## P6 — Un seul registre, des états
 Un même objet (un agent, un dossier…) vit dans **une seule table**, avec une colonne d'état (`Parti`, `Archive`…), plutôt que d'être recopié d'une table à l'autre.

@@ -5,7 +5,8 @@
 ## Socle (P1)
 - [ ] Territoires présente, données à jour (13 territoires)
 - [ ] Entites : `Nom`, `Parent`, `Nom_complet`, `Territoire`, `Actif`, `Membres`, `Nbre`
-- [ ] Utilisateurs : `Nom`, `Email`, `Entite`, `Role`, `Actif`, `Email_cle`, `Courriel_valide`, `Doublon`
+- [ ] Utilisateurs : `Nom`, `Email`, `Entite`, `Perimetre`, `Entites_vues`, `Role`, `Actif`, `Email_cle`, `Courriel_valide`, `Doublon`
+- [ ] Bureaux et services rangés comme sous-entités (`Entites.Parent`), pas dans une table à part
 - [ ] Parametres (avec `Nom_application`, `Contact_support`, `Logo_DGOM`)
 - [ ] Accueil
 - [ ] Support + Support_commentaires
@@ -23,6 +24,7 @@
 ## Droits (P5)
 - [ ] Attribut utilisateur `user.Profil` sur Utilisateurs.Email
 - [ ] Rôles génériques présents ; rôles métier documentés
+- [ ] Règles par entité écrites avec `user.Profil.Entites_vues`
 - [ ] Personne non inscrite : seule la page d'accueil est visible
 - [ ] Aucune formule de règle d'accès en erreur
 
