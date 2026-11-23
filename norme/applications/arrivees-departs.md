@@ -20,7 +20,8 @@
 | Formules en erreur | ✅ | Aucune |
 
 ## Menu
-Accueil · Documentation · Support · Fiche d'arrivée · Fiche de départ · Bannette du bureau · Pilotage (Personnel présent, Personnel parti, Fiches des agents partis, Annuaire) · Administration (Utilisateurs, Référentiel, Données des agents, Boîte à outils).
+Accueil (Documentation, Support) · Fiche d'arrivée · Fiche de départ · Bannette du bureau · Pilotage (Personnel présent, Personnel parti, Fiches des agents partis, Annuaire) · Administration (Utilisateurs, Référentiel, Données des agents, Boîte à outils).
+⚠️ Ne pas utiliser « Ranger le menu » du widget Administration dans ce document : il remettrait Référentiel et Données des agents (pages métier) sous Pilotage.
 Les pages d'administration portent un « Verrou administration » (section sur la table `VueAdmin`, illisible hors administrateurs) : elles n'apparaissent pas aux autres rôles.
 
 ## Vérifié « en tant que » (2026-11-23)
