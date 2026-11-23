@@ -219,17 +219,26 @@ function controlerTracabilite(d) {
   return [{ principe: 'P2', objet: 'P2 Traçabilité', etat: malReglees.length && !sansTout.length && !incompletes.length ? PARTIEL : etat(bons, tables.length), detail }];
 }
 
-/** P3 — Nommage : colonnes commençant par une majuscule, sans accent ni espace. */
+/**
+ * P3 — Nommage : colonnes commençant par une majuscule, sans accent ni espace.
+ * La convention est exigée sur les tables du socle ; ailleurs, les colonnes métier
+ * existantes qui ne la suivent pas sont tolérées (décision du 2026-11-23) : signalées, pas pénalisées.
+ */
 function controlerNommage(d) {
-  const fautives = [];
+  const socle = new Set(d.norme.flatMap((s) => s.def.tables.map((t) => t.tableId)));
+  const conforme = (id) => /^[A-Z][A-Za-z0-9_]*$/.test(id);
+  const fautivesSocle = [], tolerees = [];
   for (const t of d.metier) {
     for (const c of d.colonnesDe.get(t)) {
-      if (!/^[A-Z][A-Za-z0-9_]*$/.test(c.colId)) fautives.push(`${t}.${c.colId}`);
+      if (conforme(c.colId)) continue;
+      (socle.has(t) ? fautivesSocle : tolerees).push(`${t}.${c.colId}`);
     }
   }
-  const total = d.metier.reduce((n, t) => n + d.colonnesDe.get(t).length, 0);
-  return [{ principe: 'P3', objet: 'P3 Nommage', etat: etat(total - fautives.length, total),
-    detail: fautives.length ? `${fautives.length} colonne(s) sur ${total} hors convention, ex. ${liste(fautives, 5)}` : 'Toutes les colonnes suivent la convention' }];
+  const detail = [
+    fautivesSocle.length ? `tables du socle hors convention : ${liste(fautivesSocle)}` : 'tables du socle conformes',
+    tolerees.length && `${tolerees.length} colonne(s) métier existante(s) tolérée(s), ex. ${liste(tolerees, 4)}`,
+  ].filter(Boolean).join(' ; ');
+  return [{ principe: 'P3', objet: 'P3 Nommage', etat: fautivesSocle.length ? PARTIEL : OK, detail }];
 }
 
 /** P4 — Ordre : dans les tables de la norme, les colonnes de la norme d'abord et dans l'ordre ; la traçabilité en dernier partout. */
@@ -293,7 +302,11 @@ function controlerRegistre(d) {
     detail: copies.length ? `tables qui se recopient : ${copies.join(' ; ')}` : 'Aucune table recopiée' }];
 }
 
-/** P7 — Widgets : génériques chargés par URL depuis ce dépôt ; un seul code par widget métier. */
+/**
+ * P7 — Widgets : les génériques doivent être chargés par URL depuis ce dépôt.
+ * Les widgets métier peuvent rester collés dans le document (décision du 2026-11-23) :
+ * ils sont seulement recensés (combien, et quelles pages partagent le même code).
+ */
 function controlerWidgets(d) {
   const nomVue = new Map((d.vues || []).map((v) => [v.id, v.name]));
   const colles = new Map(), urls = [];
@@ -312,11 +325,11 @@ function controlerWidgets(d) {
   const nbColles = [...colles.values()].reduce((n, l) => n + l.length, 0);
   const genOk = WIDGETS_GENERIQUES.filter((w) => depot.some((u) => u.includes(w)));
   const detail = [
-    `widgets génériques chargés depuis le dépôt : ${genOk.length ? genOk.join(', ') : 'aucun'}`,
-    nbColles && `${nbColles} widget(s) collé(s) dans le document (${colles.size} code(s) différent(s))`,
-    copiesMultiples.length && `même code collé plusieurs fois : ${copiesMultiples.map((l) => l.join(' / ')).join(' ; ')}`,
+    `widgets génériques chargés depuis le dépôt : ${genOk.length ? genOk.join(', ') : 'aucun (pages standard à créer)'}`,
+    nbColles && `widgets métier collés dans le document : ${nbColles} page(s), ${colles.size} code(s)`,
+    copiesMultiples.length && `pages qui partagent un même code (à corriger ensemble) : ${copiesMultiples.map((l) => l.join(' / ')).join(' ; ')}`,
   ].filter(Boolean).join(' ; ');
-  return [{ principe: 'P7', objet: 'P7 Widgets', etat: !nbColles && genOk.length ? OK : genOk.length || colles.size ? PARTIEL : ABSENT, detail }];
+  return [{ principe: 'P7', objet: 'P7 Widgets', etat: genOk.length ? OK : PARTIEL, detail }];
 }
 
 /** Santé générale : formules en erreur, table par table (lecture des données). */

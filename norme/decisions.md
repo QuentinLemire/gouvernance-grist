@@ -4,6 +4,14 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-23 — Norme assouplie : nommage, rôles métier, widgets métier (P3, P5, P7)
+**Décision** :
+- **P3** : la convention de nommage s'impose au socle et aux nouvelles colonnes ; les colonnes métier existantes sont tolérées.
+- **P5** : les rôles métier sont officiels à côté des rôles génériques, s'ils sont décrits dans la fiche de l'application.
+- **P7** : les widgets métier peuvent rester dans le document s'ils n'ont qu'un seul code ; seuls les widgets génériques doivent venir du dépôt.
+**Raison** : l'audit d'Arrivées-Départs montrait 181 colonnes sur 248 hors convention : tout renommer aurait réécrit toutes les formules, les 224 règles et les widgets pour un gain faible. Et publier le code métier sur un dépôt public n'est pas souhaitable.
+**Conséquences** : le script d'audit classe ces cas en « toléré » ; le point ouvert sur les rôles métier est tranché.
+
 ### 2026-11-23 — Mise à la norme d'une application existante : par phases
 **Décision** : (A) ajouts sans incidence — tables du socle qui ne dépendent pas des utilisateurs, traçabilité ; (B) Entites / Utilisateurs et droits ; (C) nommage. Chaque phase est vérifiée (formules, widgets) avant la suivante.
 **Raison** : sur Arrivées-Départs, l'installateur complet aurait doublé des colonnes et posé des règles par-dessus 224 règles existantes.
@@ -39,6 +47,5 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 
 ## Points ouverts
 
-- **Rôles métier** : comment les déclarer à côté des rôles génériques (liste ouverte dans `Role`, ou table des rôles) ?
 - **Forme des noms de colonnes** : la norme mélange `Nom_complet` (mots séparés par `_`) et `CreeLe` (mots collés). Choisir une forme unique pour les nouvelles colonnes, sans renommer l'existant.
 - **Attribut `user.Profil`** : renommer `user.Moi` en `user.Profil` dans les applications existantes (touche toutes les règles d'accès).

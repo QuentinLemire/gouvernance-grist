@@ -20,13 +20,15 @@ Toute table métier a, en dernier :
 - Tables et colonnes : première lettre en majuscule, sans accent ni espace (`Nom`, `Nom_complet`, `Email_cle`). Le libellé affiché, lui, est en français normal.
 - Les colonnes de traçabilité gardent leur forme historique `CreeLe`, `CreePar`, `ModifieLe`, `ModifiePar` (voir les points ouverts de `decisions.md`).
 - Une colonne Référence porte le nom de ce qu'elle désigne (`Entite`, `Demandeur`), pas `id_…`.
+- **Portée** : la convention s'impose aux tables du socle et aux colonnes créées après la mise à la norme. Les colonnes métier existantes qui ne la suivent pas sont **tolérées** : on ne les renomme pas d'office (renommer touche toutes les formules, règles et widgets).
 
 ## P4 — Ordre des colonnes
 D'abord ce qui identifie la ligne, puis le contenu, les liens, l'état, et en dernier la traçabilité.
 
 ## P5 — Droits par rôle
 - Le rôle vient de la table Utilisateurs, via l'attribut utilisateur **`user.Profil`**.
-- Rôles génériques : **Administrateur, Gestionnaire, Contributeur, Lecteur**. Une application peut ajouter des rôles métier, documentés dans son fichier `applications/…`.
+- Rôles génériques : **Administrateur, Gestionnaire, Contributeur, Lecteur**, présents dans toute application.
+- **Rôles métier** : une application peut en ajouter (ex. Chef de bureau, BSSIOM) dans la même liste `Role`. Ils sont officiels dès qu'ils sont décrits dans son fichier `applications/…` (qui fait quoi, sur quel périmètre).
 - Une personne non inscrite ou inactive ne voit **que la page d'accueil**.
 - **Périmètre** : `Entite` = rattachement principal ; `Perimetre` = autres entités gérées (facultatif) ; `Entites_vues` (calculée) = les deux avec toutes leurs sous-entités. Un bureau est une sous-entité (`Parent`). Règle d'accès type : `rec.Entite in user.Profil.Entites_vues`.
 
@@ -36,7 +38,8 @@ Les pages filtrent selon l'état. Cela évite les doublons de colonnes et les co
 
 ## P7 — Widgets
 - Les widgets **génériques** (Accueil, Documentation, Support, Administration, Boîte à outils) sont chargés **par URL** depuis ce dépôt, jamais collés dans le document.
-- Les widgets **métier** peuvent vivre dans l'application, mais **un seul code par widget** : les variantes passent par un réglage (ex. `<body data-type="…">`), pas par des copies modifiées.
+- Les widgets **métier** peuvent rester collés dans le document (« Custom widget builder »), à une condition : **un seul code par widget**. Les variantes passent par un réglage (ex. `<body data-type="…">`), jamais par des copies modifiées ; toute correction est reportée à l'identique sur chaque page qui l'utilise.
+- Les héberger dans un dépôt reste possible, mais n'est pas exigé (le code métier n'a pas vocation à être public).
 
 ## P8 — Rien n'est supprimé
 La mise à la norme ajoute ce qui manque et range les colonnes ; elle ne supprime aucune donnée.

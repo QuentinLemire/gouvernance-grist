@@ -18,7 +18,7 @@
 - [ ] `ModifieLe` / `ModifiePar` en recalcul à chaque modification
 
 ## Nommage et ordre (P3, P4)
-- [ ] Colonnes en `Majuscule_initiale`, sans accent
+- [ ] Socle et nouvelles colonnes en `Majuscule_initiale`, sans accent (colonnes métier existantes tolérées)
 - [ ] Ordre : identification → contenu → liens → état → traçabilité
 
 ## Droits (P5)
@@ -34,4 +34,4 @@
 
 ## Widgets (P7)
 - [ ] Widgets génériques chargés par URL depuis ce dépôt
-- [ ] Un seul code par widget métier (variantes par réglage)
+- [ ] Un seul code par widget métier (variantes par réglage) ; il peut rester collé dans le document
