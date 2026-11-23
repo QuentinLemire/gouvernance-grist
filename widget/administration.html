@@ -92,6 +92,7 @@
     .ticket .meta { color: var(--texte-doux); font-size: 13px; margin: 4px 0 12px; }
     .ticket .reglages { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bordure); }
     /* Onglet Structure : une ligne par sujet de la norme ou par page standard. */
+    table.matrice tr.metier td:not(.table) { color: var(--texte-doux); font-style: italic; background: var(--fond, #f6f6f6); }
     .sujet { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bordure); }
     .sujet > div { flex: 1; }
     .sujet small { color: var(--texte-doux); }
@@ -143,6 +144,11 @@
  * sans toucher aux règles posées à la main dans Grist.
  */
 const MARQUE = '[Admin]';
+/**
+ * Mention des règles de protection des données (ex. « on ne supprime pas un bureau utilisé ») :
+ * elles passent avant celles du panneau, qui ne les touche pas.
+ */
+const INTEGRITE = '[Intégrité]';
 
 /**
  * Nom de l'attribut utilisateur Grist. Une fois déclaré, user.Profil désigne la ligne de la
@@ -177,7 +183,7 @@ const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.9';
+const VERSION_WIDGET = '2026-11-23.10';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -212,8 +218,29 @@ const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) 
 
 /** Tables jamais gérées par la matrice : la page d'accueil doit rester lisible par tous. */
 const HORS_MATRICE = ['Accueil'];
-/** Tables du document couvertes par la matrice des droits. */
-const tablesGerees = () => etat.meta.tables.map((t) => t.tableId).filter((t) => !HORS_MATRICE.includes(t));
+/**
+ * Tables qui ont des règles propres à l'application (ni [Admin] ni [Gouvernance]), par exemple les fiches
+ * d'Arrivées-Départs (droits par entité, bureau, étape). Le panneau ne les modifie pas : ses règles passent
+ * avant les autres et les écraseraient. Elles se gèrent dans Permissions avancées.
+ * @returns {Map<string, number>} table → nombre de règles propres
+ */
+function tablesMetier() {
+  const m = new Map();
+  for (const r of etat.acl.regles || []) {
+    const res = ressource(r.resource), t = res?.tableId, memo = String(r.memo || '');
+    // Les règles sur quelques colonnes (ex. Utilisateurs.Est_moi) passent avant celles de la table : elles ne gênent pas le panneau.
+    if (!t || t === '*' || res.colIds !== '*' || memo.startsWith(MARQUE) || memo.startsWith('[Gouvernance]') || memo.startsWith(INTEGRITE)) continue;
+    if (!(r.aclFormula || r.permissionsText)) continue;
+    m.set(t, (m.get(t) || 0) + 1);
+  }
+  return m;
+}
+/** Tables du document couvertes par la matrice des droits (hors tables à règles métier). */
+const tablesGerees = () => etat.meta.tables.map((t) => t.tableId).filter((t) => !HORS_MATRICE.includes(t) && !tablesMetier().has(t));
+/** Vrai si la garde est posée : une personne non inscrite, inactive ou sans rôle ne voit que l'accueil. */
+const gardePresente = () => (etat.acl.regles || []).some((r) => ressource(r.resource)?.tableId === '*' && /not user\.Profil\b/.test(r.aclFormula || ''));
+/** Vrai si une règle (du panneau ou non) réserve à chacun ses propres demandes de support. */
+const supportPrivePresent = () => (etat.acl.regles || []).some((r) => /rec\.Demandeur != user\.Email/.test(r.aclFormula || ''));
 
 /**
  * Colonnes de traçabilité ajoutées à la demande sur une table (onglet Structure).
@@ -647,13 +674,14 @@ const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.mem
  *          niveaux[table][rôle] = code de niveau (voir NIVEAUX)
  */
 function lireMatrice() {
-  const m = { niveaux: {}, bloquerAutres: false, supportPrive: false };
+  // Les deux protections sont cochées par défaut ; décochées seulement si le panneau a déjà écrit des règles sans elles.
+  const dejaEcrit = reglesDuPanneau().some((r) => !json(r.userAttributes, {}).name);
+  const m = { niveaux: {}, bloquerAutres: gardePresente() || !dejaEcrit, supportPrive: supportPrivePresent() || !dejaEcrit };
   for (const r of reglesDuPanneau()) {
     const t = ressource(r.resource)?.tableId; if (!t) continue;
     const role = /user\.Profil\.Role == "((?:[^"\\]|\\.)*)"/.exec(r.aclFormula || '');
     if (role && !/rec\./.test(r.aclFormula)) (m.niveaux[t] = m.niveaux[t] || {})[JSON.parse('"' + role[1] + '"')] = NIVEAU_DE_PERM[r.permissionsText] || '';
     if ((r.aclFormula || '').trim().startsWith('user.Access != OWNER')) m.bloquerAutres = true;
-    if (/rec\.Demandeur != user\.Email/.test(r.aclFormula || '')) m.supportPrive = true;
   }
   return m;
 }
@@ -745,13 +773,14 @@ function ongletDroits() {
   if (!aTable('Utilisateurs') || !roles().length) return '<div class="encadre alerte">Il faut d\'abord des utilisateurs avec des rôles (onglet Utilisateurs).</div>';
   if (!etat.droits) etat.droits = lireMatrice();
   const m = etat.droits;
-  const autres = (etat.acl.regles || []).filter((r) => (r.aclFormula || r.permissionsText) && !String(r.memo || '').startsWith(MARQUE));
-  const garde = (etat.acl.regles || []).some((r) => /not user\.Profil/.test(r.aclFormula || ''));
+  const metier = tablesMetier();
+  const nbMetier = [...metier.values()].reduce((a, b) => a + b, 0);
+  const garde = gardePresente();
   return `
     <section class="carte">
       <h2>🔐 Qui peut faire quoi ?</h2>
       <p class="aide">Pour chaque table, choisissez ce que chaque rôle peut faire. Le rôle vient de la table Utilisateurs (via le courriel de connexion). Une personne <b>inactive</b> n'a aucun rôle. Les <b>propriétaires</b> gardent toujours tous les droits.</p>
-      ${autres.length ? `<div class="encadre">ℹ️ ${autres.length} règle(s) écrite(s) hors de ce panneau sont conservées ; les règles du panneau passent avant elles.</div>` : ''}
+      ${metier.size ? `<div class="encadre">⚙️ ${metier.size} table(s) ont des <b>règles métier</b> (${nbMetier} règles : droits selon l'entité, le bureau, l'étape…). Le panneau ne les modifie pas ; elles se gèrent dans <i>Permissions avancées</i>.</div>` : ''}
       ${!garde ? `<div class="encadre alerte">⚠️ Les personnes non inscrites ne sont pas bloquées. <button class="bouton petit" data-action="garde">Ne leur montrer que l'accueil</button></div>` : ''}
       <div class="barre-outils">
         <button class="bouton petit" data-action="standard">✨ Proposition standard</button>
@@ -761,7 +790,9 @@ function ongletDroits() {
       </div>
       <div class="defile"><table class="tableau matrice">
         <tr><th>Table</th>${roles().map((r) => `<th>${esc(r)}</th>`).join('')}</tr>
-        ${etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => `<tr><td class="table">${esc(t.tableId)}</td>
+        ${etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => metier.has(t.tableId)
+          ? `<tr class="metier"><td class="table">${esc(t.tableId)}</td><td colspan="${roles().length}" title="${metier.get(t.tableId)} règle(s) propres à l'application, dans Permissions avancées">⚙️ règles métier (${metier.get(t.tableId)})</td></tr>`
+          : `<tr><td class="table">${esc(t.tableId)}</td>
           ${roles().map((r) => `<td><select class="champ" data-mat-table="${esc(t.tableId)}" data-mat-role="${esc(r)}">${NIVEAUX.map((n) => `<option value="${n.code}" ${(m.niveaux[t.tableId] || {})[r] === n.code || (!(m.niveaux[t.tableId] || {})[r] && !n.code) ? 'selected' : ''}>${n.libelle}</option>`).join('')}</select></td>`).join('')}
         </tr>`).join('')}
       </table></div>
@@ -806,8 +837,10 @@ async function appliquerDroits(bouton, retirer) {
       ressources = (await lire('_grist_ACLResources')) || [];
     }
     const idRes = (t, c = '*') => ressources.find((r) => r.tableId === t && r.colIds === c).id;
-    // Les règles du panneau passent avant toutes les autres.
+    // Les règles du panneau passent avant toutes les autres, sauf les règles [Intégrité] remises juste devant elles.
     let pos = Math.min(0, ...etat.acl.regles.map((r) => Number(r.rulePos) || 0)) - 1000;
+    const integrite = etat.acl.regles.filter((r) => String(r.memo || '').startsWith(INTEGRITE));
+    const devant = integrite.map((r, i) => ['UpdateRecord', '_grist_ACLRules', r.id, { rulePos: pos - 500 + i }]);
     const nouvelles = [];
     const attributExiste = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT && json(r.userAttributes, {}).tableId === 'Utilisateurs');
     if (regles.length && !attributExiste) {
@@ -817,13 +850,15 @@ async function appliquerDroits(bouton, retirer) {
     for (const r of regles) nouvelles.push({ resource: idRes(r.table, r.cols), aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE, userAttributes: '' });
     // L'attribut user.Profil n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
     const anciennes = reglesDuPanneau().filter((r) => !json(r.userAttributes, {}).name);
-    const actions = [];
+    const actions = [...(retirer ? [] : devant)];
     if (anciennes.length) actions.push(['BulkRemoveRecord', '_grist_ACLRules', anciennes.map((r) => r.id)]);
     if (nouvelles.length) {
       const cles = Object.keys(nouvelles[0]);
       actions.push(['BulkAddRecord', '_grist_ACLRules', nouvelles.map(() => null), Object.fromEntries(cles.map((k) => [k, nouvelles.map((n) => n[k])]))]);
     }
     if (actions.length) await agir(actions);
+    // « Bloquer toute personne sans rôle reconnu » : la garde du document (non inscrits, inactifs, sans rôle → accueil seulement)
+    if (!retirer && etat.droits.bloquerAutres && !gardePresente()) { etat.acl.regles = await lire('_grist_ACLRules'); await poserGarde(null); }
     await tracer(retirer ? 'Droits retirés' : 'Droits appliqués', retirer ? anciennes.length + ' règle(s) retirée(s)' : regles.length + ' règle(s) sur ' + new Set(regles.map((r) => r.table)).size + ' table(s)');
     message(retirer ? '✅ Règles du panneau retirées.' : '✅ ' + regles.length + ' règles appliquées.');
     await actualiser();
@@ -851,7 +886,7 @@ async function poserGarde(bouton) {
     if (!attribut) a.push({ resource: id('*'), aclFormula: '', permissionsText: '', rulePos: 1, memo: '[Gouvernance] attribut', userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
     a.push({ resource: id('Accueil'), aclFormula: 'True', permissionsText: '+R-CUD', rulePos: 2, memo: '[Gouvernance] Accueil lisible par tous', userAttributes: '' });
     a.push({ resource: id('*'), aclFormula: 'user.Access == OWNER', permissionsText: 'all', rulePos: 3, memo: '[Gouvernance] Propriétaires : tous les droits', userAttributes: '' });
-    a.push({ resource: id('*'), aclFormula: 'not user.Profil or not user.Profil.Actif', permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits ou inactifs : Accueil seulement', userAttributes: '' });
+    a.push({ resource: id('*'), aclFormula: 'not user.Profil or not user.Profil.Actif or not user.Profil.Role', permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits, inactifs ou sans rôle : Accueil seulement', userAttributes: '' });
     const cles = Object.keys(a[0]);
     await agir([['BulkAddRecord', '_grist_ACLRules', a.map(() => null), Object.fromEntries(cles.map((k) => [k, a.map((x) => x[k])]))]]);
     await tracer('Garde posée', 'Non inscrits : page d\'accueil seulement');
