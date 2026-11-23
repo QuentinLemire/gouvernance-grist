@@ -46,5 +46,9 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 ### Widgets copiés en plusieurs exemplaires
 - Un même code collé dans plusieurs pages diverge vite et chaque correction doit être faite N fois. Voir P7.
 
+### Widgets chargés depuis le dépôt : cache de raw.githack
+- Après un commit, raw.githack peut servir l'ancienne version plusieurs minutes. Une action faite pendant ce délai (ex. publier la norme) tourne avec l'ancien code.
+- **Parade** : attendre quelques minutes et recharger (Ctrl+Maj+R) ; « Publier la norme » vérifie maintenant sa version avant d'écrire.
+
 ### Sauvegardes
 - Grist garde des sauvegardes automatiques (Historique du document → Versions). Vérifier qu'il y en a une récente avant une modification lourde.

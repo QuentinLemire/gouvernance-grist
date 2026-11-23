@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.6",
+  "version": "1.7",
   "sujet": "SUPPORT",
   "description": "Demandes des utilisateurs, lien vers la page concernée, fil d'échanges ; seul le support clôt ou rouvre.",
   "tables": [
@@ -207,6 +207,13 @@
           "isFormula": true,
           "formula": "Utilisateurs.lookupOne(Email_cle=($CreePar or \"\").strip().lower()) or None",
           "visibleCol": "Email"
+        },
+        {
+          "id": "Demandeur",
+          "label": "Demandeur (de la demande)",
+          "type": "Text",
+          "isFormula": true,
+          "formula": "$Demande.Demandeur if $Demande else \"\""
         },
         {
           "id": "CreeLe",

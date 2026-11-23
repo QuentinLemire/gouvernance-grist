@@ -62,6 +62,14 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 **Décision** : dans un groupe de colonnes, ne garder que les `+U` propres au métier (avec la condition d'entité intégrée) ; l'administrateur, le hors-entité et le refus final sont portés une seule fois par la table et par les règles par défaut.
 **Raison** : Arrivées-Départs comptait 245 règles illisibles ; 133 après simplification, droits identiques.
 
+### 2026-11-23 — Support : colonne `Demandeur` dans les commentaires
+**Décision** : `Support_commentaires.Demandeur` (formule `$Demande.Demandeur`) ; la règle de confidentialité porte sur `rec.Demandeur`.
+**Raison** : une règle d'accès ne lit pas une colonne à travers une référence (`rec.Demande.Demandeur`). Appliqué dans Gouvernance et Arrivées-Départs ; `structure/support.json` 1.7.
+
+### 2026-11-23 — Publication : garde-fou contre une page périmée
+**Décision** : le widget Administration porte `VERSION_WIDGET` (à changer à chaque modification) ; « Publier la norme » refuse si la version du dépôt est différente. Une table d'un sujet qui dépend d'un autre sujet définissant la même table est traitée comme « extension », même sans la marque.
+**Raison** : le 2026-11-23, une publication faite avec une copie en cache (raw.githack) a remis `Entites.Territoire` dans Utilisateurs et retiré la marque `extension` de Territoires. Fichiers remis en état (Utilisateurs 1.9, Territoires 1.5).
+
 ### 2026-11-23 — Création du dossier `norme/`
 **Décision** : les règles écrites, les décisions et les audits vivent dans ce dépôt, à côté de la structure.
 
@@ -69,7 +77,6 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 
 ## Points ouverts
 
-- **Support : confidentialité des commentaires** : la règle de `Support_commentaires` lit `rec.Demande.Demandeur` à travers une référence, que Grist n'évalue pas. Ajouter une colonne `Demandeur` (formule `$Demande.Demandeur`) dans `Support_commentaires` et écrire la règle sur `rec.Demandeur`.
 
 - **Forme des noms de colonnes** : la norme mélange `Nom_complet` (mots séparés par `_`) et `CreeLe` (mots collés). Choisir une forme unique pour les nouvelles colonnes, sans renommer l'existant.
 - **Bureaux en sous-entités** : dans les applications qui ont une table de bureaux propre (Arrivées-Départs), la passer en sous-entités de `Entites` — à faire quand une évolution le justifie.

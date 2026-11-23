@@ -167,6 +167,13 @@ const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
  * « fichier » : nom du fichier structure/<fichier>.json sur le dépôt ;
  * « obligatoire » : sujet du socle, dont l'absence est signalée au tableau de bord.
  */
+/**
+ * Version de ce code. À changer à chaque modification du fichier : avant de publier, la page compare
+ * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
+ * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
+ */
+const VERSION_WIDGET = '2026-11-23.2';
+
 const SUJETS = [
   // Socle : présent dans toute application.
   { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
@@ -687,7 +694,9 @@ const SUPPORT_PRIVE = {
     { cols: 'Statut,Priorite,Assigne_a', formule: PAS_SUPPORT, perm: '-U' },
   ],
   Support_commentaires: [
-    { formule: PAS_SUPPORT + ' and rec.Demande.Demandeur != user.Email', perm: '-CRUD' },
+    // Colonne Demandeur recopiée de la demande : une règle d'accès Grist ne lit pas une colonne à travers une
+    // référence (rec.Demande.Demandeur n'est pas évalué), il lui faut une colonne de la même table.
+    { formule: PAS_SUPPORT + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
     { formule: PAS_SUPPORT + ' and rec.CreePar != user.Email', perm: '-UD' },
   ],
 };
@@ -1014,17 +1023,17 @@ function decrireColonne(c) {
  */
 async function publierNorme(bouton) {
   await occupe(bouton, async () => {
+    await verifierVersionWidget();
     const fichiers = [];
     for (const s of SUJETS) {
       const x = etat.sujets[s.fichier]; if (!x?.def || x.etat === 'absent') continue;
       // Une table peut être partagée entre sujets (ex. Entites, complétée par le sujet Territoires) :
       // chaque sujet ne publie que ses colonnes ; les colonnes nouvelles vont au sujet « principal » de la table.
-      const autres = (tableId) => new Set(SUJETS.filter((o) => o.fichier !== s.fichier).flatMap((o) => (etat.sujets[o.fichier]?.def?.tables || [])
-        .filter((u) => u.tableId === tableId).flatMap((u) => u.columns.map((c) => c.id))));
       const tables = x.def.tables.filter((t) => aTable(t.tableId)).map((t) => {
-        const miennes = new Set(t.columns.map((c) => c.id)), pris = autres(t.tableId);
-        const garder = (c) => miennes.has(c.colId) || (!t.extension && !pris.has(c.colId));
-        return { tableId: t.tableId, ...(t.extension ? { extension: true } : {}), columns: etat.meta.parId[t.tableId].colonnes.filter(garder).map(decrireColonne) };
+        const ext = estExtension(s.fichier, t.tableId);
+        const miennes = new Set(colonnesDuSujet(s.fichier, t.tableId)), pris = colonnesDesExtensions(t.tableId, s.fichier);
+        const garder = (c) => miennes.has(c.colId) || (!ext && !pris.has(c.colId));
+        return { tableId: t.tableId, ...(ext ? { extension: true } : {}), columns: etat.meta.parId[t.tableId].colonnes.filter(garder).map(decrireColonne) };
       });
       const avant = JSON.stringify(x.def.tables), apres = JSON.stringify(tables);
       if (avant === apres) continue;
@@ -1070,6 +1079,56 @@ async function publierNorme(bouton) {
 }
 
 /**
+ * Refuse de publier avec une copie périmée de cette page : relit VERSION_WIDGET dans le fichier du dépôt,
+ * par l'API GitHub (sans cache). Dépôt injoignable : on laisse publier (rien à comparer).
+ * @throws {Error} si la page affichée est plus ancienne que le fichier du dépôt
+ */
+async function verifierVersionWidget() {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GITHUB.proprietaire}/${GITHUB.depot}/contents/widget/administration.html?ref=${GITHUB.branche}`,
+      { headers: { Accept: 'application/vnd.github.raw' }, cache: 'no-store' });
+    if (!r.ok) return;
+    const v = ((await r.text()).match(/const VERSION_WIDGET = '([^']+)'/) || [])[1];
+    if (v && v !== VERSION_WIDGET) throw new Error('Cette page Administration est une copie périmée (version ' + VERSION_WIDGET + ', dépôt : ' + v + '). Rechargez la page (Ctrl+Maj+R) dans quelques minutes, puis publiez.');
+  } catch (e) { if (/périmée/.test(e.message)) throw e; }
+}
+
+/**
+ * Table « extension » d'un sujet : marquée comme telle, ou déjà définie par un sujet dont il dépend
+ * (ex. Entites dans Territoires, qui dépend d'Utilisateurs). Le second cas protège d'un fichier publié sans la marque.
+ * @param {string} fichier sujet
+ * @param {string} tableId
+ */
+function estExtension(fichier, tableId) {
+  const def = etat.sujets[fichier]?.def, t = def?.tables?.find((u) => u.tableId === tableId);
+  if (!t) return false;
+  if (t.extension) return true;
+  return SUJETS.some((o) => {
+    const d = etat.sujets[o.fichier]?.def;
+    return o.fichier !== fichier && d && (def.dependances || []).includes(d.sujet) && d.tables.some((u) => u.tableId === tableId);
+  });
+}
+
+/**
+ * Colonnes qu'un sujet publie pour une table. Pour une extension : seulement celles que la table
+ * principale ne définit pas (Territoire pour Entites), même si un fichier publié en contient d'autres.
+ */
+function colonnesDuSujet(fichier, tableId) {
+  const t = etat.sujets[fichier]?.def?.tables?.find((u) => u.tableId === tableId);
+  if (!t) return [];
+  const ids = t.columns.map((c) => c.id);
+  if (!estExtension(fichier, tableId)) return ids.filter((id) => !colonnesDesExtensions(tableId, fichier).has(id));
+  const principales = new Set(SUJETS.filter((o) => o.fichier !== fichier && !estExtension(o.fichier, tableId))
+    .flatMap((o) => (etat.sujets[o.fichier]?.def?.tables || []).filter((u) => u.tableId === tableId).flatMap((u) => u.columns.map((c) => c.id))));
+  return ids.filter((id) => !principales.has(id));
+}
+
+/** Colonnes d'une table apportées par les sujets « extension » (autres que `sauf`). */
+function colonnesDesExtensions(tableId, sauf) {
+  return new Set(SUJETS.filter((o) => o.fichier !== sauf && estExtension(o.fichier, tableId)).flatMap((o) => colonnesDuSujet(o.fichier, tableId)));
+}
+
+/**
  * Lit chaque sujet sur le dépôt et le compare au document ; résultat dans etat.sujets.
  * État : « present », « partiel » (colonnes manquantes ou dans le désordre), « absent »,
  * ou « inconnu » si le dépôt est injoignable. Note aussi les colonnes propres au document (« ajouts »).
@@ -1082,7 +1141,8 @@ async function chargerSujets() {
       const manques = [], ajouts = [];
       for (const t of def.tables) for (const c of t.columns) if (!colonne(t.tableId, c.id)) manques.push(t.tableId + '.' + c.id);
       // Colonnes du document absentes de la norme : à publier si ce document est la source.
-      for (const t of def.tables) for (const c of (etat.meta.parId[t.tableId]?.colonnes || [])) if (!t.columns.some((x) => x.id === c.colId)) ajouts.push(t.tableId + '.' + c.colId);
+      // (pas pour une table « extension » : ses autres colonnes appartiennent au sujet principal)
+      for (const t of def.tables.filter((u) => !u.extension)) for (const c of (etat.meta.parId[t.tableId]?.colonnes || [])) if (!t.columns.some((x) => x.id === c.colId)) ajouts.push(t.tableId + '.' + c.colId);
       const absent = def.tables.every((t) => !aTable(t.tableId));
       // Hors document source : colonnes présentes mais pas dans l'ordre de la norme.
       const desordre = !estSource() && def.tables.some((t) => {

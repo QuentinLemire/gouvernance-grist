@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.4",
+  "version": "1.5",
   "sujet": "REFERENTIEL_TERRITOIRES",
   "description": "Les 13 territoires ultramarins (code COG, statut, bassin). Données de référence fournies avec le modèle. Installé, ce sujet ajoute aussi la colonne Territoire aux Entités.",
   "tables": [
@@ -93,80 +93,13 @@
     },
     {
       "tableId": "Entites",
+      "extension": true,
       "columns": [
-        {
-          "id": "Nom",
-          "label": "Nom",
-          "type": "Text"
-        },
-        {
-          "id": "Parent",
-          "label": "Parent",
-          "type": "Ref:Entites",
-          "visibleCol": "Nom"
-        },
-        {
-          "id": "Nom_complet",
-          "label": "Nom complet",
-          "type": "Text",
-          "isFormula": true,
-          "formula": "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom + \"/\" + nom\n    parent = parent.Parent\nreturn nom"
-        },
         {
           "id": "Territoire",
           "label": "Territoire",
           "type": "Ref:Territoires",
           "visibleCol": "Nom"
-        },
-        {
-          "id": "Actif",
-          "label": "Actif",
-          "type": "Bool",
-          "formula": "True",
-          "recalcWhen": 0
-        },
-        {
-          "id": "Membres",
-          "label": "Membres",
-          "type": "RefList:Utilisateurs",
-          "isFormula": true,
-          "formula": "Utilisateurs.lookupRecords(Entite=$id, sort_by=\"Nom\")",
-          "visibleCol": "Email"
-        },
-        {
-          "id": "Nbre",
-          "label": "Nb utilisateurs",
-          "type": "Numeric",
-          "isFormula": true,
-          "formula": "return len(Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))"
-        },
-        {
-          "id": "CreeLe",
-          "label": "Créé le",
-          "type": "DateTime:Europe/Paris",
-          "formula": "NOW()",
-          "recalcWhen": 0
-        },
-        {
-          "id": "CreePar",
-          "label": "Créé par",
-          "type": "Text",
-          "formula": "user.Email",
-          "recalcWhen": 0
-        },
-        {
-          "id": "ModifieLe",
-          "label": "Modifié le",
-          "type": "DateTime:Europe/Paris",
-          "formula": "NOW()",
-          "recalcWhen": 2
-        },
-        {
-          "id": "ModifiePar",
-          "label": "Modifié par",
-          "type": "Text",
-          "formula": "user.Email",
-          "recalcWhen": 2
         }
       ]
     }
