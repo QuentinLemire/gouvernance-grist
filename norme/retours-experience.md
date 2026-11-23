@@ -12,6 +12,12 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - **Réparation** : recharger le document côté serveur (propriétaire) : `POST /api/docs/<id>/force-reload` avec les en-têtes `Content-Type: application/json` et `X-Requested-With: XMLHttpRequest`. Les modifications faites pendant la panne peuvent être perdues : les vérifier.
 - **Prévention** : créer la colonne simple d'abord, régler son recalcul ensuite ; tester une table avant de traiter les autres.
 
+### Installateur sur une application existante
+- Les sujets Support, Journal et Documentation **dépendent** des Utilisateurs de la norme : les installer ajoute `Email`, `Nom`… à une table Utilisateurs qui a peut-être déjà `email`, `nom`… (doublons à la casse près).
+- Installer `utilisateurs` **avec** `accueil_public` pose aussi les règles de base (`user.Profil`, « non inscrits : Accueil seulement ») par-dessus les règles existantes.
+- **Méthode** : sur une application qui a déjà ses utilisateurs et ses droits, installer d'abord seulement `referentiel_territoires`, `parametres`, `accueil_public` (aucune règle posée), ajouter la traçabilité, puis traiter Entites / Utilisateurs à part.
+- Les colonnes de traçabilité ajoutées après coup sont vides pour les lignes existantes : reprendre ce qui existe (ex. `cree_le`), ne rien inventer.
+
 ### Widgets copiés en plusieurs exemplaires
 - Un même code collé dans plusieurs pages diverge vite et chaque correction doit être faite N fois. Voir P7.
 
