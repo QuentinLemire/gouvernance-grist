@@ -1021,15 +1021,22 @@ async function publierNorme(bouton) {
       // GitHub : un enregistrement par fichier (l'API demande l'empreinte de la version remplacée).
       const api = `https://api.github.com/repos/${GITHUB.proprietaire}/${GITHUB.depot}/contents/`;
       const entetes = { Authorization: 'Bearer ' + d.jeton, Accept: 'application/vnd.github+json' };
+      let publies = 0;
       for (const f of fichiers) {
+        // Le fichier actuel est relu par l'API (sans cache) : la copie lue plus haut sur raw.githubusercontent
+        // peut dater de quelques minutes et faire croire à une différence qui n'existe plus.
         const actuel = await fetch(api + f.chemin + '?ref=' + GITHUB.branche, { headers: entetes, cache: 'no-store' });
-        const sha = actuel.ok ? (await actuel.json()).sha : undefined;
+        const info = actuel.ok ? await actuel.json() : null;
+        const contenuActuel = info ? new TextDecoder().decode(Uint8Array.from(atob(info.content.replace(/\n/g, '')), (c) => c.charCodeAt(0))) : null;
+        if (contenuActuel === f.contenu) continue;   // déjà identique sur GitHub : pas de commit vide
         const r = await fetch(api + f.chemin, { method: 'PUT', headers: entetes, body: JSON.stringify({
-          message: 'Norme : ' + f.nom, branch: GITHUB.branche, sha,
+          message: 'Norme : ' + f.nom, branch: GITHUB.branche, sha: info ? info.sha : undefined,
           content: btoa(String.fromCharCode(...new TextEncoder().encode(f.contenu))) }) });
         if (!r.ok) throw new Error('GitHub a refusé la publication de ' + f.chemin + ' (' + r.status + ')');
+        publies++;
       }
-      message('✅ Norme publiée sur GitHub : ' + fichiers.length + ' sujet(s). Les applications la verront d\'ici quelques minutes.');
+      if (!publies) return message('✅ La norme publiée est déjà identique à ce document.');
+      message('✅ Norme publiée sur GitHub : ' + publies + ' sujet(s). Les applications la verront d\'ici quelques minutes.');
     } else if (d.gitlab && d.jeton) {
       const r = await fetch(d.api + '/repository/commits', { method: 'POST', headers: { 'PRIVATE-TOKEN': d.jeton, 'Content-Type': 'application/json' },
         body: JSON.stringify({ branch: d.branche, commit_message: 'Norme : ' + fichiers.map((f) => f.nom).join(', '),
