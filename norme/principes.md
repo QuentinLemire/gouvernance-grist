@@ -39,7 +39,7 @@ Les pages filtrent selon l'état. Cela évite les doublons de colonnes et les co
 
 ## P7 — Widgets
 - Les widgets **génériques** (Accueil, Documentation, Support, Administration, Boîte à outils) sont chargés **par URL** depuis ce dépôt, jamais collés dans le document.
-- Pages **obligatoires** : Accueil (› Documentation, Support) et Administration. Pages **facultatives** : Utilisateurs (l'onglet Utilisateurs de l'Administration suffit) et Boîte à outils (outil de développeur).
+- Pages du **socle** : Accueil (› Documentation, Support) et Administration (› Utilisateurs). **Hors socle** : Boîte à outils (outil de développeur), installée à la demande par son bouton « Installer » (Administration → Structure).
 - Les widgets **métier** peuvent rester collés dans le document (« Custom widget builder »), à une condition : **un seul code par widget**. Les variantes passent par un réglage (ex. `<body data-type="…">`), jamais par des copies modifiées ; toute correction est reportée à l'identique sur chaque page qui l'utilise.
 - Les héberger dans un dépôt reste possible, mais n'est pas exigé (le code métier n'a pas vocation à être public).
 

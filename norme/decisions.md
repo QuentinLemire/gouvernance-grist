@@ -4,10 +4,10 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
-### 2026-11-23 — Pages Utilisateurs et Boîte à outils facultatives
-**Décision** : seules Accueil (› Documentation, Support) et Administration sont des pages obligatoires. **Utilisateurs** (doublon de l'onglet Utilisateurs de l'Administration) et **Boîte à outils** (outil de développeur) sont facultatives : le widget Administration ne les crée que sur demande. **Territoires** reste installée (référencée par `Entites.Territoire`) mais n'a pas besoin de page.
-**Raison** : ne garder dans le menu que ce qui sert au quotidien ; constaté sur Arrivées-Départs.
-**Conséquences** : bouton « Ajouter aussi » pour les pages facultatives ; retirées du menu d'Arrivées-Départs.
+### 2026-11-23 — Socle et hors socle : Utilisateurs dans le socle, Boîte à outils à installer
+**Décision** : les pages du **socle** sont Accueil (› Documentation, Support) et Administration (› **Utilisateurs**). La **Boîte à outils** (outil de développeur) est **hors socle** : elle a son propre bouton « Installer » dans Administration → Structure. **Territoires** reste installée (référencée par `Entites.Territoire`) mais n'a pas besoin de page.
+**Raison** : la gestion des utilisateurs fait partie du socle ; ce qui n'en fait pas partie doit pouvoir s'ajouter en un clic, sans être imposé.
+**Historique** : une première version rendait aussi Utilisateurs facultative ; annulée le jour même.
 
 ### 2026-11-23 — Menu : Documentation et Support sous l'Accueil ; une page de documentation modèle
 **Décision** : dans le menu, **Documentation** et **Support** sont des sous-pages de **Accueil** (l'aide et le contact sont rangés avec la page d'entrée). À l'installation du sujet Documentation, une **page modèle « à modifier »** est créée (titre, objet, qui fait quoi, pas à pas, contact) ; le bouton « Nouvelle page » part du même canevas.
