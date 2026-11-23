@@ -3,15 +3,36 @@
   =====================================================================
   Page d'accueil — DGOM (charte de l'État / DSFR)
   =====================================================================
-  Widget à poser sur la page « Accueil », lié à la table Accueil, niveau
-  d'accès « Accès complet au document ».
+  RÔLE
+    Première page que voit toute personne qui ouvre le document Grist.
+    Elle répond à une seule question : « ai-je accès à l'application ? ».
+    Si oui, elle le confirme et montre les dernières nouveautés ; si non,
+    elle explique comment demander un accès.
 
-  Ce que voit chaque personne (les règles d'accès Grist font le tri) :
-    - non inscrite : le message « accès réservé » (Accueil.Message, calculé
-      depuis Parametres), les 3 étapes pour obtenir un accès et un bouton qui
-      prépare le courriel au contact ;
+  INSTALLATION DANS GRIST
+    Widget personnalisé posé sur la page « Accueil », lié à la table
+    Accueil, niveau d'accès « Accès complet au document ». Ce niveau est
+    indispensable : le widget doit pouvoir TENTER de lire d'autres tables
+    pour savoir ce que la personne a le droit de voir.
+
+  TABLES GRIST UTILISÉES (lecture seule : ce widget n'écrit rien)
+    - Accueil       : colonne Message, texte Markdown « accès réservé »
+                      calculé depuis Parametres ;
+    - Utilisateurs  : sert de test d'inscription (voir afficher()) ;
+    - Documentation : pages de la rubrique « Nouveauté » ;
+    - Parametres    : Nom_application, Contact_support, Logo_DGOM.
+
+  CE QUE VOIT CHAQUE PERSONNE (les règles d'accès Grist font le tri)
+    - non inscrite : le message « accès réservé » (Accueil.Message), les
+      3 étapes pour obtenir un accès et un bouton qui prépare le courriel
+      au contact ;
     - inscrite : la confirmation de son accès et les 3 dernières pages
       « Nouveauté » de la documentation.
+
+  PLAN DU FICHIER
+    1. <head> : bibliothèques externes, styles communs et styles propres ;
+    2. <body> : en-tête Marianne / DGOM, puis zone « page » vide ;
+    3. Script : outils communs, fonction afficher(), démarrage.
   =====================================================================
 -->
 <html lang="fr">
@@ -19,20 +40,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Accueil</title>
+  <!-- Bibliothèques externes : API des widgets Grist (objet « grist »),
+       conversion du Markdown en HTML (marked) et nettoyage de ce HTML
+       (DOMPurify, qui empêche l'exécution de scripts malveillants). -->
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+  <!-- Styles : logo Marianne officiel (DSFR), charte commune à tous les
+       widgets, puis outils JavaScript communs (window.Outils). -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
   <link rel="stylesheet" href="commun/dsfr-grist.css">
   <script src="commun/outils.js"></script>
   <style>
+    /* Bandeau bleu « Vous avez accès » affiché aux personnes inscrites. */
     .bandeau { background: var(--bleu); color: #fff; padding: 36px 24px; }
     .bandeau > div { max-width: 1280px; margin: 0 auto; }
     .bandeau h2 { font-size: 30px; margin: 0 0 8px; }
     .bandeau p { margin: 0; font-size: 17px; opacity: .92; }
+    /* Encadré à liseré rouge « accès réservé » pour les personnes non inscrites. */
     .acces-reserve { border-left: 6px solid var(--erreur); background: #fff; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,18,.12); }
     .acces-reserve h1 { font-size: 24px; }
+    /* Liste numérotée des étapes pour obtenir un accès. */
     .etapes { margin: 0 0 16px; padding-left: 22px; } .etapes li { margin: 8px 0; }
+    /* Une entrée de la liste des nouveautés, séparée de la suivante par un filet. */
     .nouveaute { padding: 12px 0; border-bottom: 1px solid var(--bordure); }
     .nouveaute:last-child { border-bottom: none; }
     .nouveaute small { color: var(--texte-doux); }
@@ -40,6 +70,9 @@
 </head>
 <body>
 
+<!-- En-tête commun : bloc-marque « Ministère des Outre-mer », logo DGOM
+     (remplacé par l'image de Parametres.Logo_DGOM s'il existe) et nom de
+     l'application (remplacé par Parametres.Nom_application). -->
 <header class="entete">
   <p class="fr-logo">Ministère<br>des Outre-mer</p>
   <div class="dgom" id="logo-dgom"><span>DGOM</span></div>
@@ -49,24 +82,60 @@
   </div>
 </header>
 
+<!-- Zone principale : affiche « Chargement… » puis est entièrement
+     remplacée par la fonction afficher() du script ci-dessous. -->
 <div id="page"><main><p class="vide">Chargement…</p></main></div>
 
 <script>
 'use strict';
+
+// ===== 1. Outils communs =====
+// Fonctions partagées par tous les widgets (fichier commun/outils.js) :
+//   esc        : neutralise les caractères HTML d'un texte saisi (sécurité) ;
+//   lire       : lit une table Grist ; rend null si l'accès est refusé ;
+//   parametres : lit la table Parametres sous forme { Cle: Valeur } ;
+//   entete     : met le logo et le nom de l'application dans l'en-tête ;
+//   markdown   : transforme un texte Markdown en HTML sûr.
 const { esc, lire, parametres, entete, markdown } = window.Outils;
 
-/** Une personne est « inscrite » si les règles d'accès la laissent lire la table Utilisateurs. */
+// ===== 2. Affichage de la page =====
+
+/**
+ * Construit et affiche tout le contenu de la page d'accueil.
+ *
+ * Comment sait-on si la personne est « inscrite » ? Le widget essaie de
+ * lire la table Utilisateurs : les règles d'accès Grist ne l'autorisent
+ * qu'aux personnes enregistrées. Si la lecture échoue (Outils.lire rend
+ * alors null au lieu d'une liste), la personne n'a pas encore d'accès.
+ * Aucun contrôle de sécurité n'est fait ici : c'est Grist qui décide,
+ * le widget se contente d'adapter l'affichage.
+ *
+ * Paramètres : aucun (Grist peut lui passer des lignes, elles sont ignorées).
+ * Valeur rendue : aucune (promesse sans résultat utile).
+ * Effet sur le document Grist : aucun, lecture seule. Seul le contenu de
+ * l'élément #page de cet écran est remplacé.
+ */
 async function afficher() {
+  // Lecture des 4 sources en parallèle (plus rapide). Une table interdite
+  // par les règles d'accès donne null, sans provoquer d'erreur.
   const [accueil, utilisateurs, docs, p] = await Promise.all([
     lire('Accueil'), lire('Utilisateurs'), lire('Documentation'), parametres(),
   ]);
   entete(p);
+  // Nom affiché de l'application et message « accès réservé » de la table Accueil.
   const appli = p.Nom_application || "l'application";
   const message = (accueil || [])[0]?.Message || '';
+  // Adresse du contact : celle des paramètres, sinon la première adresse
+  // « mailto: » trouvée dans le message d'accueil (une personne non inscrite
+  // ne peut pas forcément lire Parametres, mais voit toujours ce message).
   const contact = p.Contact_support || (message.match(/mailto:([^)\s]+)/) || [])[1] || '';
+  // Lien qui ouvre la messagerie avec un courriel de demande d'accès
+  // pré-rempli (objet et corps), pour faciliter la démarche.
   const mailto = contact ? `mailto:${esc(contact)}?subject=${encodeURIComponent("Demande d'accès à " + appli)}&body=${encodeURIComponent("Bonjour,\n\nJe souhaite accéder à " + appli + ".\nMon service :\nMotif :\n\nMerci.")}` : '';
   let html;
 
+  // Choix de l'écran selon le résultat de la lecture de Utilisateurs :
+  // une liste = personne inscrite ; null = personne sans accès.
   if (!Array.isArray(utilisateurs)) {
     // Personne sans accès : tout l'écran est consacré à l'obtenir.
     html = `<main><section class="acces-reserve markdown">${markdown(message || "# ⛔ Accès réservé\n\nPour avoir accès aux données, rapprochez-vous des administrateurs.")}</section>
@@ -80,16 +149,23 @@ async function afficher() {
       </section></main>`;
   } else {
     // Personne inscrite : un mot d'accueil et, s'il y en a, les dernières nouveautés.
+    // Les 3 pages « Nouveauté » les plus récentes (CreeLe est une date Grist,
+    // exprimée en secondes : on la multiplie par 1000 pour l'afficher).
     const N = (docs || []).filter((d) => d.Rubrique === 'Nouveauté').sort((a, b) => (b.CreeLe || 0) - (a.CreeLe || 0)).slice(0, 3);
     html = `<section class="bandeau"><div><h2>✅ Vous avez accès à ${esc(appli)}</h2>
       <p>Utilisez le menu de gauche. Une question ? Page <b>Support</b>${contact ? ' ou ' + esc(contact) : ''}.</p></div></section><main>
       ${N.length ? `<section class="carte"><h2>📰 Nouveautés</h2>${N.map((n) => `<div class="nouveaute"><small>${n.CreeLe ? new Date(n.CreeLe * 1000).toLocaleDateString('fr-FR') : ''}</small><br><b>${esc(n.Titre)}</b><div class="markdown">${markdown(n.Contenu)}</div></div>`).join('')}</section>` : ''}</main>`;
   }
+  // Remplacement du contenu de la zone principale en une seule fois.
   document.getElementById('page').innerHTML = html;
 }
 
+// ===== 3. Démarrage =====
+// Annonce à Grist que le widget est prêt et réclame l'accès complet
+// (nécessaire pour tenter de lire Utilisateurs, Documentation, Parametres).
 grist.ready({ requiredAccess: 'full' });
 grist.onRecords(afficher);   // se met à jour quand le message d'accueil change
+// Premier affichage immédiat, sans attendre un changement de données.
 afficher();
 </script>
 </body>

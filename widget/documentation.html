@@ -3,15 +3,37 @@
   =====================================================================
   Documentation — DGOM (charte de l'État / DSFR)
   =====================================================================
-  Widget à poser sur la page « Documentation », lié à la table
-  Documentation, niveau d'accès « Accès complet au document ».
+  RÔLE
+    Mini-wiki de l'application : guides, procédures, FAQ, notes et
+    « Nouveautés » (ces dernières sont aussi reprises sur la page d'accueil).
+    Les pages sont rédigées en Markdown, un format texte simple
+    (# Titre, **gras**, - liste…) mis en forme automatiquement.
 
-  - Lecture : sommaire par rubrique, recherche plein texte, page mise en
-    forme (Markdown : titres, listes, tableaux, citations, code, liens).
-  - Écriture (si les règles d'accès le permettent) : nouvelle page,
-    modification avec aperçu en direct, visibilité publique.
-  Les règles d'accès Grist restent seules juges : un enregistrement refusé
-  affiche simplement un message d'erreur.
+  INSTALLATION DANS GRIST
+    Widget personnalisé posé sur la page « Documentation », lié à la table
+    Documentation, niveau d'accès « Accès complet au document » (nécessaire
+    pour écrire et pour lire la structure du document, voir lireRubriques()).
+
+  TABLE GRIST UTILISÉE : Documentation
+    Colonnes lues et écrites : Titre, Rubrique (liste de choix), Ordre
+    (rang dans la rubrique), Contenu (Markdown).
+    Colonnes lues seulement : CreeLe, ModifieLe (dates remplies par Grist).
+    Lues aussi : Parametres (logo, nom) et les tables internes de Grist
+    _grist_Tables / _grist_Tables_column (liste des rubriques possibles).
+
+  FONCTIONNEMENT
+    - Lecture : sommaire par rubrique, recherche plein texte, page mise en
+      forme (Markdown : titres, listes, tableaux, citations, code, liens).
+    - Écriture (si les règles d'accès le permettent) : nouvelle page,
+      modification avec aperçu en direct.
+    Les règles d'accès Grist restent seules juges : un enregistrement refusé
+    affiche simplement un message d'erreur.
+
+  PLAN DU SCRIPT
+    1. État de l'écran        5. Lecture d'une page
+    2. Petits outils          6. Édition et enregistrement
+    3. Chargement des données 7. Clics et saisies
+    4. Sommaire               8. Démarrage
   =====================================================================
 -->
 <html lang="fr">
@@ -19,14 +41,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Documentation</title>
+  <!-- Bibliothèques externes : API des widgets Grist, conversion Markdown
+       en HTML (marked) et nettoyage de ce HTML (DOMPurify, anti-script). -->
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+  <!-- Styles : logo Marianne (DSFR), charte commune des widgets, puis
+       outils JavaScript communs (window.Outils). -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
   <link rel="stylesheet" href="commun/dsfr-grist.css">
   <script src="commun/outils.js"></script>
   <style>
+    /* Disposition générale : sommaire à gauche (280 px), page à droite. */
     .doc-grille { display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; }
+    /* Sommaire : reste visible en haut lors du défilement ; titres de rubrique
+       en majuscules ; page sélectionnée soulignée d'un liseré bleu. */
     .sommaire { background: #fff; border: 1px solid var(--bordure); padding: 16px; position: sticky; top: 12px; }
     .sommaire input { width: 100%; margin-bottom: 12px; }
     .sommaire h3 { font-size: 13px; text-transform: uppercase; color: var(--texte-doux); margin: 14px 0 4px; }
@@ -34,19 +63,25 @@
       border-left: 3px solid transparent; padding: 6px 10px; cursor: pointer; color: var(--texte); }
     .sommaire button:hover { background: #f6f6f6; }
     .sommaire button.actif { border-left-color: var(--bleu); color: var(--bleu); font-weight: 700; background: var(--bleu-clair); }
+    /* Page affichée en lecture, avec sa ligne d'informations (rubrique, date, Modifier). */
     .page { background: #fff; border: 1px solid var(--bordure); padding: 28px 36px; min-height: 360px; }
     .page .meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; color: var(--texte-doux); font-size: 13px; }
     .page .meta .actions { margin-left: auto; display: flex; gap: 8px; }
+    /* Mode édition : texte Markdown à gauche, aperçu en direct à droite. */
     .edition { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .edition textarea { width: 100%; min-height: 460px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; resize: vertical; }
     .edition .apercu { border: 1px dashed var(--bordure); padding: 16px; overflow: auto; max-height: 520px; }
+    /* Ligne de champs au-dessus de l'éditeur : titre, rubrique, ordre. */
     .champs { display: grid; grid-template-columns: 2fr 1fr 90px; gap: 10px; margin-bottom: 12px; align-items: center; }
     .champs label { font-size: 13px; display: flex; gap: 6px; align-items: center; }
+    /* Écrans étroits : tout passe sur une seule colonne. */
     @media (max-width: 860px) { .doc-grille, .edition, .champs { grid-template-columns: 1fr; } .sommaire { position: static; } }
   </style>
 </head>
 <body>
 
+<!-- En-tête commun : bloc-marque, logo DGOM (Parametres.Logo_DGOM) et
+     bouton de création d'une page. -->
 <header class="entete">
   <p class="fr-logo">Ministère<br>des Outre-mer</p>
   <div class="dgom" id="logo-dgom"><span>DGOM</span></div>
@@ -57,6 +92,7 @@
   <div class="actions"><button class="bouton primaire" id="nouvelle">＋ Nouvelle page</button></div>
 </header>
 
+<!-- Corps : sommaire avec recherche à gauche, page (lecture ou édition) à droite. -->
 <main>
   <div class="doc-grille">
     <nav class="sommaire" aria-label="Sommaire">
@@ -66,27 +102,56 @@
     <article class="page" id="page"></article>
   </div>
 </main>
+<!-- Emplacement des messages temporaires (« Page enregistrée », erreurs). -->
 <div id="messages"></div>
 
 <script>
 'use strict';
+
+// Fonctions partagées par tous les widgets (fichier commun/outils.js) :
+// esc (neutralise le HTML d'un texte), lire (lit une table, null si
+// interdite), parametres, entete (logo et titre), markdown (HTML sûr).
 const { esc, lire, parametres, entete, markdown } = window.Outils;
 
-/* ---------------- État ---------------- */
+// ===== 1. État de l'écran =====
+// Variables qui mémorisent ce qui est affiché. Elles sont mises à jour par
+// les fonctions ci-dessous puis relues pour redessiner l'écran.
+// « enEdition » vaut true pendant qu'une page est en cours de modification :
+// on évite alors de redessiner, pour ne pas effacer le texte en cours de saisie.
 let pages = [];        // lignes de la table Documentation
 let rubriques = [];    // choix de la colonne Rubrique
 let courante = null;   // id de la page affichée
 let enEdition = false;
 
-/* ---------------- Outils ---------------- */
+// ===== 2. Petits outils =====
+
+/**
+ * Affiche un message temporaire (4 secondes) en bas de l'écran.
+ * @param {string} texte   phrase à afficher (insérée comme texte brut, sans HTML)
+ * @param {boolean} erreur vrai pour un message d'erreur (style rouge)
+ * Effet sur le document Grist : aucun.
+ */
 function message(texte, erreur) {
   const m = document.createElement('div');
   m.className = 'message' + (erreur ? ' erreur' : ''); m.textContent = texte;
   document.getElementById('messages').appendChild(m); setTimeout(() => m.remove(), 4000);
 }
+
+/**
+ * Convertit une date Grist (nombre de secondes) en date française jj/mm/aaaa.
+ * Rend une chaîne vide si la date est absente.
+ */
 const date = (s) => (s ? new Date(s * 1000).toLocaleDateString('fr-FR') : '');
 
-/** Choix de la colonne Rubrique, lus dans la structure du document. */
+/**
+ * Lit la liste des rubriques possibles (Guide, FAQ, Nouveauté…).
+ * Ces choix ne sont pas dans les données mais dans le paramétrage de la
+ * colonne Documentation.Rubrique ; on les lit donc dans les tables internes
+ * de Grist (_grist_Tables, _grist_Tables_column). Ainsi, ajouter une rubrique
+ * dans Grist suffit : le widget la propose sans modification du code.
+ * @returns {Promise<string[]>} les choix, ou une liste vide si illisibles
+ * Effet sur le document Grist : aucun (lecture seule).
+ */
 async function lireRubriques() {
   const [tables, cols] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
   const t = (tables || []).find((x) => x.tableId === 'Documentation');
@@ -94,7 +159,16 @@ async function lireRubriques() {
   try { return JSON.parse(c.widgetOptions).choices || []; } catch (e) { return []; }
 }
 
-/* ---------------- Chargement ---------------- */
+// ===== 3. Chargement des données =====
+
+/**
+ * Relit la table Documentation, les paramètres et les rubriques, puis
+ * redessine le sommaire et (hors édition) la page affichée.
+ * Les pages sont triées par rubrique, puis par Ordre, puis par titre.
+ * Si la page affichée a disparu (supprimée, ou devenue invisible), la
+ * première page de la liste est affichée à la place.
+ * Effet sur le document Grist : aucun (lecture seule).
+ */
 async function charger() {
   const [docs, p, r] = await Promise.all([lire('Documentation'), parametres(), lireRubriques()]);
   entete(p, 'Documentation');
@@ -105,7 +179,16 @@ async function charger() {
   if (!enEdition) afficherPage();
 }
 
-/* ---------------- Sommaire ---------------- */
+// ===== 4. Sommaire =====
+
+/**
+ * Dessine le sommaire de gauche : les pages regroupées par rubrique,
+ * filtrées par le champ « Rechercher… » (recherche sans distinction de
+ * majuscules dans le titre, le contenu et la rubrique).
+ * Chaque titre est un bouton portant l'identifiant de la page (data-page),
+ * utilisé par le gestionnaire de clics (section 7).
+ * Effet sur le document Grist : aucun.
+ */
 function afficherListe() {
   const q = document.getElementById('recherche').value.trim().toLowerCase();
   const trouvees = pages.filter((d) => !q || `${d.Titre} ${d.Contenu} ${d.Rubrique}`.toLowerCase().includes(q));
@@ -117,7 +200,14 @@ function afficherListe() {
     : '<p class="vide">Aucune page.</p>';
 }
 
-/* ---------------- Lecture ---------------- */
+// ===== 5. Lecture d'une page =====
+
+/**
+ * Affiche la page courante en lecture : rubrique, date de mise à jour,
+ * bouton « Modifier », puis le titre et le contenu Markdown mis en forme.
+ * Le contenu passe par Outils.markdown, qui supprime tout code dangereux.
+ * Effet sur le document Grist : aucun.
+ */
 function afficherPage() {
   const d = pages.find((x) => x.id === courante);
   const zone = document.getElementById('page');
@@ -130,7 +220,16 @@ function afficherPage() {
     <div class="markdown"><h1>${esc(d.Titre || 'Sans titre')}</h1>${markdown(d.Contenu)}</div>`;
 }
 
-/* ---------------- Édition ---------------- */
+// ===== 6. Édition et enregistrement =====
+
+/**
+ * Remplace la page affichée par le formulaire d'édition : titre, rubrique,
+ * ordre, texte Markdown à gauche et aperçu à droite.
+ * @param {object|null} d  la page à modifier, ou null pour une nouvelle page
+ *                         (pré-remplie avec un modèle minimal)
+ * Le bouton « Enregistrer » garde l'identifiant de la page (vide si nouvelle).
+ * Effet sur le document Grist : aucun tant que l'on n'a pas enregistré.
+ */
 function editer(d) {
   enEdition = true;
   d = d || { Titre: '', Rubrique: rubriques[0] || '', Ordre: 0, Contenu: '## Objet\n\n…' };
@@ -148,10 +247,25 @@ function editer(d) {
        <button class="bouton" id="annuler">Annuler</button></p>`;
   apercu();
 }
+
+/**
+ * Met à jour l'aperçu (partie droite de l'éditeur) à partir du texte saisi.
+ * Appelée à chaque frappe dans la zone de texte.
+ * Effet sur le document Grist : aucun.
+ */
 function apercu() {
   document.getElementById('e-apercu').innerHTML = markdown(document.getElementById('e-contenu').value);
 }
 
+/**
+ * Enregistre la page en cours d'édition dans la table Documentation.
+ * @param {number|null} id  identifiant de la page modifiée, ou null pour
+ *                          créer une nouvelle ligne
+ * Effet sur le document Grist : modifie (UpdateRecord) ou ajoute
+ * (AddRecord) une ligne de Documentation. Si les règles d'accès
+ * refusent l'écriture, Grist lève une erreur et un message est affiché ;
+ * rien n'est alors modifié.
+ */
 async function enregistrer(id) {
   const champs = {
     Titre: document.getElementById('e-titre').value.trim() || 'Sans titre',
@@ -160,6 +274,8 @@ async function enregistrer(id) {
     Contenu: document.getElementById('e-contenu').value,
   };
   try {
+    // Une seule action Grist ; pour une création, Grist renvoie l'identifiant
+    // de la nouvelle ligne dans retValues, afin de l'afficher ensuite.
     const r = await grist.docApi.applyUserActions([id ? ['UpdateRecord', 'Documentation', id, champs] : ['AddRecord', 'Documentation', null, champs]]);
     courante = id || r.retValues[0];
     enEdition = false;
@@ -170,7 +286,9 @@ async function enregistrer(id) {
   }
 }
 
-/* ---------------- Évènements ---------------- */
+// ===== 7. Clics et saisies =====
+// Un seul écouteur pour tout l'écran : le contenu étant redessiné
+// souvent, on reconnaît le bouton cliqué par son id ou son data-page.
 document.addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.page) { courante = Number(b.dataset.page); enEdition = false; afficherListe(); afficherPage(); }
@@ -179,12 +297,15 @@ document.addEventListener('click', (e) => {
   else if (b.id === 'annuler') { enEdition = false; afficherPage(); }
   else if (b.id === 'enregistrer') enregistrer(Number(b.dataset.id) || null);
 });
+// Saisie : la recherche filtre le sommaire, le texte Markdown met à jour l'aperçu.
 document.addEventListener('input', (e) => {
   if (e.target.id === 'recherche') afficherListe();
   if (e.target.id === 'e-contenu') apercu();
 });
 
-/* ---------------- Démarrage ---------------- */
+// ===== 8. Démarrage =====
+// Le widget réclame l'accès complet, puis se recharge à chaque modification
+// des données, sauf pendant une édition (pour ne pas perdre la saisie).
 grist.ready({ requiredAccess: 'full' });
 grist.onRecords(() => { if (!enEdition) charger(); });
 charger();

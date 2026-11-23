@@ -5,52 +5,98 @@
  *
  *  À quoi ça sert
  *  --------------
- *  Recrée dans n'importe quel document Grist les sujets transverses définis
- *  dans le dossier `structure/` de ce dépôt (utilisateurs, support, journal,
- *  paramètres, page d'accueil publique…), puis pose les règles d'accès de base.
+ *  Recrée dans n'importe quel document Grist les tables standard de la norme
+ *  DGOM, décrites dans le dossier `structure/` de ce dépôt (utilisateurs,
+ *  référentiel des territoires, paramètres, page d'accueil publique, support,
+ *  journal, documentation), puis pose les règles d'accès de base.
+ *  C'est l'équivalent « en ligne de commande » du bouton « Installer » de
+ *  l'onglet Structure du widget Administration.
+ *
+ *  Ce que le script lit : le format « grist-structure »
+ *  ----------------------------------------------------
+ *  Chaque fichier `structure/<sujet>.json` décrit un « sujet » (un ensemble
+ *  cohérent de tables), sans aucune donnée :
+ *      {
+ *        "format": "grist-structure", "version": "1.5", "sujet": "SUPPORT",
+ *        "tables": [ { "tableId": "Support", "columns": [
+ *            { "id": "Titre", "label": "Titre", "type": "Text" },
+ *            { "id": "Personne", "type": "Ref:Utilisateurs", "isFormula": true,
+ *              "formula": "Utilisateurs.lookupOne(…)", "visibleCol": "Email" }, … ] } ],
+ *        "dependances": [ "UTILISATEURS" ]
+ *      }
+ *  - L'ORDRE des colonnes dans le fichier est l'ordre de la norme : ce qui
+ *    identifie la ligne d'abord, puis le contenu, les liens, l'état, et la
+ *    traçabilité (CreeLe, CreePar…) en dernier.
+ *  - « visibleCol » indique quelle colonne afficher pour une référence
+ *    (ex. le courriel de la personne plutôt que son numéro de ligne).
+ *  - « dependances » liste les sujets à installer avant celui-ci
+ *    (le support a besoin de l'annuaire des utilisateurs).
  *
  *  Comment l'utiliser
  *  ------------------
  *  1. Ouvrir le document Grist cible (en étant PROPRIÉTAIRE).
  *  2. Ouvrir la console du navigateur (F12 → Console).
- *  3. Coller tout ce fichier, puis lancer par exemple :
- *        await installerGouvernance(['utilisateurs', 'support', 'journal', 'parametres', 'accueil_public'])
+ *  3. Coller tout ce fichier, valider, puis lancer par exemple :
+ *        await installerGouvernance(['utilisateurs', 'parametres', 'accueil_public', 'support', 'journal', 'documentation'])
+ *  4. Un tableau récapitulatif s'affiche dans la console : tables créées,
+ *     colonnes ajoutées, données de référence chargées, règles d'accès.
  *
  *  Principes de sécurité
  *  ---------------------
- *  - Le script n'efface JAMAIS rien : il ajoute les tables et les colonnes
- *    qui manquent et range les colonnes dans l'ordre de la norme. On peut donc
- *    le relancer sans risque.
+ *  - Rien n'est supprimé : le script ajoute seulement les tables et les
+ *    colonnes qui manquent, et range les colonnes dans l'ordre de la norme.
+ *    Une colonne déjà présente n'est jamais modifiée, les données ne sont
+ *    jamais effacées, et les colonnes propres à l'application sont conservées
+ *    (placées après celles de la norme). On peut donc le relancer sans risque.
  *  - Il passe par l'API REST de Grist avec la session de l'utilisateur
  *    connecté (aucune clé d'API à saisir).
  *  - Les règles d'accès qu'il écrit portent la mention « [Gouvernance] »
  *    pour être reconnaissables dans « Permissions avancées ».
  */
 
-// Adresse publique du dépôt (servi par jsDelivr depuis GitHub). On peut la remplacer
-// par une adresse figée sur un commit précis via l'option { depot } d'installerGouvernance.
+// ===== 1. Réglages =====
+
+// Adresse publique du dépôt, d'où sont téléchargés les fichiers structure/*.json
+// et donnees/*.json (servis par jsDelivr depuis GitHub, branche main = dernière
+// version de la norme). Pour installer une version figée, passer une adresse
+// pointant sur un commit précis via l'option { depot } d'installerGouvernance.
 const DEPOT_PAR_DEFAUT = 'https://cdn.jsdelivr.net/gh/QuentinLemire/gouvernance-grist@main/';
 
-// Document visé : par défaut celui qui est ouvert ; installerGouvernance(…, { docId }) en choisit un autre.
+// Document visé : par défaut celui qui est ouvert dans l'onglet ;
+// installerGouvernance(…, { docId }) permet d'en viser un autre.
 let DOC_CIBLE = null;
 
-// Jeux de données de référence livrés avec certains sujets (dossier donnees/ du dépôt).
+// Jeux de données de référence livrés avec certains sujets (dossier donnees/ du dépôt),
+// sous la forme « sujet : fichier ». Ils ne sont chargés que si la table est vide.
 const DONNEES_DE_REFERENCE = {
   referentiel_territoires: 'territoires.json',
 };
 
-// ---------------------------------------------------------------------
-// Petits utilitaires d'accès à l'API Grist du document ouvert
-// ---------------------------------------------------------------------
+// ===== 2. Accès à l'API Grist du document =====
+// Petites fonctions qui envoient les demandes au serveur Grist. Toutes passent
+// par la session du navigateur : on agit avec les droits de la personne connectée.
 
-/** Identifiant du document ouvert, lu dans l'adresse de la page (…/o/<org>/<docId>/…). */
+/**
+ * Retrouve l'identifiant du document ouvert dans l'adresse de la page
+ * (…/o/<organisation>/<docId>/…).
+ * @returns {string} l'identifiant du document
+ * @throws si l'adresse ne contient pas d'identifiant (page qui n'est pas un document)
+ */
 function docIdCourant() {
   const m = location.pathname.match(/\/(?:o\/[^/]+\/)?([A-Za-z0-9]{12,})(?:\/|$)/);
   if (!m) throw new Error("Impossible de trouver l'identifiant du document dans l'adresse.");
   return m[1];
 }
 
-/** Appelle l'API du document visé et renvoie la réponse JSON (lève une erreur lisible sinon). */
+/**
+ * Appelle l'API REST du document visé et renvoie la réponse JSON.
+ * En cas de refus du serveur (droits insuffisants, table inconnue…), lève une
+ * erreur qui reprend le chemin appelé et le message de Grist, pour savoir
+ * précisément ce qui a échoué.
+ * @param {string} chemin   fin de l'adresse, ex. '/tables' ou '/apply'
+ * @param {Object} options  options de fetch (méthode, corps…) ; GET par défaut
+ * @returns {Promise<Object>} la réponse de Grist
+ */
 async function api(chemin, options = {}) {
   const r = await fetch(`/api/docs/${DOC_CIBLE || docIdCourant()}${chemin}`, {
     credentials: 'include',
@@ -62,18 +108,40 @@ async function api(chemin, options = {}) {
   return json;
 }
 
-/** Applique une liste d'actions Grist (« user actions ») en une seule transaction. */
+/**
+ * Envoie une liste d'actions Grist (« user actions » : AddTable, AddColumn,
+ * BulkUpdateRecord…) en une seule transaction : soit tout passe, soit rien.
+ * Ce sont les mêmes actions que celles que Grist enregistre quand on modifie
+ * le document à la main ; elles apparaissent donc dans l'historique.
+ * @param {Array[]} actions  liste d'actions, ex. [['AddColumn', 'Support', 'Titre', {…}]]
+ * @returns {Promise<Object>} réponse de Grist (retValues : identifiants créés)
+ */
 const appliquer = (actions) => api('/apply', { method: 'POST', body: JSON.stringify(actions) });
 
-/** Exécute une requête SQL en lecture sur le document (tables techniques comprises). */
+/**
+ * Exécute une requête SQL en LECTURE sur le document. Elle donne accès aux
+ * tables techniques de Grist (_grist_Tables, _grist_Tables_column,
+ * _grist_ACLRules…), où sont rangés la position des colonnes, les vues et les
+ * règles d'accès, informations que l'API REST classique ne fournit pas.
+ * @param {string} requete  requête SELECT
+ * @returns {Promise<Object[]>} une liste d'objets, un par ligne de résultat
+ */
 const sql = async (requete) =>
   (await api('/sql?q=' + encodeURIComponent(requete))).records.map((r) => r.fields);
 
-// ---------------------------------------------------------------------
-// Création de la structure
-// ---------------------------------------------------------------------
+// ===== 3. Création de la structure =====
+// Traduit les fichiers structure/*.json en tables et colonnes Grist, règle
+// l'affichage des références, puis range les colonnes dans l'ordre de la norme.
 
-/** Convertit une colonne du format `structure/*.json` vers le format attendu par Grist. */
+/**
+ * Convertit une colonne du format grist-structure vers la description attendue
+ * par Grist dans les actions AddTable / AddColumn.
+ * Valeurs par défaut : libellé = identifiant, type « Any », colonne de données
+ * (pas une formule). Les options d'affichage (choix d'une liste, couleurs…)
+ * sont transmises telles quelles, converties en texte comme Grist le demande.
+ * @param {Object} c  colonne lue dans structure/*.json
+ * @returns {Object} propriétés de la colonne pour Grist
+ */
 function versColonneGrist(c) {
   return {
     label: c.label || c.id,
@@ -85,13 +153,33 @@ function versColonneGrist(c) {
   };
 }
 
-/** Table cible d'une colonne de référence (« Ref:Entites » → « Entites »), sinon null. */
+/**
+ * Donne la table vers laquelle pointe une colonne de référence :
+ * « Ref:Entites » ou « RefList:Entites » → « Entites ». Pour toute autre
+ * colonne, renvoie null.
+ * @param {Object} c  colonne au format grist-structure
+ * @returns {string|null}
+ */
 const tableReferencee = (c) => (/^(Ref|RefList):(\w+)/.exec(c.type || '') || [])[2] || null;
 
 /**
- * Ajoute les tables et colonnes manquantes.
- * Les colonnes qui dépendent d'une table pas encore créée (référence ou formule)
- * sont mises de côté puis ajoutées à la fin, une fois toutes les tables présentes.
+ * Ajoute au document les tables et colonnes de la norme qui manquent.
+ *
+ * Rien n'est supprimé ni modifié : une table existante est complétée, une
+ * colonne déjà présente (même identifiant) est laissée telle quelle.
+ *
+ * Pourquoi deux passes ? Une colonne peut dépendre d'une autre table (une
+ * référence « Ref:Utilisateurs », ou une formule qui cite « Utilisateurs. »).
+ * Grist refuse de la créer si cette table n'existe pas encore. Ces colonnes
+ * sont donc mises de côté, puis ajoutées à la fin, une fois toutes les tables
+ * présentes ; l'ordre des sujets demandés n'a ainsi pas d'importance.
+ *
+ * Ensuite : réglage de la colonne affichée des références, puis rangement
+ * des colonnes dans l'ordre de la norme.
+ *
+ * @param {Object[]} tables  tables des sujets à installer ({ tableId, columns })
+ * @returns {Promise<{tables: string[], colonnes: string[]}>} ce qui a été créé
+ * Actions Grist envoyées : AddTable, AddColumn (puis celles des deux fonctions suivantes).
  */
 async function creerStructure(tables) {
   const existantes = new Set((await api('/tables')).tables.map((t) => t.id));
@@ -99,13 +187,16 @@ async function creerStructure(tables) {
   const enAttente = [];
   const rapport = { tables: [], colonnes: [] };
 
-  // Une colonne « dépend » d'une table si elle la référence ou la cite dans sa formule.
+  // Une colonne « dépend » d'une table si elle la référence ou la cite dans sa formule
+  // (on cherche « NomDeTable. » dans le texte de la formule).
   const dependances = (c) => {
     const deps = [tableReferencee(c)];
     for (const t of toutes) if (new RegExp(`\\b${t}\\.`).test(c.formula || '')) deps.push(t);
     return deps.filter(Boolean);
   };
 
+  // Première passe : pour chaque table, on ajoute tout de suite les colonnes
+  // « prêtes » ; les autres attendent la seconde passe.
   for (const table of tables) {
     const colonnesActuelles = existantes.has(table.tableId)
       ? new Set((await api(`/tables/${table.tableId}/columns`)).columns.map((c) => c.id))
@@ -128,7 +219,7 @@ async function creerStructure(tables) {
     rapport.colonnes.push(...maintenant.map(([t, c]) => `${t}.${c.id}`));
   }
 
-  // Colonnes différées (toutes les tables existent désormais).
+  // Seconde passe : colonnes différées (toutes les tables existent désormais).
   for (const [t, c] of enAttente) {
     await appliquer([['AddColumn', t, c.id, versColonneGrist(c)]]);
     rapport.colonnes.push(`${t}.${c.id}`);
@@ -140,8 +231,18 @@ async function creerStructure(tables) {
 }
 
 /**
- * Range les colonnes dans l'ordre de la norme (les colonnes propres à l'application suivent),
- * dans la structure et dans la vue « données brutes » / fiche de chaque table.
+ * Range les colonnes dans l'ordre de la norme (celui des fichiers structure/*.json).
+ *
+ * Les colonnes de la norme passent en premier, dans l'ordre prévu ; les
+ * colonnes propres à l'application les suivent, en gardant leur ordre actuel
+ * (tri « stable »). Aucune colonne n'est supprimée ni masquée.
+ * L'ordre est appliqué à trois endroits : la structure de la table, la vue
+ * « données brutes » et la fiche (« record card ») de chaque table. Les pages
+ * créées par l'application gardent leur propre disposition.
+ *
+ * @param {Object[]} tables  tables de la norme ({ tableId, columns })
+ * Actions Grist envoyées : BulkUpdateRecord sur _grist_Tables_column et
+ * _grist_Views_section_field (champ parentPos = position).
  */
 async function rangerColonnes(tables) {
   const colonnes = await sql(
@@ -166,7 +267,18 @@ async function rangerColonnes(tables) {
   if (actions.length) await appliquer(actions);
 }
 
-/** Pour chaque colonne de référence, choisit la colonne affichée (ex. le Nom de l'entité plutôt que son numéro). */
+/**
+ * Règle l'affichage des colonnes de référence.
+ * Sans réglage, Grist affiche le numéro de la ligne pointée (« Utilisateurs[12] »),
+ * illisible pour un agent. Le champ « visibleCol » du fichier de structure dit
+ * quelle colonne montrer à la place (ex. le Nom de l'entité, le courriel de la
+ * personne). C'est l'équivalent du réglage « Afficher la colonne » de Grist.
+ * Les colonnes sans visibleCol, ou dont la table cible est absente, sont ignorées.
+ *
+ * @param {Object[]} tables  tables de la norme ({ tableId, columns })
+ * Actions Grist envoyées : ModifyColumn (visibleCol) et SetDisplayFormula
+ * (formule d'affichage « $Colonne.ColonneVisible »).
+ */
 async function reglerAffichageDesReferences(tables) {
   const colonnes = await sql(
     'select c.id, t.tableId, c.colId from _grist_Tables_column c join _grist_Tables t on t.id = c.parentId'
@@ -187,15 +299,30 @@ async function reglerAffichageDesReferences(tables) {
   if (actions.length) await appliquer(actions);
 }
 
-// ---------------------------------------------------------------------
-// Règles d'accès de base
-// ---------------------------------------------------------------------
+// ===== 4. Règles d'accès de base =====
+// Socle de droits commun à toutes les applications : le rôle d'une personne
+// vient de sa fiche dans la table Utilisateurs.
 
 /**
- * - Attribut utilisateur « Profil » = la ligne de Utilisateurs dont Email_cle = courriel de connexion.
+ * Pose les règles d'accès de base (« Permissions avancées » de Grist) :
+ * - Attribut utilisateur « Profil » = la ligne de Utilisateurs dont Email_cle
+ *   correspond au courriel de connexion. Les autres règles et les widgets
+ *   s'en servent (user.Profil.Actif, rôle…).
  * - Les propriétaires gardent tous les droits.
- * - Une personne non inscrite (ou inactive) ne voit que la table Accueil.
- * Ne fait rien si des règles « [Gouvernance] » existent déjà.
+ * - La table Accueil est lisible par tous, modifiable par les propriétaires.
+ * - Une personne non inscrite (ou dont la fiche est inactive) ne voit que la
+ *   table Accueil, pas même la documentation.
+ *
+ * Les règles sont numérotées (rulePos) car Grist les applique dans l'ordre :
+ * la première qui s'applique l'emporte. Chacune porte « [Gouvernance] » dans
+ * sa description pour être reconnue.
+ *
+ * Ne fait rien si des règles « [Gouvernance] » existent déjà : on ne touche
+ * jamais à des droits déjà posés, éventuellement ajustés à la main.
+ *
+ * @returns {Promise<string>} 'posées' ou 'déjà en place'
+ * Actions Grist envoyées : AddRecord sur _grist_ACLResources (portée des règles :
+ * tout le document « * », ou la table Accueil) et sur _grist_ACLRules.
  */
 async function poserReglesDeBase() {
   const regles = await sql('select memo, userAttributes from _grist_ACLRules');
@@ -225,11 +352,18 @@ async function poserReglesDeBase() {
   return 'posées';
 }
 
-// ---------------------------------------------------------------------
-// Point d'entrée
-// ---------------------------------------------------------------------
+// ===== 5. Données de référence =====
 
-/** Remplit une table vide avec un jeu de données de référence (ne touche jamais une table déjà remplie). */
+/**
+ * Remplit une table vide avec un jeu de données de référence du dépôt
+ * (ex. les 13 territoires ultramarins avec leur code COG).
+ * Ne touche jamais une table qui contient déjà des lignes : les données
+ * saisies dans l'application sont prioritaires.
+ * @param {string} depot    adresse du dépôt (voir DEPOT_PAR_DEFAUT)
+ * @param {string} fichier  nom du fichier dans donnees/, ex. 'territoires.json'
+ * @returns {Promise<string>} une phrase de compte rendu pour le rapport
+ * Action Grist : ajout des lignes par l'API REST (POST /records).
+ */
 async function chargerDonnees(depot, fichier) {
   const jeu = await (await fetch(`${depot}donnees/${fichier}`)).json();
   const lignes = (await api(`/tables/${jeu.tableId}/records`)).records;
@@ -241,9 +375,26 @@ async function chargerDonnees(depot, fichier) {
   return `${jeu.tableId} : ${jeu.records.length} lignes`;
 }
 
+// ===== 6. Point d'entrée =====
+
 /**
- * Installe les sujets demandés (noms des fichiers de `structure/`, sans « .json »).
- * Les sujets dont ils dépendent (champ « dependances ») sont ajoutés automatiquement.
+ * Installe les sujets demandés : c'est la seule fonction à appeler.
+ *
+ * Déroulé :
+ *   1. télécharge structure/<sujet>.json pour chaque sujet, et de proche en
+ *      proche ses dépendances (champ « dependances ») ;
+ *   2. crée les tables et colonnes manquantes, règle l'affichage des
+ *      références et range les colonnes (rien n'est supprimé) ;
+ *   3. charge les données de référence dans les tables encore vides ;
+ *   4. pose les règles d'accès de base si l'annuaire (utilisateurs) et la
+ *      page d'accueil (accueil_public) font partie de l'installation.
+ *
+ * @param {string[]} sujets   noms des fichiers de structure/, sans « .json »
+ * @param {Object}   [options]
+ * @param {string}   [options.docId]  autre document à viser (par défaut : celui ouvert)
+ * @param {string}   [options.depot]  autre adresse du dépôt (par défaut : DEPOT_PAR_DEFAUT)
+ * @returns {Promise<Object>} rapport { tables, colonnes, donnees, regles },
+ *          également affiché sous forme de tableau dans la console
  *
  * Exemples :
  *   await installerGouvernance(['utilisateurs', 'support'])
@@ -253,6 +404,9 @@ async function installerGouvernance(sujets, { docId = null, depot = DEPOT_PAR_DE
   DOC_CIBLE = docId;
 
   // 1. Lire les sujets demandés et, de proche en proche, leurs dépendances.
+  //    Les dépendances sont écrites en majuscules dans les fichiers (« UTILISATEURS ») :
+  //    on les met en minuscules pour retrouver le nom du fichier. Un sujet déjà lu
+  //    n'est pas relu, ce qui évite les doublons.
   const aLire = [...sujets];
   const lus = new Map();
   while (aLire.length) {
@@ -265,7 +419,8 @@ async function installerGouvernance(sujets, { docId = null, depot = DEPOT_PAR_DE
     for (const dep of def.dependances || []) aLire.push(dep.toLowerCase());
   }
 
-  // 2. Créer toutes les tables en une passe (les références croisées se règlent à la fin).
+  // 2. Créer toutes les tables en une passe : les tables de tous les sujets sont
+  //    traitées ensemble, les références croisées se règlent à la fin.
   const tables = [...lus.values()].flatMap((def) => def.tables);
   const rapport = await creerStructure(tables);
 
@@ -275,7 +430,9 @@ async function installerGouvernance(sujets, { docId = null, depot = DEPOT_PAR_DE
     if (DONNEES_DE_REFERENCE[sujet]) rapport.donnees.push(await chargerDonnees(depot, DONNEES_DE_REFERENCE[sujet]));
   }
 
-  // Les règles d'accès n'ont de sens que si l'annuaire et la page d'accueil sont présents.
+  // 4. Règles d'accès : elles n'ont de sens que si l'annuaire (Utilisateurs, qui
+  //    fournit le Profil) et la page d'accueil (seule table visible des non-inscrits)
+  //    sont présents.
   if (lus.has('utilisateurs') && lus.has('accueil_public')) {
     rapport.regles = await poserReglesDeBase();
   }

@@ -20,11 +20,39 @@
     ⚙️ Paramètres        paramètres de l'application, journal complet
     ❓ Aide              mode d'emploi du panneau et tâches courantes
 
+  Dépend de
+    grist-plugin-api.js     API des widgets Grist (lecture et écriture du document)
+    commun/dsfr-grist.css   styles communs à tous les widgets (charte DSFR)
+    commun/outils.js        fonctions partagées (Outils.ticketOuvert, Outils.conversation)
+
+  Tables du document utilisées
+    Utilisateurs, Entites, Territoires, Support, Support_commentaires,
+    Journal_Admin, Parametres, Accueil, et les tables techniques de Grist
+    (_grist_Tables…, _grist_ACL… pour les règles d'accès, _grist_Pages… pour le menu).
+
+  Plan du fichier
+    head      styles propres au panneau (les styles communs sont dans commun/)
+    body      en-tête, barre d'onglets, zone de contenu, zone des messages
+    script
+      1. Configuration             dépôt de la norme, sujets, niveaux de droit, traçabilité
+      2. État du panneau           tout ce qui est affiché est tiré de l'objet « etat »
+      3. Outils                    lecture, écriture, journal, messages, téléchargement
+      4. Chargement                structure du document, données, en-tête
+      5. Tableau de bord           contrôles de santé et chiffres clés
+      6. Utilisateurs              filtres, modification en ligne, ajout en masse, export
+      7. Droits                    matrice → règles d'accès Grist, garde des non-inscrits
+      8. Support                   liste des demandes, fiche, réponse, clôture
+      9. Structure                 norme (lecture, installation, publication), pages du menu
+     10. Paramètres                valeurs de l'application, journal complet
+     11. Aide                      mode d'emploi (texte fixe)
+     12. Affichage et événements   dessin des onglets, réactions aux clics et aux saisies
+     13. Démarrage
   Principes
     - Ne supprime jamais de données ni de tables.
     - Toute action d'administration est tracée dans Journal_Admin.
     - Les règles d'accès écrites portent la mention « [Admin] » : elles se
       réécrivent ou se retirent proprement, les autres règles sont conservées.
+    - Toute écriture passe par une transaction Grist : elle s'annule avec Ctrl+Z.
   =====================================================================
 -->
 <html lang="fr">
@@ -32,40 +60,49 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Administration</title>
+  <!-- API Grist, logo Marianne du DSFR, styles communs aux widgets et fonctions partagées (Outils). -->
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
   <link rel="stylesheet" href="commun/dsfr-grist.css">
   <script src="commun/outils.js"></script>
   <style>
-    /* Compléments propres au panneau d'administration */
+    /* Compléments propres au panneau d'administration ; couleurs, cartes, boutons et tableaux viennent de commun/dsfr-grist.css. */
+    /* Barre d'onglets : reste collée en haut au défilement ; l'onglet actif est souligné en bleu. */
     .onglets { display: flex; gap: 0; flex-wrap: wrap; background: #fff; border-bottom: 1px solid var(--bordure); padding: 0 24px; position: sticky; top: 0; z-index: 5; }
     .onglets button { font: inherit; font-weight: 500; padding: 14px 16px; border: none; background: none; cursor: pointer;
       color: var(--texte-doux); border-bottom: 3px solid transparent; }
     .onglets button:hover { color: var(--texte); }
     .onglets button.actif { color: var(--bleu); border-bottom-color: var(--bleu); background: var(--bleu-clair); }
+    /* Barres d'outils (filtres, boutons) ; « .espace » repousse les éléments suivants à droite. */
     .barre-outils { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
     .barre-outils .espace { flex: 1; }
+    /* Tableau de bord : liste des contrôles de santé (icône, texte, bouton « Corriger »). */
     .sante li { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--bordure); list-style: none; }
     .sante ul { padding: 0; margin: 0; }
     .sante li > span:nth-child(2) { flex: 1; }
+    /* Onglet Droits : matrice rôle × table, puis aperçu des règles sur fond sombre. */
     .matrice select { width: 100%; min-width: 118px; padding: 5px 8px; font-size: 13px; }
     .matrice td, .matrice th { padding: 6px; }
     .matrice td.table { font-weight: 700; white-space: nowrap; }
     pre.apercu { background: #1e1e1e; color: #f0f0f0; padding: 14px; font-size: 12.5px; max-height: 320px; overflow: auto; white-space: pre-wrap; }
+    /* Onglet Support : fiche d'une demande (titre, informations, réglages en pied de fiche). */
     .ticket { background: #fff; border: 1px solid var(--bordure); padding: 16px 18px; }
     .ticket header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .ticket header b { flex: 1; font-size: 17px; }
     .ticket .meta { color: var(--texte-doux); font-size: 13px; margin: 4px 0 12px; }
     .ticket .reglages { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bordure); }
+    /* Onglet Structure : une ligne par sujet de la norme ou par page standard. */
     .sujet { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bordure); }
     .sujet > div { flex: 1; }
     .sujet small { color: var(--texte-doux); }
+    /* Champs modifiables dans les tableaux (Utilisateurs) et aperçu du logo (Paramètres). */
     td .champ { padding: 4px 8px; font-size: 14px; max-width: 220px; }
     .apercu-logo { max-height: 48px; vertical-align: middle; margin-left: 10px; }
   </style>
 </head>
 <body>
 
+<!-- En-tête : bloc Marianne, logo DGOM (remplacé par l'image Parametres.Logo_DGOM si elle existe), titre, bouton Actualiser. -->
 <header class="entete">
   <p class="fr-logo">Ministère<br>des Outre-mer</p>
   <div class="dgom" id="logo-dgom"><span>DGOM</span></div>
@@ -76,6 +113,7 @@
   <div class="actions"><button class="bouton petit" data-action="actualiser">↻ Actualiser</button></div>
 </header>
 
+<!-- Barre d'onglets : chaque bouton porte data-onglet, lu par le gestionnaire de clics (section 12 du script). -->
 <nav class="onglets" id="onglets">
   <button data-onglet="accueil" class="actif">🏠 Tableau de bord</button>
   <button data-onglet="utilisateurs">👥 Utilisateurs</button>
@@ -86,9 +124,12 @@
   <button data-onglet="aide">❓ Aide</button>
 </nav>
 
+<!-- Zone de contenu : entièrement redessinée par afficher() selon l'onglet choisi. -->
 <main id="contenu"><p class="vide">Chargement…</p></main>
+<!-- Messages temporaires (succès, erreurs) affichés en bas à droite par message(). -->
 <div id="messages"></div>
 
+<!-- Script du panneau : voir le plan en tête de fichier. -->
 <script>
 'use strict';
 
@@ -96,10 +137,18 @@
 // 1. Configuration
 // =====================================================================
 
-/** Mention portée par les règles d'accès créées par ce panneau. */
+/**
+ * Mention placée en tête du mémo de chaque règle d'accès écrite par ce panneau.
+ * C'est elle qui permet de retrouver « nos » règles pour les réécrire ou les retirer
+ * sans toucher aux règles posées à la main dans Grist.
+ */
 const MARQUE = '[Admin]';
 
-/** Nom de l'attribut utilisateur Grist : user.Profil = la ligne de Utilisateurs de la personne connectée. */
+/**
+ * Nom de l'attribut utilisateur Grist. Une fois déclaré, user.Profil désigne la ligne de la
+ * table Utilisateurs dont le courriel est celui de la personne connectée : les règles
+ * d'accès peuvent alors tester user.Profil.Role ou user.Profil.Actif.
+ */
 const ATTRIBUT = 'Profil';
 
 /**
@@ -109,10 +158,15 @@ const ATTRIBUT = 'Profil';
  * Plus tard, un GitLab : renseigner Gitlab_API, Gitlab_projet (et Gitlab_jeton pour publier).
  */
 const GITHUB = { proprietaire: 'QuentinLemire', depot: 'gouvernance-grist', branche: 'main' };
+// Adresse de lecture directe des fichiers du dépôt, et page web du dépôt (pour y déposer des fichiers à la main).
 const DEPOT = `https://raw.githubusercontent.com/${GITHUB.proprietaire}/${GITHUB.depot}/${GITHUB.branche}/`;
 const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
 
-/** Sujets proposés dans l'onglet Structure, dans l'ordre d'installation conseillé. */
+/**
+ * Sujets transverses de la norme, dans l'ordre d'installation conseillé.
+ * « fichier » : nom du fichier structure/<fichier>.json sur le dépôt ;
+ * « obligatoire » : sujet du socle, dont l'absence est signalée au tableau de bord.
+ */
 const SUJETS = [
   { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins', obligatoire: true },
   { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
@@ -123,10 +177,14 @@ const SUJETS = [
   { fichier: 'documentation', nom: 'Documentation', obligatoire: false },
 ];
 
-/** Données de référence livrées avec certains sujets (dossier donnees/ du dépôt). */
+/** Données de référence livrées avec certains sujets (dossier donnees/ du dépôt), chargées à l'installation si la table est vide. */
 const DONNEES = { referentiel_territoires: 'territoires.json' };
 
-/** Niveaux de droit proposés dans la matrice, et leur traduction en permissions Grist. */
+/**
+ * Niveaux de droit proposés dans la matrice, et leur traduction en permissions Grist.
+ * Lettres Grist : C = créer, R = lire, U = modifier, D = supprimer ; « + » accorde, « - » refuse.
+ * Le niveau « hérité » n'écrit aucune règle : ce sont les règles suivantes qui décident.
+ */
 const NIVEAUX = [
   { code: '',       libelle: '— hérité',            perm: null },
   { code: 'aucun',  libelle: '🚫 Aucun accès',       perm: '-CRUD' },
@@ -135,13 +193,19 @@ const NIVEAUX = [
   { code: 'modif',  libelle: '✏️ Modifier',          perm: '+CRU-D' },
   { code: 'tout',   libelle: '🗑️ Tout',              perm: '+CRUD' },
 ];
+/** Correspondance inverse permission Grist → niveau, pour relire les règles déjà écrites. */
 const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) => [n.perm, n.code]));
 
 /** Tables jamais gérées par la matrice : la page d'accueil doit rester lisible par tous. */
 const HORS_MATRICE = ['Accueil'];
+/** Tables du document couvertes par la matrice des droits. */
 const tablesGerees = () => etat.meta.tables.map((t) => t.tableId).filter((t) => !HORS_MATRICE.includes(t));
 
-/** Colonnes de traçabilité ajoutées à la demande sur une table. */
+/**
+ * Colonnes de traçabilité ajoutées à la demande sur une table (onglet Structure).
+ * recalcWhen 0 : valeur calculée une seule fois, à la création de la ligne ;
+ * recalcWhen 2 : recalculée à chaque modification de la ligne.
+ */
 const TRACABILITE = [
   { id: 'CreeLe', label: 'Créé le', type: 'DateTime:Europe/Paris', formula: 'NOW()', recalcWhen: 0 },
   { id: 'CreePar', label: 'Créé par', type: 'Text', formula: 'user.Email', recalcWhen: 0 },
@@ -153,6 +217,11 @@ const TRACABILITE = [
 // 2. État du panneau
 // =====================================================================
 
+/**
+ * État du panneau : ce qui a été lu dans le document et ce que la personne a choisi à l'écran.
+ * Chaque onglet est redessiné entièrement à partir de cet objet.
+ * etat.ticket (demande affichée dans l'onglet Support) s'y ajoute en cours d'utilisation.
+ */
 const etat = {
   onglet: 'accueil',
   meta: { tables: [], parId: {}, colonnesParId: {} },  // structure du document
@@ -169,6 +238,14 @@ const etat = {
 // 3. Outils
 // =====================================================================
 
+// Petits raccourcis utilisés partout :
+//   $           élément de la page par son identifiant
+//   esc         neutralise les caractères HTML d'un texte saisi (il ne peut ni casser la page ni y injecter du code)
+//   json        lit un texte JSON sans planter (valeur par défaut si illisible)
+//   liste       convertit une liste Grist ['L', a, b] en [a, b]
+//   estCourriel contrôle le format d'une adresse
+//   cle         forme normalisée d'un texte pour les comparaisons (minuscules, sans espaces autour)
+//   dateFr      horodatage Grist (en secondes) → date et heure à la française
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const json = (s, defaut) => { try { return s ? JSON.parse(s) : defaut; } catch (e) { return defaut; } };
@@ -177,27 +254,50 @@ const estCourriel = (s) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(String(s || '').
 const cle = (s) => String(s || '').trim().toLowerCase();
 const dateFr = (t) => (t ? new Date(t * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '');
 
-/** Grist renvoie les tables en colonnes ; on les remet en lignes { id, Col1, Col2… }. */
+/**
+ * Grist renvoie les tables « en colonnes » ({ id: [...], Nom: [...] }) ;
+ * on les remet en lignes { id, Col1, Col2… }, plus simples à parcourir.
+ * @param {object} table  table au format colonnes renvoyée par fetchTable
+ * @returns {object[]}    une entrée par ligne
+ */
 function enLignes(table) {
   const ids = table.id || [];
   return ids.map((id, i) => Object.fromEntries(Object.keys(table).map((k) => [k, table[k][i]])));
 }
 
-/** Lit une table ; renvoie [] si elle n'existe pas ou si les droits l'interdisent. */
+/**
+ * Lit une table du document.
+ * @param {string} tableId  identifiant Grist de la table (tables techniques _grist_… comprises)
+ * @returns {Promise<object[]|null>}  les lignes, ou null si la table n'existe pas ou si les droits l'interdisent
+ */
 async function lire(tableId) {
   try { return enLignes(await grist.docApi.fetchTable(tableId)); } catch (e) { return null; }
 }
 
-/** Applique des actions Grist (une seule transaction, annulable avec Ctrl+Z). */
+/**
+ * Envoie des actions Grist (AddRecord, UpdateRecord…) en une seule transaction :
+ * tout passe ou rien ne passe, et l'utilisateur peut annuler avec Ctrl+Z.
+ * @param {Array[]} actions  actions au format Grist
+ */
 const agir = (actions) => grist.docApi.applyUserActions(actions);
 
-/** Trace une action d'administration (silencieux si la table Journal_Admin n'existe pas). */
+/**
+ * Note une action d'administration dans Journal_Admin ; la date et l'auteur sont remplis
+ * par les formules de la table. Silencieux si la table n'existe pas ou si l'écriture échoue :
+ * la trace ne doit jamais bloquer l'action elle-même.
+ * @param {string} action  libellé court (« Droits appliqués »…)
+ * @param {string} detail  précisions libres
+ */
 async function tracer(action, detail = '') {
   if (!aTable('Journal_Admin')) return;
   try { await agir([['AddRecord', 'Journal_Admin', null, { Action: action, Detail: detail }]]); } catch (e) { /* non bloquant */ }
 }
 
-/** Petit message en bas à droite. */
+/**
+ * Affiche un message temporaire en bas à droite (4 s, ou 9 s pour une erreur).
+ * @param {string} texte    contenu HTML : passer par esc() toute donnée saisie
+ * @param {boolean} erreur  vrai pour un message d'erreur (rouge)
+ */
 function message(texte, erreur = false) {
   const m = document.createElement('div');
   m.className = 'message' + (erreur ? ' erreur' : '');
@@ -206,7 +306,13 @@ function message(texte, erreur = false) {
   setTimeout(() => m.remove(), erreur ? 9000 : 4000);
 }
 
-/** Exécute une action en désactivant le bouton et en affichant l'erreur éventuelle. */
+/**
+ * Exécute une action longue : le bouton est grisé (« … ») pendant l'opération pour éviter
+ * un double clic, et toute erreur est affichée à l'écran au lieu de passer inaperçue.
+ * @param {HTMLElement|null} bouton  bouton à neutraliser (facultatif)
+ * @param {Function} fn              traitement asynchrone à lancer
+ * @returns {Promise<*>}             ce que renvoie fn (rien en cas d'erreur)
+ */
 async function occupe(bouton, fn) {
   const texte = bouton?.textContent;
   if (bouton) { bouton.disabled = true; bouton.textContent = '…'; }
@@ -215,7 +321,12 @@ async function occupe(bouton, fn) {
   finally { if (bouton) { bouton.disabled = false; bouton.textContent = texte; } }
 }
 
-/** Fait télécharger un fichier texte au navigateur. */
+/**
+ * Fait télécharger un fichier texte par le navigateur (export CSV, fichiers de la norme).
+ * @param {string} nom      nom du fichier proposé
+ * @param {string} contenu  texte du fichier
+ * @param {string} type     type MIME (texte brut par défaut)
+ */
 function telecharger(nom, contenu, type = 'text/plain') {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([contenu], { type: type + ';charset=utf-8' }));
@@ -227,11 +338,21 @@ function telecharger(nom, contenu, type = 'text/plain') {
 // 4. Chargement de la structure et des données
 // =====================================================================
 
+// Accès rapides à la structure chargée :
+//   aTable  la table existe-t-elle dans le document ?
+//   colonne description d'une colonne (ligne de _grist_Tables_column), ou undefined
+//   choix   valeurs proposées par une colonne « liste de choix »
+//   roles   rôles définis dans les choix de la colonne Utilisateurs.Role
 const aTable = (t) => !!etat.meta.parId[t];
 const colonne = (t, c) => (etat.meta.parId[t]?.colonnes || []).find((x) => x.colId === c);
 const choix = (t, c) => json(colonne(t, c)?.widgetOptions, {}).choices || [];
 const roles = () => choix('Utilisateurs', 'Role');
 
+/**
+ * Lit la structure du document dans les tables techniques de Grist et la range dans etat.meta :
+ * tables visibles (hors tables techniques et tables de synthèse), avec leurs colonnes dans l'ordre.
+ * @throws si la structure est illisible (widget non réglé sur « Accès complet au document »)
+ */
 async function chargerStructure() {
   const [tables, colonnes] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
   if (!tables) throw new Error("Lecture de la structure impossible : réglez le widget sur « Accès complet au document ».");
@@ -250,6 +371,11 @@ async function chargerStructure() {
   };
 }
 
+/**
+ * Charge dans etat.d les tables utiles au panneau (celles qui existent), et dans etat.acl
+ * les règles d'accès. Pour une personne non propriétaire, etat.acl.regles vaut null :
+ * Grist ne laisse lire les règles d'accès qu'aux propriétaires.
+ */
 async function chargerDonnees() {
   const utiles = ['Utilisateurs', 'Entites', 'Territoires', 'Support', 'Support_commentaires', 'Journal_Admin', 'Parametres'];
   etat.d = {};
@@ -257,6 +383,11 @@ async function chargerDonnees() {
   etat.acl = { ressources: (await lire('_grist_ACLResources')) || [], regles: await lire('_grist_ACLRules') };
 }
 
+/**
+ * Recharge tout (structure puis données) et redessine l'onglet courant.
+ * Appelé au démarrage, après chaque écriture et quand Grist signale un changement.
+ * La matrice des droits et la liste des pages sont oubliées pour être relues à neuf.
+ */
 async function actualiser() {
   try { await chargerStructure(); await chargerDonnees(); }
   catch (e) { $('contenu').innerHTML = '<div class="encadre erreur">' + esc(e.message) + '</div>'; return; }
@@ -265,19 +396,25 @@ async function actualiser() {
   afficher();
 }
 
-/** En-tête : logo DGOM et nom de l'application viennent de la table Parametres. */
+/** Met à jour l'en-tête : logo et nom de l'application viennent de Parametres (clés Logo_DGOM et Nom_application). */
 function majEntete() {
   const p = parametres();
   $('logo-dgom').innerHTML = p.Logo_DGOM ? '<img alt="DGOM" src="' + esc(p.Logo_DGOM) + '">' : '<span>DGOM</span>';
   $('titre-appli').textContent = 'Administration' + (p.Nom_application ? ' · ' + p.Nom_application : '');
 }
+/** Paramètres de l'application sous la forme { Cle: Valeur } (vide si la table Parametres n'existe pas). */
 const parametres = () => Object.fromEntries((etat.d.Parametres || []).map((r) => [r.Cle, r.Valeur]));
 
 // =====================================================================
 // 5. Onglet « Tableau de bord »
 // =====================================================================
 
-/** Liste des contrôles de santé : { ok, texte, onglet? } */
+/**
+ * Contrôles de santé du tableau de bord : administrateurs, courriels, rôles, règles d'accès,
+ * sujets du socle installés, traçabilité des tables métier.
+ * @returns {{ok: boolean, texte: string, onglet?: string}[]}  un point par contrôle ;
+ *          « onglet » indique où aller pour corriger (bouton « Corriger → »)
+ */
 function controles() {
   const U = etat.d.Utilisateurs || [];
   const out = [];
@@ -294,16 +431,19 @@ function controles() {
   const sansRole = actifs.filter((u) => !u.Role);
   if (sansRole.length) out.push({ ok: false, texte: sansRole.length + ' personne(s) active(s) sans rôle.', onglet: 'utilisateurs' });
 
+  // Règles d'accès : Grist ne les montre qu'aux propriétaires du document.
   if (!etat.acl.regles) out.push({ ok: false, texte: "Règles d'accès illisibles : seuls les <b>propriétaires</b> du document peuvent les gérer." });
   else {
     const protegees = new Set(reglesDuPanneau().map((r) => ressource(r.resource)?.tableId));
     const nonProtegees = etat.meta.tables.filter((t) => !protegees.has(t.tableId));
     out.push(protegees.size ? { ok: nonProtegees.length === 0, texte: protegees.size + ' table(s) protégée(s) par rôle' + (nonProtegees.length ? ', ' + nonProtegees.length + ' sans règle' : '') + '.', onglet: 'droits' }
       : { ok: false, texte: "Aucun droit par rôle : toute personne qui a accès au document voit tout.", onglet: 'droits' });
+    // La « garde » est la règle qui bloque les personnes absentes de Utilisateurs (voir poserGarde).
     const garde = etat.acl.regles.some((r) => /not user\.Profil/.test(r.aclFormula || ''));
     out.push(garde ? { ok: true, texte: 'Les personnes non inscrites ne voient que la page d\'accueil.' }
       : { ok: false, texte: "Les personnes non inscrites dans Utilisateurs ne sont pas bloquées.", onglet: 'droits' });
   }
+  // Sujets du socle : contrôlés seulement une fois le dépôt lu (etat.sujets), sinon ce point est sauté.
   for (const s of SUJETS.filter((x) => x.obligatoire)) {
     if (etat.sujets && etat.sujets[s.fichier] && etat.sujets[s.fichier].etat !== 'present') {
       out.push({ ok: false, texte: 'Sujet transverse incomplet : <b>' + esc(s.nom) + '</b>.', onglet: 'structure' });
@@ -316,6 +456,11 @@ function controles() {
   return out;
 }
 
+/**
+ * Contenu de l'onglet « Tableau de bord » : tuiles de chiffres clés, santé du document
+ * et les 8 dernières actions du journal.
+ * @returns {string} HTML de l'onglet
+ */
 function ongletAccueil() {
   const U = etat.d.Utilisateurs || [];
   const actifs = U.filter((u) => u.Actif !== false).length;
@@ -345,6 +490,11 @@ function ongletAccueil() {
 // 6. Onglet « Utilisateurs »
 // =====================================================================
 
+/**
+ * Utilisateurs à afficher selon les filtres choisis (texte, rôle, statut), triés par courriel.
+ * Le statut « Anomalies » ne garde que les courriels mal formés ou en double.
+ * @returns {object[]} lignes de la table Utilisateurs
+ */
 function utilisateursFiltres() {
   const f = etat.filtres;
   const t = cle(f.texte);
@@ -357,10 +507,18 @@ function utilisateursFiltres() {
     return true;
   }).sort((a, b) => cle(a.Email).localeCompare(cle(b.Email)));
 }
+// estDoublon : un autre utilisateur a le même courriel ; nomEntite : nom d'une entité d'après son identifiant ;
+// options : construit les <option> d'une liste déroulante à partir de paires [valeur, libellé].
 const estDoublon = (u) => (etat.d.Utilisateurs || []).filter((x) => cle(x.Email) && cle(x.Email) === cle(u.Email)).length > 1;
 const nomEntite = (id) => (etat.d.Entites || []).find((e) => e.id === id)?.Nom || '';
 const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</option>` + valeurs.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(choisie) ? ' selected' : ''}>${esc(l)}</option>`).join('');
 
+/**
+ * Contenu de l'onglet « Utilisateurs » : filtres, actions groupées sur les personnes cochées,
+ * tableau modifiable en direct (chaque changement est enregistré aussitôt, voir enregistrerChamp),
+ * ajout en masse et liste des rôles.
+ * @returns {string} HTML de l'onglet
+ */
 function ongletUtilisateurs() {
   if (!aTable('Utilisateurs')) return `<div class="encadre alerte">La table Utilisateurs n'existe pas. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
   const f = etat.filtres;
@@ -413,6 +571,13 @@ function ongletUtilisateurs() {
     </div>`;
 }
 
+/**
+ * Ajoute en une fois les courriels collés dans « Ajouter des personnes ». Accepte les séparateurs
+ * retour à la ligne, « ; » et « , », ainsi que le format de messagerie « Nom <adresse> ».
+ * Les adresses mal formées ou déjà présentes sont ignorées et signalées.
+ * Effet sur le document : nouvelles lignes actives dans Utilisateurs (rôle et entité choisis), tracées au journal.
+ * @param {HTMLElement} bouton  bouton « Ajouter »
+ */
 async function ajouterPersonnes(bouton) {
   const lignes = $('ajout-liste').value.split(/[\n;,]+/).map((s) => s.trim()).filter(Boolean);
   const existants = new Set((etat.d.Utilisateurs || []).map((u) => cle(u.Email)));
@@ -433,6 +598,10 @@ async function ajouterPersonnes(bouton) {
   });
 }
 
+/**
+ * Exporte la liste affichée (filtres appliqués) en CSV, séparateur « ; », avec une marque
+ * invisible (BOM) en tête pour qu'Excel affiche correctement les accents.
+ */
 function exporterCsv() {
   const U = utilisateursFiltres();
   const lignes = [['Courriel', 'Nom', 'Rôle', 'Entité', 'Actif']].concat(U.map((u) => [u.Email, u.Nom, u.Role, nomEntite(u.Entite), u.Actif !== false ? 'oui' : 'non']));
@@ -444,10 +613,16 @@ function exporterCsv() {
 // 7. Onglet « Droits » : matrice rôle × table → règles d'accès Grist
 // =====================================================================
 
+// ressource : cible d'une règle (table et colonnes visées) ; reglesDuPanneau : règles portant la mention [Admin].
 const ressource = (id) => etat.acl.ressources.find((r) => r.id === id);
 const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.memo || '').startsWith(MARQUE));
 
-/** Relit la matrice depuis les règles « [Admin] » déjà écrites. */
+/**
+ * Reconstitue la matrice à partir des règles « [Admin] » déjà écrites dans le document,
+ * pour que l'onglet Droits montre l'état réel des droits.
+ * @returns {{niveaux: object, bloquerAutres: boolean, supportPrive: boolean}}
+ *          niveaux[table][rôle] = code de niveau (voir NIVEAUX)
+ */
 function lireMatrice() {
   const m = { niveaux: {}, bloquerAutres: false, supportPrive: false };
   for (const r of reglesDuPanneau()) {
@@ -460,7 +635,13 @@ function lireMatrice() {
   return m;
 }
 
-/** Proposition raisonnable pour démarrer. */
+/**
+ * « Proposition standard » : une matrice raisonnable pour démarrer.
+ * Administrateur : tout ; journal invisible aux autres rôles ; support : le Lecteur dépose,
+ * les autres modifient ; tables de référence en lecture ; tables métier : Gestionnaire tout,
+ * Contributeur modifie, Lecteur lit. Rien n'est écrit avant « Appliquer ces droits ».
+ * @returns {object} matrice, même forme que lireMatrice()
+ */
 function matriceStandard() {
   const m = { niveaux: {}, bloquerAutres: true, supportPrive: true };
   const sensibles = ['Utilisateurs', 'Entites', 'Parametres', 'Territoires'];
@@ -480,12 +661,18 @@ function matriceStandard() {
   return m;
 }
 
+/** Met un texte entre guillemets, échappé, pour l'insérer sans risque dans une formule Grist. */
 const chaine = (s) => JSON.stringify(String(s));
 
 /** Rôle qui traite le support (voit toutes les demandes, les clôt ou les rouvre). */
 const ROLE_SUPPORT = 'Administrateur';
+/** Condition Grist « la personne n'a pas le rôle support et n'est pas propriétaire ». */
 const PAS_SUPPORT = `user.Profil.Role != ${JSON.stringify(ROLE_SUPPORT)} and user.Access != OWNER`;
-/** Règles de confidentialité du support, par table (colonnes « * » sauf mention). */
+/**
+ * Règles de confidentialité du support, par table (toutes colonnes, sauf mention « cols »).
+ * Support : chacun ne voit que ses propres demandes ; seul le support change statut, priorité, assignation.
+ * Support_commentaires : chacun ne voit que les échanges de ses demandes et ne modifie que ses messages.
+ */
 const SUPPORT_PRIVE = {
   Support: [
     { formule: PAS_SUPPORT + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
@@ -497,7 +684,13 @@ const SUPPORT_PRIVE = {
   ],
 };
 
-/** Traduit la matrice en règles Grist, dans l'ordre où Grist les évalue. */
+/**
+ * Traduit la matrice (etat.droits) en règles Grist, dans l'ordre où Grist les évalue :
+ * pour chaque permission, la première règle de la table qui s'applique à la personne l'emporte.
+ * Ordre par table : propriétaires → jetons cachés (Parametres) → confidentialité du support
+ * → une règle par rôle → blocage des personnes sans rôle reconnu.
+ * @returns {{table: string, cols?: string, formule: string, perm: string}[]}
+ */
 function construireRegles() {
   const m = etat.droits, out = [];
   for (const t of tablesGerees()) {
@@ -516,6 +709,11 @@ function construireRegles() {
   return out;
 }
 
+/**
+ * Contenu de l'onglet « Droits » : matrice rôle × table, options (blocage, support privé),
+ * aperçu des règles et boutons d'application. Réservé aux propriétaires du document.
+ * @returns {string} HTML de l'onglet
+ */
 function ongletDroits() {
   if (!etat.acl.regles) return '<div class="encadre alerte">Seuls les <b>propriétaires</b> du document peuvent gérer les droits.</div>';
   if (!aTable('Utilisateurs') || !roles().length) return '<div class="encadre alerte">Il faut d\'abord des utilisateurs avec des rôles (onglet Utilisateurs).</div>';
@@ -553,6 +751,7 @@ function ongletDroits() {
     </section>`;
 }
 
+/** Réécrit l'aperçu des règles qui seraient écrites (rien n'est écrit dans le document). */
 function majApercu() {
   const el = $('apercu-regles'); if (!el) return;
   const r = construireRegles();
@@ -561,7 +760,14 @@ function majApercu() {
   el.textContent = r.length ? t.trim() : 'Aucune règle : le document reste ouvert à toute personne qui y a accès.';
 }
 
-/** Écrit (ou retire) les règles du panneau ; les autres règles du document ne sont pas touchées. */
+/**
+ * Écrit (ou retire) les règles du panneau dans les règles d'accès du document.
+ * Étapes : crée les « ressources » Grist manquantes (table × colonnes visées), déclare l'attribut
+ * user.Profil s'il n'existe pas, supprime les anciennes règles [Admin] puis ajoute les nouvelles,
+ * placées avant toutes les autres. Les règles écrites à la main ne sont pas touchées.
+ * @param {HTMLElement} bouton
+ * @param {boolean} retirer  vrai : retire seulement les règles du panneau, sans en écrire
+ */
 async function appliquerDroits(bouton, retirer) {
   await occupe(bouton, async () => {
     const regles = retirer ? [] : construireRegles();
@@ -598,7 +804,12 @@ async function appliquerDroits(bouton, retirer) {
   });
 }
 
-/** Règle de base : une personne non inscrite (ou inactive) ne voit que la page d'accueil. */
+/**
+ * Pose la « garde » de base : une personne absente de Utilisateurs (ou inactive) ne voit que
+ * la table Accueil ; les propriétaires gardent tous les droits. Ces règles portent la mention
+ * [Gouvernance] et non [Admin] : « Retirer les règles du panneau » ne les enlève donc pas.
+ * @param {HTMLElement} bouton
+ */
 async function poserGarde(bouton) {
   if (!aTable('Accueil')) return message("Installez d'abord la page d'accueil publique (onglet Structure).", true);
   await occupe(bouton, async () => {
@@ -627,13 +838,19 @@ async function poserGarde(bouton) {
 // 8. Onglet « Support »
 // =====================================================================
 
+// ticketOuvert : règle commune à tous les widgets (commun/outils.js) ; couleurStatut : couleur du badge de chaque statut.
 const ticketOuvert = (t) => Outils.ticketOuvert(t);
 const couleurStatut = { 'Nouveau': 'bleu', 'En cours': 'orange', 'En attente': '', 'Résolu': 'vert', 'Fermé': '' };
 
 /** Échanges d'une demande, du plus ancien au plus récent. */
 const echanges = (id) => (etat.d.Support_commentaires || []).filter((c) => c.Demande === id).sort((a, b) => (a.CreeLe || 0) - (b.CreeLe || 0));
 
-/** Le dernier message vient du demandeur : la balle est dans le camp du support. */
+/**
+ * Indique si une demande attend une réponse du support : elle est ouverte et soit encore
+ * « Nouveau », soit le dernier message vient du demandeur (les événements automatiques ne comptent pas).
+ * @param {object} t  ligne de la table Support
+ * @returns {boolean}
+ */
 function aTraiter(t) {
   if (!ticketOuvert(t)) return false;
   const m = echanges(t.id).filter((c) => c.Type !== 'Événement');
@@ -641,6 +858,11 @@ function aTraiter(t) {
   return cle(dernier) === cle(t.Demandeur) || t.Statut === 'Nouveau';
 }
 
+/**
+ * Contenu de l'onglet « Support » : filtre (ouvertes, closes, toutes), liste des demandes
+ * (celles qui attendent une réponse en tête, puis les plus récentes) et fiche de la demande choisie.
+ * @returns {string} HTML de l'onglet
+ */
 function ongletSupport() {
   if (!aTable('Support')) return `<div class="encadre alerte">Pas de table Support. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
   const f = etat.filtres.support;
@@ -665,7 +887,12 @@ function ongletSupport() {
     </div>` : '<p class="vide">Aucune demande dans cette vue.</p>'}`;
 }
 
-/** Détail d'une demande : conversation, réponse, clôture / réouverture et réglages. */
+/**
+ * Détail d'une demande : conversation, réponse, clôture ou réouverture, et réglages
+ * (statut, priorité, assignation) enregistrés dès qu'ils changent.
+ * @param {object} t  ligne de la table Support
+ * @returns {string} HTML de la fiche
+ */
 function ficheTicket(t) {
   const ouvert = ticketOuvert(t);
   const statuts = choix('Support', 'Statut').map((s) => [s, s]);
@@ -695,6 +922,12 @@ function ficheTicket(t) {
 /**
  * Répond, clôt ou rouvre une demande. Chaque changement d'état laisse une trace
  * « Événement » dans le fil, visible aussi par le demandeur.
+ * @param {HTMLElement} bouton
+ * @param {number} id                   identifiant de la demande (table Support)
+ * @param {object} options
+ * @param {string} [options.texte]      message à ajouter au fil
+ * @param {string} [options.statut]     nouveau statut (« Résolu », « En cours »…)
+ * @param {string} [options.evenement]  texte de l'événement à inscrire dans le fil
  */
 async function traiterTicket(bouton, id, { texte = '', statut = null, evenement = '' }) {
   await occupe(bouton, async () => {
@@ -717,8 +950,11 @@ async function traiterTicket(bouton, id, { texte = '', statut = null, evenement 
 // 9. Onglet « Structure » : sujets transverses du dépôt Git
 // =====================================================================
 
-/** Compare chaque sujet du dépôt avec le document : présent, partiel (colonnes manquantes) ou absent. */
-/** Dépôt configuré : GitLab (Parametres) ou, à défaut, le dépôt public GitHub. */
+/**
+ * Dépôt de la norme à utiliser : un GitLab si Parametres le configure (Gitlab_API et Gitlab_projet),
+ * sinon le dépôt public GitHub. Donne aussi le jeton éventuel, nécessaire pour publier.
+ * @returns {{gitlab: boolean, api?: string, jeton?: string, branche?: string}}
+ */
 function depot() {
   const p = parametres();
   return p.Gitlab_API && p.Gitlab_projet
@@ -726,7 +962,12 @@ function depot() {
     : { gitlab: false, jeton: p.Github_jeton };
 }
 
-/** Lit un fichier JSON du dépôt (toujours la version la plus récente). */
+/**
+ * Lit un fichier JSON du dépôt, sans cache (toujours la version la plus récente).
+ * @param {string} chemin  chemin dans le dépôt, ex. « structure/support.json »
+ * @returns {Promise<object>}
+ * @throws si le fichier est introuvable ou le dépôt injoignable
+ */
 async function lireDepot(chemin) {
   const d = depot();
   const url = d.gitlab ? `${d.api}/repository/files/${encodeURIComponent(chemin)}/raw?ref=${d.branche}` : DEPOT + chemin;
@@ -735,10 +976,15 @@ async function lireDepot(chemin) {
   return r.json();
 }
 
-/** Ce document est-il la source de la norme (Grist Gouvernance) ? */
+/** Ce document est-il la source de la norme (Grist Gouvernance) ? Oui si Parametres.Source_norme vaut « oui ». */
 const estSource = () => /^oui$/i.test(parametres().Source_norme || '');
 
-/** Décrit une colonne du document au format des fichiers de la norme. */
+/**
+ * Décrit une colonne du document au format des fichiers de la norme, pour la publier.
+ * Pour une colonne de référence, la colonne affichée est notée par son nom (visibleCol).
+ * @param {object} c  ligne de _grist_Tables_column
+ * @returns {object}
+ */
 function decrireColonne(c) {
   const o = { id: c.colId, label: c.label, type: c.type };
   if (c.isFormula) o.isFormula = true;
@@ -751,8 +997,11 @@ function decrireColonne(c) {
 
 /**
  * Publie la norme depuis ce document : chaque sujet est réécrit à partir des tables
- * actuelles, sa version mineure augmente. GitLab configuré avec jeton → un commit
- * direct ; sinon → fichiers téléchargés et page d'envoi du dépôt ouverte.
+ * actuelles, sa version mineure augmente ; les sujets inchangés ne sont pas publiés.
+ * Selon le dépôt : GitHub avec jeton → un enregistrement par fichier ; GitLab avec jeton
+ * → un seul commit ; sans jeton → fichiers téléchargés et page d'envoi du dépôt ouverte.
+ * Réservé au document source (bouton visible seulement si Source_norme = oui).
+ * @param {HTMLElement} bouton
  */
 async function publierNorme(bouton) {
   await occupe(bouton, async () => {
@@ -796,6 +1045,11 @@ async function publierNorme(bouton) {
   });
 }
 
+/**
+ * Lit chaque sujet sur le dépôt et le compare au document ; résultat dans etat.sujets.
+ * État : « present », « partiel » (colonnes manquantes ou dans le désordre), « absent »,
+ * ou « inconnu » si le dépôt est injoignable. Note aussi les colonnes propres au document (« ajouts »).
+ */
 async function chargerSujets() {
   const res = {};
   await Promise.all(SUJETS.map(async (s) => {
@@ -817,7 +1071,11 @@ async function chargerSujets() {
   etat.sujets = res;
 }
 
-/** Carte « Pages standard » : ce qui manque dans le menu et le bouton pour le créer. */
+/**
+ * Carte « Pages standard » : ce qui manque dans le menu et le bouton pour le créer.
+ * Au premier appel, lance la lecture des pages et redessine l'onglet quand elle est finie.
+ * @returns {string} HTML de la carte
+ */
 function cartePages() {
   if (!etat.pages) { lirePages().then((p) => { etat.pages = p; afficher(); }); return ''; }
   const presentes = new Set(etat.pages.map((p) => p.cle));
@@ -830,6 +1088,12 @@ function cartePages() {
   </section>`;
 }
 
+/**
+ * Contenu de l'onglet « Structure » : publication (document source seulement), état de chaque
+ * sujet de la norme, pages standard du menu et ajout de la traçabilité.
+ * Au premier affichage, lance la lecture du dépôt et redessine quand elle est terminée.
+ * @returns {string} HTML de l'onglet
+ */
 function ongletStructure() {
   if (!etat.sujets) { chargerSujets().then(afficher); return '<p class="vide">Lecture du dépôt Git…</p>'; }
   const badge = { present: '<span class="badge vert">installé</span>', partiel: '<span class="badge orange">incomplet</span>', absent: '<span class="badge">absent</span>', inconnu: '<span class="badge rouge">dépôt injoignable</span>' };
@@ -851,7 +1115,13 @@ function ongletStructure() {
     </section>`;
 }
 
-/** Crée tables et colonnes manquantes. Phase 1 : tables (colonnes simples) ; phase 2 : le reste ; phase 3 : affichage des références. */
+/**
+ * Crée les tables et colonnes manquantes d'après des définitions de la norme, sans rien supprimer.
+ * Phase 1 : tables manquantes, avec leurs colonnes simples ;
+ * phase 2 : les autres colonnes (formules, références), une fois toutes les tables cibles créées ;
+ * phase 3 : colonne affichée des références ; enfin, colonnes rangées dans l'ordre de la norme.
+ * @param {{tableId: string, columns: object[]}[]} tables
+ */
 async function creerStructure(tables) {
   const simple = (c) => !c.isFormula && !/^(Ref|RefList):/.test(c.type || '');
   const info = (c) => ({ type: c.type || 'Any', label: c.label || c.id, isFormula: !!c.isFormula, formula: c.formula || '', recalcWhen: c.recalcWhen || 0,
@@ -873,6 +1143,7 @@ async function creerStructure(tables) {
 /**
  * Range les colonnes dans l'ordre de la norme (les colonnes propres à l'application suivent),
  * dans la structure et dans la vue « données brutes » / fiche de chaque table.
+ * @param {{tableId: string, columns: object[]}[]} tables
  */
 async function rangerColonnes(tables) {
   await chargerStructure();
@@ -900,6 +1171,8 @@ async function rangerColonnes(tables) {
 /**
  * Le menu commun à toutes les applications, dans l'ordre. Les pages métier se placent
  * entre Support et Administration. « fichier » = widget personnalisé du dépôt.
+ * « table » : table rattachée à la page (la page n'est créée que si elle existe) ;
+ * « sousPage » : page placée en retrait sous Administration.
  */
 const PAGES = [
   { cle: 'accueil', nom: '🏠 Accueil', table: 'Accueil', fichier: 'accueil.html' },
@@ -910,7 +1183,12 @@ const PAGES = [
   { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Parametres', fichier: 'boite-a-outils.html', sousPage: true },
 ];
 
-/** Pages du document (dans l'ordre du menu), chacune reconnue comme page standard ou non. */
+/**
+ * Pages du document dans l'ordre du menu. Chacune est reconnue comme page standard (« cle »)
+ * par l'adresse du widget qu'elle contient, ou à défaut par son nom (émojis ignorés) ;
+ * sinon cle = null : c'est une page métier.
+ * @returns {Promise<object[]>}
+ */
 async function lirePages() {
   const [pages, vues, sections] = await Promise.all([lire('_grist_Pages'), lire('_grist_Views'), lire('_grist_Views_section')]);
   const vue = Object.fromEntries((vues || []).map((v) => [v.id, v]));
@@ -923,7 +1201,12 @@ async function lirePages() {
   });
 }
 
-/** Crée les pages standard qui manquent, puis remet le menu dans l'ordre de la norme. */
+/**
+ * Crée les pages standard qui manquent (si leur table existe), puis remet le menu dans l'ordre de la norme.
+ * Page avec « fichier » : un widget personnalisé en accès complet, pointant vers le fichier voisin de ce panneau.
+ * Page Utilisateurs : annuaire et fiche liée, côte à côte.
+ * @param {HTMLElement} bouton
+ */
 async function creerPages(bouton) {
   await occupe(bouton, async () => {
     const presentes = new Set((await lirePages()).map((p) => p.cle));
@@ -964,7 +1247,10 @@ async function creerPages(bouton) {
   });
 }
 
-/** Ordre du menu : Accueil, Documentation, Support, pages métier, Administration › Utilisateurs, Boîte à outils. */
+/**
+ * Ordre du menu : Accueil, Documentation, Support, pages métier, Administration › Utilisateurs, Boîte à outils.
+ * Les pages métier gardent leur ordre et leur retrait d'origine.
+ */
 async function rangerMenu() {
   const pages = await lirePages();
   const de = (cle) => pages.filter((p) => p.cle === cle);
@@ -979,6 +1265,12 @@ async function rangerMenu() {
   await agir([['BulkUpdateRecord', '_grist_Pages', ordre.map(([p]) => p.id), { pagePos: ordre.map((_, i) => i + 1), indentation: ordre.map(([, n]) => n) }]]);
 }
 
+/**
+ * Installe un sujet de la norme et ceux dont il dépend (champ « dependances » du fichier),
+ * puis charge ses données de référence si la table est vide. Rien n'est supprimé.
+ * @param {HTMLElement} bouton
+ * @param {string} fichier  nom du sujet (ex. « support »)
+ */
 async function installerSujet(bouton, fichier) {
   await occupe(bouton, async () => {
     // On installe aussi les sujets dont celui-ci dépend.
@@ -1010,6 +1302,11 @@ async function installerSujet(bouton, fichier) {
 // 10. Onglet « Paramètres »
 // =====================================================================
 
+/**
+ * Contenu de l'onglet « Paramètres » : valeurs modifiables directement (les jetons sont masqués
+ * comme des mots de passe) et journal complet des actions d'administration.
+ * @returns {string} HTML de l'onglet
+ */
 function ongletParametres() {
   const P = (etat.d.Parametres || []);
   const J = (etat.d.Journal_Admin || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0));
@@ -1024,14 +1321,15 @@ function ongletParametres() {
     </section>`;
 }
 
-// =====================================================================
-// 11. Affichage et événements
-// =====================================================================
 
 // =====================================================================
-// Onglet « Aide » : mode d'emploi du panneau (texte fixe, sans donnée)
+// 11. Onglet « Aide » : mode d'emploi du panneau (texte fixe, sans donnée)
 // =====================================================================
 
+/**
+ * Contenu de l'onglet « Aide ». Pour faire évoluer le mode d'emploi, modifier directement le texte ci-dessous.
+ * @returns {string} HTML de l'onglet
+ */
 function ongletAide() {
   const tache = (titre, etapes) => `<details class="carte" style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:700">${titre}</summary><ol style="margin:10px 0 0">${etapes.map((e) => `<li>${e}</li>`).join('')}</ol></details>`;
   return `
@@ -1075,17 +1373,29 @@ function ongletAide() {
     </section>`;
 }
 
+// =====================================================================
+// 12. Affichage et événements
+// =====================================================================
+
+/** Onglet → fonction qui produit son contenu. Ajouter un onglet : une entrée ici et un bouton dans <nav id="onglets">. */
 const ONGLETS = { aide: ongletAide, accueil: ongletAccueil, utilisateurs: ongletUtilisateurs, droits: ongletDroits, support: ongletSupport, structure: ongletStructure, parametres: ongletParametres };
 
+/** Redessine l'onglet courant (contenu et bouton actif) ; pour les droits, calcule aussi l'aperçu des règles. */
 function afficher() {
   document.querySelectorAll('#onglets button').forEach((b) => b.classList.toggle('actif', b.dataset.onglet === etat.onglet));
   $('contenu').innerHTML = ONGLETS[etat.onglet]();
   if (etat.onglet === 'droits') majApercu();
 }
 
+/** Affiche un autre onglet. @param {string} onglet  clé de ONGLETS */
 function allerA(onglet) { etat.onglet = onglet; afficher(); }
 
-/** Enregistre une valeur modifiée directement dans un tableau (utilisateur, ticket, paramètre). */
+/**
+ * Enregistre aussitôt une valeur modifiée dans un tableau. L'élément désigne sa cible par ses
+ * attributs : data-u (utilisateur), data-t (demande de support) ou data-p (paramètre), et data-col.
+ * Les changements de rôle, d'entité ou d'activité d'un utilisateur sont tracés au journal.
+ * @param {HTMLElement} el  champ, liste ou case modifié
+ */
 async function enregistrerChamp(el) {
   const val = el.type === 'checkbox' ? el.checked : el.dataset.type === 'ref' ? (Number(el.value) || 0) : el.value;
   try {
@@ -1103,6 +1413,8 @@ async function enregistrerChamp(el) {
   } catch (e) { message('❌ ' + esc(e.message), true); }
 }
 
+// Changement d'une valeur (liste, case, champ quitté) : enregistrement direct, filtres, sélection,
+// matrice des droits. La matrice n'est pas écrite ici : seul l'aperçu est mis à jour.
 document.addEventListener('change', async (e) => {
   const el = e.target;
   if (el.dataset.u || el.dataset.t || el.dataset.p) return enregistrerChamp(el);
@@ -1124,7 +1436,11 @@ document.addEventListener('input', (e) => {
   const champ = $('u-recherche'); champ.focus(); champ.setSelectionRange(pos, pos);
 });
 
-/** Modification groupée des utilisateurs cochés. */
+/**
+ * Applique la même modification à tous les utilisateurs cochés, en une transaction, puis vide la sélection.
+ * @param {object} champs   colonnes à modifier, ex. { Actif: false }
+ * @param {string} libelle  texte pour le journal
+ */
 async function groupe(champs, libelle) {
   const ids = [...etat.selection]; if (!ids.length) return;
   await occupe(null, async () => {
@@ -1142,6 +1458,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Clics sur les boutons : changement d'onglet, filtre du support, choix d'une demande, puis
+// actions désignées par data-action (un « case » par bouton de la page).
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.onglet) return allerA(b.dataset.onglet);
@@ -1180,13 +1498,16 @@ document.addEventListener('click', async (e) => {
 });
 
 // =====================================================================
-// 12. Démarrage
+// 13. Démarrage
 // =====================================================================
 
+// Demande à Grist l'accès complet au document (indispensable pour lire la structure et les règles d'accès).
 grist.ready({ requiredAccess: 'full' });
 // Grist prévient le widget quand les lignes de sa table liée changent : on en profite pour se remettre à jour.
+// Délai de 400 ms : plusieurs changements rapprochés ne provoquent qu'un seul rechargement.
 let minuterie = null;
 grist.onRecords(() => { clearTimeout(minuterie); minuterie = setTimeout(actualiser, 400); });
+// Premier chargement, puis lecture du dépôt de la norme (plus lente) pour compléter le tableau de bord.
 actualiser().then(() => chargerSujets().then(() => { if (etat.onglet === 'accueil' || etat.onglet === 'structure') afficher(); }));
 </script>
 </body>

@@ -3,16 +3,41 @@
   =====================================================================
   Support — vue utilisateur (charte de l'État / DSFR)
   =====================================================================
-  Widget à poser sur la page « Support », lié à la table Support, niveau
-  d'accès « Accès complet au document ».
+  RÔLE
+    Guichet d'assistance de l'application, côté utilisateur. Chaque
+    personne :
+      - crée une demande (titre, catégorie, description, page concernée) ;
+      - suit ses demandes et converse avec le support (fil de messages) ;
+      - voit quand la demande est close ou rouverte.
+    Seul le support (panneau d'administration) clôt ou rouvre une demande.
 
-  Chaque personne :
-    - crée une demande (titre, catégorie, description, page concernée) ;
-    - suit ses demandes et converse avec le support ;
-    - voit quand la demande est close ou rouverte.
-  Seul le support (panneau d'administration) clôt ou rouvre une demande.
-  Les règles d'accès « Support : chacun ne voit que ses demandes » (onglet
-  Droits du panneau) garantissent la confidentialité entre utilisateurs.
+  INSTALLATION DANS GRIST
+    Widget personnalisé posé sur la page « Support », lié à la table
+    Support, niveau d'accès « Accès complet au document » (nécessaire pour
+    écrire et pour lire la structure du document, voir lireStructure()).
+
+  TABLES GRIST UTILISÉES
+    - Support (une ligne par demande) : lue ; le widget y AJOUTE des lignes
+      (Titre, Categorie, Description, Url_page). Statut, Demandeur,
+      CreeLe, Dernier_retour… sont remplis par Grist ou par le support.
+    - Support_commentaires (une ligne par message) : lue ; le widget y
+      AJOUTE les réponses de l'utilisateur (Demande, Message, et Type si
+      cette colonne existe). Les lignes de Type « Événement » (clôture,
+      réouverture…) sont écrites par le panneau d'administration.
+    - Parametres : logo et nom de l'application.
+    - Tables internes _grist_Tables / _grist_Tables_column : catégories.
+
+  CONFIDENTIALITÉ
+    Les règles d'accès « Support : chacun ne voit que ses demandes » (onglet
+    Droits du panneau) garantissent la confidentialité entre utilisateurs :
+    le widget affiche tout ce que Grist lui laisse lire, sans filtrer
+    lui-même par personne.
+
+  PLAN DU SCRIPT
+    1. État de l'écran et libellés   5. Nouvelle demande (formulaire)
+    2. Petits outils                 6. Actions (créer, répondre)
+    3. Chargement des données        7. Clics, envoi, raccourci clavier
+    4. Liste et fiche d'une demande  8. Démarrage
   =====================================================================
 -->
 <html lang="fr">
@@ -20,15 +45,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Support</title>
+  <!-- Bibliothèque externe : API des widgets Grist (objet « grist »). -->
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <!-- Styles : logo Marianne (DSFR), charte commune des widgets (dont les
+       bulles de conversation et la liste maître / détail), puis outils
+       JavaScript communs (window.Outils). -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
   <link rel="stylesheet" href="commun/dsfr-grist.css">
   <script src="commun/outils.js"></script>
   <style>
+    /* Fiche d'une demande : titre et statut sur une ligne, puis informations. */
     .fiche { background: #fff; border: 1px solid var(--bordure); padding: 20px 22px; }
     .fiche header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
     .fiche header h2 { flex: 1; font-size: 19px; margin: 0; }
     .fiche .meta { color: var(--texte-doux); font-size: 13px; margin-bottom: 12px; }
+    /* Formulaire de nouvelle demande : champs empilés, description extensible. */
     .formulaire { display: grid; gap: 12px; }
     .formulaire label { font-weight: 500; display: grid; gap: 4px; }
     .formulaire textarea { min-height: 140px; resize: vertical; }
@@ -36,6 +67,8 @@
 </head>
 <body>
 
+<!-- En-tête commun : bloc-marque, logo DGOM (Parametres.Logo_DGOM) et
+     bouton « Nouvelle demande ». -->
 <header class="entete">
   <p class="fr-logo">Ministère<br>des Outre-mer</p>
   <div class="dgom" id="logo-dgom"><span>DGOM</span></div>
@@ -47,34 +80,65 @@
 </header>
 
 <main>
+  <!-- Boutons de filtre (En cours / Closes / Toutes), créés par le script. -->
   <div class="barre-outils" style="display:flex;gap:8px;margin-bottom:14px" id="filtres"></div>
+  <!-- À gauche la liste des demandes, à droite le détail de celle choisie. -->
   <div class="maitre-detail">
     <nav class="liste-tickets" id="liste" aria-label="Mes demandes"><p class="vide" style="padding:12px">Chargement…</p></nav>
     <section id="detail"></section>
   </div>
 </main>
+<!-- Emplacement des messages temporaires (confirmation, erreurs). -->
 <div id="messages"></div>
 
 <script>
 'use strict';
+
+// Fonctions partagées par tous les widgets (fichier commun/outils.js) :
+// esc (neutralise le HTML), lire (lit une table, null si interdite),
+// parametres, entete, conversation (fil de bulles d'une demande),
+// ticketOuvert (vrai si ni résolue ni fermée), dateHeure (jj/mm/aa hh:mm).
 const { esc, lire, parametres, entete, conversation, ticketOuvert, dateHeure } = window.Outils;
 
-/* ---------------- État ---------------- */
+// ===== 1. État de l'écran et libellés =====
+// demandes     : lignes de Support visibles par la personne ;
+// commentaires : lignes de Support_commentaires (messages et événements) ;
+// categories   : choix possibles de la colonne Support.Categorie.
 let demandes = [], commentaires = [], categories = [];
 let courante = null;      // id de la demande affichée, ou 'nouvelle'
 let filtre = 'ouvertes';
 let typeCommentaire = false; // la colonne Support_commentaires.Type existe
 
+// Statuts internes (ceux de la colonne Support.Statut, utilisés par le
+// support) traduits en couleur de badge et en libellé compréhensible par
+// l'utilisateur : « Résolu » et « Fermé » s'affichent tous deux « Close ».
 const couleurStatut = { 'Nouveau': 'bleu', 'En cours': 'orange', 'En attente': 'orange', 'Résolu': 'vert', 'Fermé': '' };
 const libelleStatut = { 'Nouveau': 'Envoyée', 'En cours': 'En cours de traitement', 'En attente': 'En attente de votre réponse', 'Résolu': 'Close', 'Fermé': 'Close' };
 
+// ===== 2. Petits outils =====
+
+/**
+ * Affiche un message temporaire (4,5 secondes) en bas de l'écran.
+ * @param {string} texte   phrase à afficher (insérée comme texte brut)
+ * @param {boolean} erreur vrai pour un message d'erreur (style rouge)
+ * Effet sur le document Grist : aucun.
+ */
 function message(texte, erreur) {
   const m = document.createElement('div');
   m.className = 'message' + (erreur ? ' erreur' : ''); m.textContent = texte;
   document.getElementById('messages').appendChild(m); setTimeout(() => m.remove(), 4500);
 }
 
-/** Choix d'une colonne et existence des colonnes, lus dans la structure du document. */
+/**
+ * Lit la structure du document (tables internes de Grist) pour :
+ *   - récupérer les choix de la colonne Support.Categorie, afin que le
+ *     formulaire propose toujours la liste à jour définie dans Grist ;
+ *   - savoir si la colonne Support_commentaires.Type existe. Les documents
+ *     plus anciens ne l'ont pas : on n'écrit alors pas ce champ, sinon
+ *     Grist refuserait l'ajout du message.
+ * Valeur rendue : aucune ; remplit les variables categories et typeCommentaire.
+ * Effet sur le document Grist : aucun (lecture seule).
+ */
 async function lireStructure() {
   const [tables, cols] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
   const col = (t, c) => { const tt = (tables || []).find((x) => x.tableId === t); return tt && (cols || []).find((x) => x.parentId === tt.id && x.colId === c); };
@@ -82,8 +146,20 @@ async function lireStructure() {
   typeCommentaire = !!col('Support_commentaires', 'Type');
 }
 
-/* ---------------- Chargement ---------------- */
+// ===== 3. Chargement des données =====
+
+/**
+ * Relit les demandes, les messages, les paramètres et la structure, puis
+ * redessine l'écran. Les demandes sont triées de la plus récemment active
+ * (dernier échange, sinon date de création) à la plus ancienne.
+ * Choix de la demande affichée si l'actuelle n'existe plus : la première
+ * de la liste filtrée ; et si la personne n'a encore aucune demande, le
+ * formulaire « Nouvelle demande » s'ouvre directement.
+ * Effet sur le document Grist : aucun (lecture seule).
+ */
 async function charger() {
+  // lireStructure() ne rend rien : elle remplit directement categories et
+  // typeCommentaire, d'où seulement 3 noms pour 4 lectures.
   const [S, C, p] = await Promise.all([lire('Support'), lire('Support_commentaires'), parametres(), lireStructure()]);
   entete(p, 'Support');
   demandes = (S || []).sort((a, b) => (b.Dernier_retour || b.CreeLe || 0) - (a.Dernier_retour || a.CreeLe || 0));
@@ -92,10 +168,21 @@ async function charger() {
   afficher();
 }
 
+/** Demandes correspondant au filtre choisi : en cours, closes ou toutes. */
 const visibles = () => demandes.filter((d) => filtre === 'toutes' || (filtre === 'ouvertes') === ticketOuvert(d));
+/** Messages et événements rattachés à la demande d'identifiant « id ». */
 const filDe = (id) => commentaires.filter((c) => c.Demande === id);
 
-/* ---------------- Affichage ---------------- */
+// ===== 4. Liste et fiche d'une demande =====
+
+/**
+ * Redessine tout l'écran : boutons de filtre (avec compteurs), liste des
+ * demandes à gauche, puis à droite la fiche de la demande choisie ou le
+ * formulaire de nouvelle demande.
+ * Dans la liste, le nombre de messages affiché (💬) ne compte pas les
+ * événements automatiques (clôture, réouverture…).
+ * Effet sur le document Grist : aucun.
+ */
 function afficher() {
   const ouvertes = demandes.filter(ticketOuvert).length;
   document.getElementById('filtres').innerHTML = [['ouvertes', `En cours (${ouvertes})`], ['closes', `Closes (${demandes.length - ouvertes})`], ['toutes', 'Toutes']]
@@ -110,6 +197,16 @@ function afficher() {
   document.getElementById('detail').innerHTML = courante === 'nouvelle' ? formulaire() : fiche(demandes.find((d) => d.id === courante));
 }
 
+/**
+ * Construit le HTML de la fiche d'une demande : titre, statut, numéro,
+ * date, catégorie, lien vers la page concernée, puis le fil de
+ * conversation (les messages de la personne à droite, ceux du support à
+ * gauche) et, si la demande est encore ouverte, la zone de réponse.
+ * Une demande close ne peut plus recevoir de message : on invite à en
+ * créer une nouvelle en citant son numéro.
+ * @param {object|undefined} d  la demande (ligne de Support), ou rien
+ * @returns {string} le HTML à insérer dans la partie droite
+ */
 function fiche(d) {
   if (!d) return '<div class="fiche"><p class="vide">Sélectionnez une demande ou créez-en une nouvelle.</p></div>';
   const ouvert = ticketOuvert(d);
@@ -124,6 +221,15 @@ function fiche(d) {
   </article>`;
 }
 
+// ===== 5. Nouvelle demande (formulaire) =====
+
+/**
+ * Construit le HTML du formulaire de nouvelle demande. Les attributs
+ * « name » des champs portent exactement le nom des colonnes de la table
+ * Support, ce qui permet à creer() de les enregistrer tels quels.
+ * La liste des catégories n'apparaît que si la colonne en propose.
+ * @returns {string} le HTML du formulaire
+ */
 function formulaire() {
   return `<form class="fiche formulaire" id="formulaire">
     <h2 style="font-size:19px;margin:0">Nouvelle demande</h2>
@@ -135,7 +241,17 @@ function formulaire() {
   </form>`;
 }
 
-/* ---------------- Actions ---------------- */
+// ===== 6. Actions (créer, répondre) =====
+
+/**
+ * Enregistre une nouvelle demande dans la table Support.
+ * Seuls les champs remplis sont envoyés (les champs vides sont ignorés).
+ * @param {HTMLFormElement} form  le formulaire soumis
+ * Effet sur le document Grist : ajoute une ligne à Support (AddRecord).
+ * Grist renvoie son identifiant, utilisé pour afficher aussitôt la
+ * nouvelle demande. En cas de refus par les règles d'accès, rien
+ * n'est enregistré et un message d'erreur s'affiche.
+ */
 async function creer(form) {
   const champs = Object.fromEntries([...new FormData(form)].filter(([, v]) => String(v).trim()));
   try {
@@ -146,6 +262,13 @@ async function creer(form) {
   } catch (e) { message("Envoi refusé : vous n'avez peut-être pas les droits nécessaires.", true); }
 }
 
+/**
+ * Envoie le message saisi dans la zone de réponse d'une demande.
+ * @param {number} id  identifiant de la demande (ligne de Support)
+ * Effet sur le document Grist : ajoute une ligne à Support_commentaires
+ * (Type « Message » si la colonne Type existe). Un message vide n'est
+ * pas envoyé. En cas de refus, un message d'erreur s'affiche.
+ */
 async function envoyer(id) {
   const zone = document.getElementById('reponse'); const texte = zone.value.trim(); if (!texte) return;
   try {
@@ -154,7 +277,10 @@ async function envoyer(id) {
   } catch (e) { message("Message refusé : vous n'avez peut-être pas les droits nécessaires.", true); }
 }
 
-/* ---------------- Évènements ---------------- */
+// ===== 7. Clics, envoi, raccourci clavier =====
+// Un seul écouteur de clics pour tout l'écran (le contenu est redessiné
+// souvent) : bouton ou lien « nouvelle demande », filtres, choix d'une
+// demande dans la liste, bouton « Envoyer ».
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-nouvelle]') || e.target.id === 'nouvelle') { e.preventDefault(); courante = 'nouvelle'; return afficher(); }
   const b = e.target.closest('button'); if (!b) return;
@@ -162,12 +288,17 @@ document.addEventListener('click', (e) => {
   else if (b.dataset.demande) { courante = Number(b.dataset.demande); afficher(); }
   else if (b.id === 'envoyer') envoyer(Number(b.dataset.id));
 });
+// Envoi du formulaire de nouvelle demande (sans rechargement de la page).
 document.addEventListener('submit', (e) => { e.preventDefault(); creer(e.target); });
+// Raccourci : Ctrl+Entrée (Cmd+Entrée sur Mac) envoie la réponse.
 document.addEventListener('keydown', (e) => {
   if (e.target.id === 'reponse' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) document.getElementById('envoyer')?.click();
 });
 
-/* ---------------- Démarrage ---------------- */
+// ===== 8. Démarrage =====
+// Le widget réclame l'accès complet, puis se recharge à chaque modification
+// des données, sauf pendant la saisie d'une nouvelle demande (pour ne pas
+// effacer le formulaire en cours de remplissage).
 grist.ready({ requiredAccess: 'full' });
 grist.onRecords(() => { if (courante !== 'nouvelle') charger(); });
 charger();
