@@ -177,7 +177,7 @@ const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.6';
+const VERSION_WIDGET = '2026-11-23.7';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -437,10 +437,10 @@ function controles() {
   const admins = actifs.filter((u) => u.Role === 'Administrateur');
   out.push(admins.length ? { ok: true, texte: admins.length + ' administrateur(s) actif(s).' }
     : { ok: false, texte: 'Aucun administrateur actif.', onglet: 'utilisateurs' });
-  const invalides = U.filter((u) => u.Email && !estCourriel(u.Email));
+  const invalides = U.filter((u) => u.Courriel && !estCourriel(u.Courriel));
   if (invalides.length) out.push({ ok: false, texte: invalides.length + ' courriel(s) mal formé(s).', onglet: 'utilisateurs' });
   const vus = {}; let doublons = 0;
-  U.forEach((u) => { const k = cle(u.Email); if (k) { if (vus[k]) doublons++; vus[k] = 1; } });
+  U.forEach((u) => { const k = cle(u.Courriel); if (k) { if (vus[k]) doublons++; vus[k] = 1; } });
   if (doublons) out.push({ ok: false, texte: doublons + ' courriel(s) en double.', onglet: 'utilisateurs' });
   const sansRole = actifs.filter((u) => !u.Role);
   if (sansRole.length) out.push({ ok: false, texte: sansRole.length + ' personne(s) active(s) sans rôle.', onglet: 'utilisateurs' });
@@ -521,15 +521,15 @@ function utilisateursFiltres() {
   return (etat.d.Utilisateurs || []).filter((u) => {
     if (f.statut === 'actifs' && u.Actif === false) return false;
     if (f.statut === 'inactifs' && u.Actif !== false) return false;
-    if (f.statut === 'anomalies' && estCourriel(u.Email) && !estDoublon(u)) return false;
+    if (f.statut === 'anomalies' && estCourriel(u.Courriel) && !estDoublon(u)) return false;
     if (f.role && (u.Role || '') !== (f.role === '(aucun)' ? '' : f.role)) return false;
-    if (t && !cle([u.Email, u.Nom, u.Role, nomEntite(u.Entite)].join(' ')).includes(t)) return false;
+    if (t && !cle([u.Courriel, u.Nom, u.Role, nomEntite(u.Entite)].join(' ')).includes(t)) return false;
     return true;
-  }).sort((a, b) => cle(a.Email).localeCompare(cle(b.Email)));
+  }).sort((a, b) => cle(a.Courriel).localeCompare(cle(b.Courriel)));
 }
 // estDoublon : un autre utilisateur a le même courriel ; nomEntite : nom d'une entité d'après son identifiant ;
 // options : construit les <option> d'une liste déroulante à partir de paires [valeur, libellé].
-const estDoublon = (u) => (etat.d.Utilisateurs || []).filter((x) => cle(x.Email) && cle(x.Email) === cle(u.Email)).length > 1;
+const estDoublon = (u) => (etat.d.Utilisateurs || []).filter((x) => cle(x.Courriel) && cle(x.Courriel) === cle(u.Courriel)).length > 1;
 const nomEntite = (id) => (etat.d.Entites || []).find((e) => e.id === id)?.Nom || '';
 const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</option>` + valeurs.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(choisie) ? ' selected' : ''}>${esc(l)}</option>`).join('');
 
@@ -565,7 +565,7 @@ function ongletUtilisateurs() {
         <tr><th><input type="checkbox" id="u-tous" ${sel.length && sel.length === U.length ? 'checked' : ''}></th><th>Courriel</th><th>Nom</th><th>Rôle</th><th>Entité</th><th>Actif</th></tr>
         ${U.map((u) => `<tr>
           <td><input type="checkbox" data-sel="${u.id}" ${etat.selection.has(u.id) ? 'checked' : ''}></td>
-          <td>${esc(u.Email)} ${!estCourriel(u.Email) ? '<span class="badge rouge">format</span>' : ''} ${estDoublon(u) ? '<span class="badge orange">doublon</span>' : ''}</td>
+          <td>${esc(u.Courriel)} ${!estCourriel(u.Courriel) ? '<span class="badge rouge">format</span>' : ''} ${estDoublon(u) ? '<span class="badge orange">doublon</span>' : ''}</td>
           <td><input class="champ" data-u="${u.id}" data-col="Nom" value="${esc(u.Nom)}"></td>
           <td><select class="champ" data-u="${u.id}" data-col="Role">${options(rl, u.Role)}</select></td>
           <td><select class="champ" data-u="${u.id}" data-col="Entite" data-type="ref">${options(ent, u.Entite)}</select></td>
@@ -600,7 +600,7 @@ function ongletUtilisateurs() {
  */
 async function ajouterPersonnes(bouton) {
   const lignes = $('ajout-liste').value.split(/[\n;,]+/).map((s) => s.trim()).filter(Boolean);
-  const existants = new Set((etat.d.Utilisateurs || []).map((u) => cle(u.Email)));
+  const existants = new Set((etat.d.Utilisateurs || []).map((u) => cle(u.Courriel)));
   const ok = [], ignores = [];
   for (const l of lignes) {
     const mail = (l.match(/[^\s<>]+@[^\s<>]+/) || [l])[0];
@@ -610,7 +610,7 @@ async function ajouterPersonnes(bouton) {
   if (!ok.length) return message('Aucune nouvelle adresse valide.' + (ignores.length ? ' Ignorées : ' + esc(ignores.join(', ')) : ''), true);
   const role = $('ajout-role').value, entite = Number($('ajout-entite').value) || null;
   await occupe(bouton, async () => {
-    await agir([['BulkAddRecord', 'Utilisateurs', ok.map(() => null), { Email: ok, Role: ok.map(() => role), Entite: ok.map(() => entite), Actif: ok.map(() => true) }]]);
+    await agir([['BulkAddRecord', 'Utilisateurs', ok.map(() => null), { Courriel: ok, Role: ok.map(() => role), Entite: ok.map(() => entite), Actif: ok.map(() => true) }]]);
     await tracer('Ajout d\'utilisateurs', ok.length + ' personne(s) : ' + ok.join(', '));
     message('✅ ' + ok.length + ' personne(s) ajoutée(s).' + (ignores.length ? ' ' + ignores.length + ' ignorée(s).' : ''));
     $('ajout-liste').value = '';
@@ -624,7 +624,7 @@ async function ajouterPersonnes(bouton) {
  */
 function exporterCsv() {
   const U = utilisateursFiltres();
-  const lignes = [['Courriel', 'Nom', 'Rôle', 'Entité', 'Actif']].concat(U.map((u) => [u.Email, u.Nom, u.Role, nomEntite(u.Entite), u.Actif !== false ? 'oui' : 'non']));
+  const lignes = [['Courriel', 'Nom', 'Rôle', 'Entité', 'Actif']].concat(U.map((u) => [u.Courriel, u.Nom, u.Role, nomEntite(u.Entite), u.Actif !== false ? 'oui' : 'non']));
   const csv = lignes.map((l) => l.map((v) => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(';')).join('\r\n');
   telecharger('utilisateurs.csv', '﻿' + csv, 'text/csv');
 }
@@ -809,7 +809,7 @@ async function appliquerDroits(bouton, retirer) {
     const attributExiste = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT && json(r.userAttributes, {}).tableId === 'Utilisateurs');
     if (regles.length && !attributExiste) {
       nouvelles.push({ resource: idRes('*'), aclFormula: '', permissionsText: '', rulePos: pos++, memo: MARQUE + ' attribut',
-        userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Email_cle') ? 'Email_cle' : 'Email' }) });
+        userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
     }
     for (const r of regles) nouvelles.push({ resource: idRes(r.table, r.cols), aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE, userAttributes: '' });
     // L'attribut user.Profil n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
@@ -845,7 +845,7 @@ async function poserGarde(bouton) {
     const id = (t) => res.find((r) => r.tableId === t && r.colIds === '*').id;
     const attribut = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT);
     const a = [];
-    if (!attribut) a.push({ resource: id('*'), aclFormula: '', permissionsText: '', rulePos: 1, memo: '[Gouvernance] attribut', userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Email_cle') ? 'Email_cle' : 'Email' }) });
+    if (!attribut) a.push({ resource: id('*'), aclFormula: '', permissionsText: '', rulePos: 1, memo: '[Gouvernance] attribut', userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
     a.push({ resource: id('Accueil'), aclFormula: 'True', permissionsText: '+R-CUD', rulePos: 2, memo: '[Gouvernance] Accueil lisible par tous', userAttributes: '' });
     a.push({ resource: id('*'), aclFormula: 'user.Access == OWNER', permissionsText: 'all', rulePos: 3, memo: '[Gouvernance] Propriétaires : tous les droits', userAttributes: '' });
     a.push({ resource: id('*'), aclFormula: 'not user.Profil or not user.Profil.Actif', permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits ou inactifs : Accueil seulement', userAttributes: '' });
@@ -920,7 +920,7 @@ function ficheTicket(t) {
   const ouvert = ticketOuvert(t);
   const statuts = choix('Support', 'Statut').map((s) => [s, s]);
   const priorites = choix('Support', 'Priorite').map((s) => [s, s]);
-  const personnes = (etat.d.Utilisateurs || []).filter((u) => u.Actif !== false).map((u) => [u.id, u.Nom || u.Email]);
+  const personnes = (etat.d.Utilisateurs || []).filter((u) => u.Actif !== false).map((u) => [u.id, u.Nom || u.Courriel]);
   const avecFil = aTable('Support_commentaires');
   return `<article class="ticket">
     <header><b>${esc(t.Titre || '(sans titre)')}</b><span class="badge ${couleurStatut[t.Statut] || ''}">${esc(t.Statut || 'Nouveau')}</span>
@@ -1426,8 +1426,8 @@ async function creerPages(bouton, seulement = null) {
         const r2 = (await agir([['CreateViewSection', t, r1.viewRef, 'single', null, null]])).retValues[0];
         const champs = ((await lire('_grist_Views_section_field')) || []).filter((f) => f.parentId === r1.sectionRef || f.parentId === r2.sectionRef);
         const colId = (f) => etat.meta.colonnesParId[f.colRef]?.colId;
-        const technique = ['Email_cle', 'manualSort'];
-        const enListe = ['Nom', 'Email', 'Entite', 'Role', 'Actif'];
+        const technique = ['Courriel_cle', 'manualSort'];
+        const enListe = ['Nom', 'Courriel', 'Entite', 'Role', 'Actif'];
         const retirer = champs.filter((f) => technique.includes(colId(f)) || colId(f)?.startsWith('gristHelper') || (f.parentId === r1.sectionRef && !enListe.includes(colId(f))));
         await agir([
           ...(retirer.length ? [['BulkRemoveRecord', '_grist_Views_section_field', retirer.map((f) => f.id)]] : []),
@@ -1629,7 +1629,7 @@ async function enregistrerChamp(el) {
     if (el.dataset.u) {
       await agir([['UpdateRecord', 'Utilisateurs', Number(el.dataset.u), { [el.dataset.col]: val }]]);
       const u = etat.d.Utilisateurs.find((x) => x.id === Number(el.dataset.u)); u[el.dataset.col] = val;
-      if (el.dataset.col !== 'Nom') tracer('Utilisateur modifié', u.Email + ' : ' + el.dataset.col + ' = ' + (el.dataset.type === 'ref' ? nomEntite(val) : val));
+      if (el.dataset.col !== 'Nom') tracer('Utilisateur modifié', u.Courriel + ' : ' + el.dataset.col + ' = ' + (el.dataset.type === 'ref' ? nomEntite(val) : val));
     } else if (el.dataset.t) {
       await agir([['UpdateRecord', 'Support', Number(el.dataset.t), { [el.dataset.col]: val }]]);
     } else if (el.dataset.p) {

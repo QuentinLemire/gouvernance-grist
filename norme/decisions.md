@@ -70,6 +70,14 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 **Décision** : le widget Administration porte `VERSION_WIDGET` (à changer à chaque modification) ; « Publier la norme » refuse si la version du dépôt est différente. Une table d'un sujet qui dépend d'un autre sujet définissant la même table est traitée comme « extension », même sans la marque.
 **Raison** : le 2026-11-23, une publication faite avec une copie en cache (raw.githack) a remis `Entites.Territoire` dans Utilisateurs et retiré la marque `extension` de Territoires. Fichiers remis en état (Utilisateurs 1.9, Territoires 1.5).
 
+### 2026-11-23 — Majuscule obligatoire et « Courriel »
+**Décision** : toute colonne commence par une majuscule, colonnes métier existantes comprises (la tolérance est levée) ; une adresse s'appelle `Courriel` (`Utilisateurs.Email` → `Courriel`, `Email_cle` → `Courriel_cle`). L'audit (P3) le contrôle sans exception, hors colonnes techniques de Grist.
+**Conséquence** : Arrivées-Départs renomme ses colonnes métier et adapte le code de ses widgets ; la variable `user.Email` de Grist reste telle quelle.
+
+### 2026-11-23 — Gouvernance ne garde que le socle
+**Décision** : les modules hors socle (Support, Documentation, Territoires) sont retirés du document Gouvernance, pages et tables ; leurs fichiers restent sur le dépôt et s'installent dans une application par le bouton « Installer ».
+**Conséquence** : ces modules ne se modifient plus depuis Gouvernance (le bouton Publier ne les touche pas) ; les faire évoluer = modifier leur fichier `structure/…json` dans le dépôt.
+
 ### 2026-11-23 — Pages de la norme liées à un commit
 **Décision** : les widgets standard sont chargés depuis un commit précis du dépôt, pas depuis la branche `main`. Administration → Structure affiche la version des pages et celle du dépôt, et les met à jour d'un clic.
 **Raison** : par la branche, raw.githack sert l'ancienne version plusieurs minutes après un commit ; une page liée à un commit est servie immédiatement et ne change plus sans action de l'administrateur (mise à jour maîtrisée).

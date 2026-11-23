@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.9",
+  "version": "1.10",
   "sujet": "UTILISATEURS",
   "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
   "tables": [
@@ -38,7 +38,7 @@
           "type": "RefList:Utilisateurs",
           "isFormula": true,
           "formula": "Utilisateurs.lookupRecords(Entite=$id, sort_by=\"Nom\")",
-          "visibleCol": "Email"
+          "visibleCol": "Courriel"
         },
         {
           "id": "Nbre",
@@ -86,8 +86,8 @@
           "type": "Text"
         },
         {
-          "id": "Email",
-          "label": "Email",
+          "id": "Courriel",
+          "label": "Courriel",
           "type": "Text"
         },
         {
@@ -149,25 +149,25 @@
           "recalcWhen": 0
         },
         {
-          "id": "Email_cle",
+          "id": "Courriel_cle",
           "label": "Clé email (technique)",
           "type": "Text",
           "isFormula": true,
-          "formula": "($Email or \"\").strip().lower()"
+          "formula": "($Courriel or \"\").strip().lower()"
         },
         {
           "id": "Courriel_valide",
           "label": "Courriel valide",
           "type": "Bool",
           "isFormula": true,
-          "formula": "import re\nreturn bool(re.match(r\"^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$\", $Email_cle))"
+          "formula": "import re\nreturn bool(re.match(r\"^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$\", $Courriel_cle))"
         },
         {
           "id": "Doublon",
           "label": "Doublon",
           "type": "Bool",
           "isFormula": true,
-          "formula": "return bool($Email_cle) and len(Utilisateurs.lookupRecords(Email_cle=$Email_cle)) > 1"
+          "formula": "return bool($Courriel_cle) and len(Utilisateurs.lookupRecords(Courriel_cle=$Courriel_cle)) > 1"
         },
         {
           "id": "CreeLe",

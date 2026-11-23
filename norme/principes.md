@@ -18,10 +18,11 @@ Toute table métier a, en dernier :
 | `ModifiePar` | Text | `user.Email` | **à chaque modification** (`recalcWhen` 2) |
 
 ## P3 — Nommage
-- Tables et colonnes : première lettre en majuscule, sans accent ni espace (`Nom`, `Nom_complet`, `Email_cle`). Le libellé affiché, lui, est en français normal.
+- Tables et colonnes : première lettre en majuscule, sans accent ni espace (`Nom`, `Nom_complet`, `Courriel_cle`). Le libellé affiché, lui, est en français normal.
+- Noms en français : une adresse électronique s'appelle **`Courriel`** (`Courriel`, `Courriel_pro`, `Courriel_cle`), jamais `Email` ni `Mail`. Seule la variable Grist `user.Email`, qu'on ne peut pas renommer, garde son nom dans les formules.
 - Les colonnes de traçabilité gardent leur forme historique `CreeLe`, `CreePar`, `ModifieLe`, `ModifiePar` (voir les points ouverts de `decisions.md`).
 - Une colonne Référence porte le nom de ce qu'elle désigne (`Entite`, `Demandeur`), pas `id_…`.
-- **Portée** : la convention s'impose aux tables du socle et aux colonnes créées après la mise à la norme. Les colonnes métier existantes qui ne la suivent pas sont **tolérées** : on ne les renomme pas d'office (renommer touche toutes les formules, règles et widgets).
+- **Portée** : **toutes** les colonnes, métier comprises (décision du 2026-11-23 : plus de tolérance). Une application existante renomme ses colonnes (`RenameColumn` : Grist met à jour formules et règles d'accès) et adapte en même temps le code de ses widgets. Seules exceptions : les colonnes techniques de Grist (`manualSort`, `gristHelper_…`, `group` des tables de résumé).
 
 ## P4 — Ordre des colonnes
 D'abord ce qui identifie la ligne, puis le contenu, les liens, l'état, et en dernier la traçabilité.

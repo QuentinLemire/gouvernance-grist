@@ -4,7 +4,7 @@
 
 ## Socle (P1)
 - [ ] Entites : `Nom`, `Parent`, `Nom_complet`, `Actif`, `Membres`, `Nbre`
-- [ ] Utilisateurs : `Nom`, `Email`, `Entite`, `Perimetre`, `Entites_vues`, `Role`, `Actif`, `Email_cle`, `Courriel_valide`, `Doublon`
+- [ ] Utilisateurs : `Nom`, `Courriel`, `Entite`, `Perimetre`, `Entites_vues`, `Role`, `Actif`, `Courriel_cle`, `Courriel_valide`, `Doublon`
 - [ ] Bureaux et services rangés comme sous-entités (`Entites.Parent`), pas dans une table à part
 - [ ] Parametres (avec `Nom_application`, `Contact_support`, `Logo_DGOM`) et Accueil
 - [ ] Journal_Admin
@@ -20,11 +20,12 @@
 - [ ] `ModifieLe` / `ModifiePar` en recalcul à chaque modification
 
 ## Nommage et ordre (P3, P4)
-- [ ] Socle et nouvelles colonnes en `Majuscule_initiale`, sans accent (colonnes métier existantes tolérées)
+- [ ] **Toutes** les colonnes en `Majuscule_initiale`, sans accent ni espace
+- [ ] Adresses nommées `Courriel…`, jamais `Email` / `Mail`
 - [ ] Ordre : identification → contenu → liens → état → traçabilité
 
 ## Droits (P5)
-- [ ] Attribut utilisateur `user.Profil` sur Utilisateurs.Email
+- [ ] Attribut utilisateur `user.Profil` : `user.Email` cherché dans Utilisateurs.Courriel_cle
 - [ ] Rôles génériques présents ; rôles métier documentés
 - [ ] Règles par entité écrites avec `user.Profil.Entites_vues`
 - [ ] Personne non inscrite : seule la page d'accueil est visible

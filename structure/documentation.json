@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "1.5",
+  "version": "1.6",
   "sujet": "DOCUMENTATION",
   "description": "Pages de documentation, FAQ, notes et nouveautés (rubrique « Nouveauté », affichées sur l'accueil), en Markdown.",
   "tables": [
@@ -82,8 +82,8 @@
           "label": "Auteur (fiche)",
           "type": "Ref:Utilisateurs",
           "isFormula": true,
-          "formula": "Utilisateurs.lookupOne(Email_cle=($CreePar or \"\").strip().lower()) or None",
-          "visibleCol": "Email"
+          "formula": "Utilisateurs.lookupOne(Courriel_cle=($CreePar or \"\").strip().lower()) or None",
+          "visibleCol": "Courriel"
         },
         {
           "id": "CreeLe",

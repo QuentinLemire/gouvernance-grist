@@ -21,7 +21,7 @@
  *        "tables": [ { "tableId": "Support", "columns": [
  *            { "id": "Titre", "label": "Titre", "type": "Text" },
  *            { "id": "Personne", "type": "Ref:Utilisateurs", "isFormula": true,
- *              "formula": "Utilisateurs.lookupOne(…)", "visibleCol": "Email" }, … ] } ],
+ *              "formula": "Utilisateurs.lookupOne(…)", "visibleCol": "Courriel" }, … ] } ],
  *        "dependances": [ "UTILISATEURS" ]
  *      }
  *  - L'ORDRE des colonnes dans le fichier est l'ordre de la norme : ce qui
@@ -314,7 +314,7 @@ async function reglerAffichageDesReferences(tables) {
 
 /**
  * Pose les règles d'accès de base (« Permissions avancées » de Grist) :
- * - Attribut utilisateur « Profil » = la ligne de Utilisateurs dont Email_cle
+ * - Attribut utilisateur « Profil » = la ligne de Utilisateurs dont Courriel_cle
  *   correspond au courriel de connexion. Les autres règles et les widgets
  *   s'en servent (user.Profil.Actif, rôle…).
  * - Les propriétaires gardent tous les droits.
@@ -351,7 +351,7 @@ async function poserReglesDeBase() {
 
   await appliquer([
     regle(parDefaut, '', '', 1, '', {
-      userAttributes: JSON.stringify({ name: 'Profil', tableId: 'Utilisateurs', charId: 'Email', lookupColId: 'Email_cle' }),
+      userAttributes: JSON.stringify({ name: 'Profil', tableId: 'Utilisateurs', charId: 'Email', lookupColId: 'Courriel_cle' }),
     }),
     regle(accueil, 'user.Access == OWNER', 'all', 2, "[Gouvernance] Propriétaires : modifier la page d'accueil"),
     regle(accueil, 'True', '+R-CUD', 3, '[Gouvernance] Accueil lisible par tous'),

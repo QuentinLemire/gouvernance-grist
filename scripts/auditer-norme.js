@@ -236,27 +236,28 @@ function controlerTracabilite(d) {
 }
 
 /**
- * P3 — Nommage : colonnes commençant par une majuscule, sans accent ni espace.
- * La convention est exigée sur les tables du socle ; ailleurs, les colonnes métier
- * existantes qui ne la suivent pas sont tolérées (décision du 2026-11-23) : signalées, pas pénalisées.
+ * P3 — Nommage : toute colonne commence par une majuscule, sans accent ni espace
+ * (décision du 2026-11-23 : plus de tolérance pour les colonnes métier existantes),
+ * et une adresse s'appelle « Courriel », jamais « Email » ni « Mail ».
+ * Hors contrôle : colonnes techniques de Grist (manualSort, gristHelper_…, « group » des tables de résumé).
  */
 function controlerNommage(d) {
-  // Colonnes définies par la norme : elles doivent suivre la convention. Toutes les autres sont des colonnes
-  // propres à l'application (y compris dans les tables du socle) : tolérées si elles existaient déjà.
-  const colonnesNorme = new Set(d.norme.flatMap((s) => s.def.tables.flatMap((t) => t.columns.map((c) => `${t.tableId}.${c.id}`))));
   const conforme = (id) => /^[A-Z][A-Za-z0-9_]*$/.test(id);
-  const fautivesSocle = [], tolerees = [];
+  const anglicisme = (id) => /e?mail/i.test(id);   // Email, email_pro, Mail_groupe… → Courriel…
+  const technique = (id) => id === 'manualSort' || id === 'group' || id.startsWith('gristHelper');
+  const minuscules = [], courriel = [];
   for (const t of d.metier) {
     for (const c of d.colonnesDe.get(t)) {
-      if (conforme(c.colId)) continue;
-      (colonnesNorme.has(`${t}.${c.colId}`) ? fautivesSocle : tolerees).push(`${t}.${c.colId}`);
+      if (technique(c.colId)) continue;
+      if (!conforme(c.colId)) minuscules.push(`${t}.${c.colId}`);
+      if (anglicisme(c.colId)) courriel.push(`${t}.${c.colId}`);
     }
   }
   const detail = [
-    fautivesSocle.length ? `colonnes de la norme hors convention : ${liste(fautivesSocle)}` : 'colonnes de la norme conformes',
-    tolerees.length && `${tolerees.length} colonne(s) métier existante(s) tolérée(s), ex. ${liste(tolerees, 4)}`,
-  ].filter(Boolean).join(' ; ');
-  return [{ principe: 'P3', objet: 'P3 Nommage', etat: fautivesSocle.length ? PARTIEL : OK, detail }];
+    minuscules.length && `${minuscules.length} colonne(s) sans majuscule initiale : ${liste(minuscules, 6)}`,
+    courriel.length && `« Courriel » attendu à la place de : ${liste(courriel, 6)}`,
+  ].filter(Boolean).join(' ; ') || 'Conforme';
+  return [{ principe: 'P3', objet: 'P3 Nommage', etat: minuscules.length || courriel.length ? PARTIEL : OK, detail }];
 }
 
 /** P4 — Ordre : dans les tables de la norme, les colonnes de la norme d'abord et dans l'ordre ; la traçabilité en dernier partout. */

@@ -3293,7 +3293,7 @@ function toggleHelpUsage() {
         const EMAIL_VALID_FORMULA = [
             'import re',
             '',
-            'email = $Email or ""',
+            'email = $Courriel or ""',
             'pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"',
             'return bool(re.match(pattern, email.strip())) or not bool(email)',
         ].join('\n');
@@ -3695,7 +3695,7 @@ async function createUserManagement() {
             { id: 'Nom', label: 'Nom', type: 'Text', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Parent', label: 'Parent', type: 'Ref:Entites', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Nom_complet', label: 'Nom complet', type: 'Text', formula: "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom +\"/\"+ nom\n    parent = parent.Parent\nreturn nom", isFormula: true, recalcWhen: 0, recalcDeps: null },
-            { id: 'Mail_groupe', label: 'Mail groupe', type: 'Text', formula: "from urllib.parse import quote\npeople = Utilisateurs.lookupRecords(Entite=rec.id)\nreturn \"Courriel groupé (%s) mailto:%s\" % (len(people), quote(\", \".join(people.Email)))", isFormula: true, recalcWhen: 0, recalcDeps: null },
+            { id: 'Mail_groupe', label: 'Mail groupe', type: 'Text', formula: "from urllib.parse import quote\npeople = Utilisateurs.lookupRecords(Entite=rec.id)\nreturn \"Courriel groupé (%s) mailto:%s\" % (len(people), quote(\", \".join(people.Courriel)))", isFormula: true, recalcWhen: 0, recalcDeps: null },
             { id: 'Actif', label: 'Actif', type: 'Bool', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Nbre', label: 'Nbre', type: 'Numeric', formula: "return len(Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))", isFormula: true, recalcWhen: 0, recalcDeps: null },
             { id: 'NbreTotal', label: 'NbreTotal', type: 'Numeric', formula: "def somme_descendants(entite):\n    enfants = Entites.lookupRecords(Parent=entite)\n    return sum(r.Nbre for r in enfants) + sum(somme_descendants(r) for r in enfants)\n\nreturn rec.Nbre + somme_descendants(rec)", isFormula: true, recalcWhen: 0, recalcDeps: null },
@@ -3726,7 +3726,7 @@ async function createUserManagement() {
         // 2. CRÉATION DE LA TABLE 'UTILISATEURS' (Structure initiale + Triggers)
         // =================================================================
         const utilisateursColumns = [
-            { id: 'Email', label: 'Email', type: 'Text', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
+            { id: 'Courriel', label: 'Courriel', type: 'Text', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Role', label: 'Role', type: 'Choice', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Entite', label: 'Entite', type: 'Ref:Entites', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Actif', label: 'Actif', type: 'Bool', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
