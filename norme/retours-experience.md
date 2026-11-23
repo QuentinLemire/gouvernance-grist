@@ -18,6 +18,10 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - **Méthode** : sur une application qui a déjà ses utilisateurs et ses droits, installer d'abord seulement `referentiel_territoires`, `parametres`, `accueil_public` (aucune règle posée), ajouter la traçabilité, puis traiter Entites / Utilisateurs à part.
 - Les colonnes de traçabilité ajoutées après coup sont vides pour les lignes existantes : reprendre ce qui existe (ex. `cree_le`), ne rien inventer.
 
+### Règles d'accès : pas de méthodes Python
+- Une formule comme `rec.Cle.endswith("_jeton")` est acceptée à l'enregistrement, mais Grist ne sait pas l'évaluer : la règle passe en erreur et **bloque toute la table, propriétaires compris**.
+- **Parade** : comparaisons simples, `in` sur une liste explicite (`rec.Cle in ["Github_jeton", "Gitlab_jeton"]`), `and` / `or` / `not`. Après chaque nouvelle règle, relire la table avec un compte propriétaire.
+
 ### Widgets copiés en plusieurs exemplaires
 - Un même code collé dans plusieurs pages diverge vite et chaque correction doit être faite N fois. Voir P7.
 

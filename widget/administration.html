@@ -698,7 +698,8 @@ function construireRegles() {
     if (!lignes.length && !m.bloquerAutres && !(m.supportPrive && SUPPORT_PRIVE[t]) && t !== 'Parametres') continue;
     out.push({ table: t, formule: 'user.Access == OWNER', perm: '+CRUD' });
     // Les jetons d'accès (clés « …_jeton ») ne sont visibles que des propriétaires du document.
-    if (t === 'Parametres' && colonne(t, 'Cle')) out.push({ table: t, formule: 'rec.Cle.endswith("_jeton") and user.Access != OWNER', perm: '-CRUD' });
+    // Liste explicite : les règles d'accès Grist n'évaluent pas les méthodes comme .endswith() (la règle bloquerait toute la table).
+    if (t === 'Parametres' && colonne(t, 'Cle')) out.push({ table: t, formule: 'rec.Cle in ["Github_jeton", "Gitlab_jeton"] and user.Access != OWNER', perm: '-CRUD' });
     // Support : chacun ne voit que ses propres demandes et seuls les administrateurs changent statut, priorité, assignation.
     if (m.supportPrive && SUPPORT_PRIVE[t]) for (const r of SUPPORT_PRIVE[t]) out.push({ table: t, ...r });
     for (const [r, n] of lignes) out.push({ table: t, formule: 'user.Profil.Actif and user.Profil.Role == ' + chaine(r), perm: NIVEAUX.find((x) => x.code === n).perm });
