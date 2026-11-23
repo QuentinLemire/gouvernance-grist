@@ -61,6 +61,11 @@ Décision du 2026-11-23 : Entité + Périmètre.
 - ⚠️ Les flux n8n qui lisent l'annuaire (`Personnel_summary_Cle`) par l'API doivent utiliser les nouveaux noms (`Nom`, `Prenom`, `Courriel`, `Telephone`…).
 - Corrigés au passage : la Bannette ne se chargeait pas (aucune lecture au démarrage) et y affichait des fiches déjà signées (une section non lue effaçait la signature connue de Personnel).
 
+## Campagne de tests des droits (2026-11-23, données vidées)
+Comptes fictifs : admin.test, rh.dgom, rh.sma, chef.bcl, adjoint.bcl, chef.baei, bssiom, lecteur.bcl, contributeur.dgom, inactif, sansrole (+ un inconnu).
+Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conformes après correction d'une faille (changement d'entité d'une fiche par une RH, corrigé sur 20 règles).
+À noter : le rôle **Contributeur** n'a aucun droit d'écriture sur les fiches (il ne fait que lire) ; les gestionnaires lisent toute la liste des utilisateurs.
+
 ## Rôles métier propres à l'application
 - **Chef de bureau / Adjoint au chef de bureau** : signent les fiches des agents de leurs bureaux.
 - **BSSIOM** : coche l'ouverture de chaque application après la signature de l'arrivée, et la fermeture des comptes au départ.

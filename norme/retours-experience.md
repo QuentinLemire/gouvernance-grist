@@ -35,6 +35,11 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - `RenameColumn` ne suit pas les lectures indirectes : `$group[0].nom`, `p = $agent; p.statut`. Les chercher dans toutes les formules (motif `.nom` / `$nom`) et les corriger ; ne jamais toucher `user.Email` (variable de Grist).
 - Le pare-feu du serveur refuse l'envoi de code par l'API REST ; la connexion de la page Grist (`docData.sendActions`) passe, et permet de recopier un code collé une fois dans les autres sections.
 
+### Règles d'accès par colonnes : vérifier aussi la nouvelle valeur
+- Une règle « +U » sur un groupe de colonnes passe **avant** les règles de la table. Si elle ne vérifie que `rec.Entite` (la valeur actuelle), une personne peut changer l'entité d'une fiche vers une entité qu'elle ne voit pas : la règle « hors entité » de la table n'est jamais atteinte. Constaté le 2026-11-23 en test (une RH du SMA a pu passer une fiche à la DGOM).
+- **Parade** : dans chaque « +U » de colonnes, `rec.Entite in user.Profil.Entites_vues and newRec.Entite in user.Profil.Entites_vues`.
+- Tester avec des comptes fictifs, un par rôle **et par cas limite** (autre entité, autre bureau, inactif, sans rôle), en écriture comme en lecture.
+
 ### Le libellé qui renomme la colonne
 - Par défaut, l'identifiant d'une colonne Grist **suit son libellé** : corriger « Courriel pro » en « Courriel professionnel » a renommé `Courriel_pro` en `Courriel_professionnel` et cassé l'annuaire et la fiche.
 - **Parade** : identifiant détaché du libellé (`untieColIdFromLabel`) sur toutes les colonnes ; l'installateur et le widget Administration créent désormais les colonnes ainsi.
