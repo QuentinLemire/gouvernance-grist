@@ -434,8 +434,13 @@ function controles() {
   // Règles d'accès : Grist ne les montre qu'aux propriétaires du document.
   if (!etat.acl.regles) out.push({ ok: false, texte: "Règles d'accès illisibles : seuls les <b>propriétaires</b> du document peuvent les gérer." });
   else {
-    const protegees = new Set(reglesDuPanneau().map((r) => ressource(r.resource)?.tableId));
-    const nonProtegees = etat.meta.tables.filter((t) => !protegees.has(t.tableId));
+    // Une table est « protégée par rôle » si une règle la concerne et lit le profil de la personne :
+    // règles posées par l'onglet Droits, mais aussi règles métier propres à l'application (rôles métier, P5).
+    const parProfil = etat.acl.regles.filter((r) => /user\.Profil\b/.test(r.aclFormula || '')).map((r) => ressource(r.resource)?.tableId);
+    const protegees = new Set([...reglesDuPanneau().map((r) => ressource(r.resource)?.tableId), ...parProfil].filter((t) => t && t !== '*'));
+    // Une règle par défaut qui lit le profil (ex. « Administrateur : tout ; les autres : lecture ») couvre toutes les tables.
+    const defautParRole = parProfil.includes('*') && etat.acl.regles.some((r) => ressource(r.resource)?.tableId === '*' && /user\.Profil\.Role\b/.test(r.aclFormula || ''));
+    const nonProtegees = defautParRole ? [] : etat.meta.tables.filter((t) => !protegees.has(t.tableId));
     out.push(protegees.size ? { ok: nonProtegees.length === 0, texte: protegees.size + ' table(s) protégée(s) par rôle' + (nonProtegees.length ? ', ' + nonProtegees.length + ' sans règle' : '') + '.', onglet: 'droits' }
       : { ok: false, texte: "Aucun droit par rôle : toute personne qui a accès au document voit tout.", onglet: 'droits' });
     // La « garde » est la règle qui bloque les personnes absentes de Utilisateurs (voir poserGarde).
@@ -451,7 +456,8 @@ function controles() {
   }
   // Tables de référence ou techniques : pas besoin de savoir qui les a modifiées ligne par ligne.
   const sansObjet = ['Journal_Admin', 'Accueil', 'Parametres', 'Territoires'];
-  const sansTraca = etat.meta.tables.filter((t) => !sansObjet.includes(t.tableId) && !t.colonnes.some((c) => c.colId === 'ModifiePar'));
+  // Les tables techniques d'une seule colonne (ex. un « verrou » qui cache des pages) sont aussi exclues.
+  const sansTraca = etat.meta.tables.filter((t) => !sansObjet.includes(t.tableId) && t.colonnes.length > 1 && !t.colonnes.some((c) => c.colId === 'ModifiePar'));
   if (sansTraca.length) out.push({ ok: false, texte: sansTraca.length + ' table(s) sans traçabilité : ' + sansTraca.map((t) => esc(t.tableId)).join(', ') + '.', onglet: 'structure' });
   return out;
 }
