@@ -14,7 +14,7 @@
 | P2 Traçabilité | ✅ | Les 17 tables métier |
 | P3 Nommage | ✅ | Colonnes de la norme conformes ; 175 colonnes métier existantes tolérées |
 | P4 Ordre des colonnes | ✅ | Traçabilité en dernier |
-| P5 Droits | ✅ | `user.Profil` ; rôles génériques + rôles métier (ci-dessous) ; non-inscrits : Accueil seulement ; 245 règles |
+| P5 Droits | ✅ | `user.Profil` ; rôles génériques + rôles métier (ci-dessous) ; non-inscrits, inactifs ou sans rôle : Accueil seulement ; 133 règles (245 avant simplification du 2026-11-23) |
 | P6 Registre unique | ✅ | Agents partis dans `Personnel` (colonne `parti`) |
 | P7 Widgets | ✅ | Accueil, Documentation, Support, Administration chargés depuis le dépôt (Boîte à outils, hors socle, non installée) ; fiches (4 pages) et pilotage (3 pages) collés dans le document, un code chacun, copie versionnée localement |
 | Formules en erreur | ✅ | Aucune |
@@ -27,6 +27,15 @@ Les pages d'administration portent un « Verrou administration » (section sur l
 ## Vérifié « en tant que » (2026-11-23)
 - Gestionnaire SMA : menu sans Administration ; Personnel présent = les 3 agents du SMA.
 - Chef du bureau BCL : Personnel présent = le seul agent du BCL.
+- BSSIOM : les 13 agents présents, menu sans Administration ; coche et décoche les applications ouvertes sur une fiche signée, refusé sur une fiche non signée.
+
+## Simplification des règles d'accès (2026-11-23)
+- 245 règles → **133** (53 → 45 ressources), droits vérifiés identiques pour le gestionnaire SMA, le chef du bureau BCL et le BSSIOM.
+- Sauvegarde des anciennes règles : `sauvegardes/regles_acl_2026-11-23_avant_simplification.json` (copie locale des widgets).
+- Retiré des groupes de colonnes : `+U` administrateur, `-U` hors entité et `-U` final (répétés partout, déjà couverts par les règles de table et par défaut) ; condition d'entité intégrée à chaque `+U` restant.
+- Règles de table : « hors entité » et « hors bureau » fusionnés en une seule règle `-RUD` et une seule `-CU`.
+- Règles par défaut : « non inscrit », « inactif » et « sans rôle » en une seule règle.
+- Défaut corrigé au passage : la règle du BSSIOM sur les applications ouvertes utilisait `rec.agent.arrivee_signee` (suivre une référence), que Grist n'évalue pas : le BSSIOM ne pouvait pas cocher. Remplacée par `rec.verrou` (vrai dès que l'arrivée est signée).
 
 ## Plan de mise à la norme
 

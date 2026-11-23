@@ -22,6 +22,14 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - Une formule comme `rec.Cle.endswith("_jeton")` est acceptée à l'enregistrement, mais Grist ne sait pas l'évaluer : la règle passe en erreur et **bloque toute la table, propriétaires compris**.
 - **Parade** : comparaisons simples, `in` sur une liste explicite (`rec.Cle in ["Github_jeton", "Gitlab_jeton"]`), `and` / `or` / `not`. Après chaque nouvelle règle, relire la table avec un compte propriétaire.
 
+### Règles d'accès : ne pas suivre une référence
+- `rec.agent.arrivee_signee` (lire une colonne d'une autre table à travers une référence) n'est pas évalué comme attendu : la règle ne s'applique jamais. Constaté sur Arrivées-Départs (le BSSIOM ne pouvait pas cocher).
+- **Parade** : utiliser une colonne de formule **de la même table** (`$agent.arrivee_signee`, ou un `verrou` déjà calculé), et écrire la règle sur `rec.<cette colonne>`.
+
+### Règles d'accès : simplifier sans rien changer
+- Les règles qui se répètent dans chaque groupe de colonnes (`+U` administrateur, `-U` hors entité, `-U` final) sont déjà couvertes par les règles de la table et les règles par défaut : les retirer ne change aucun droit.
+- Méthode : sauvegarder les règles (export JSON), simplifier, vérifier que l'éditeur affiche « Enregistré » sans règle invalide, puis tester **chaque rôle** en « Voir en tant que », lecture **et** écriture (une case cochée puis décochée). Arrivées-Départs : 245 → 133 règles.
+
 ### Renommer des colonnes
 - `RenameColumn` met à jour **toutes les formules et toutes les règles d'accès** (y compris `user.<attribut>.<colonne>` et la colonne de recherche de l'attribut). Le code des widgets, lui, est à adapter à la main.
 - Vérifier ensuite les formules d'affichage (`$ref.colonne`) et les tables de résumé.

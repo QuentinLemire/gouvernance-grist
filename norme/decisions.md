@@ -58,12 +58,18 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 **Décision** : `recalcWhen` = 2 pour ces deux colonnes, comme dans `structure/`.
 **Raison** : dans le Grist Gouvernance elles étaient repassées en « à la création seulement » sur 5 tables, ce qui vidait la traçabilité de son sens. Corrigé dans le document ; la norme publiée était déjà juste.
 
+### 2026-11-23 — Règles d'accès : une condition par groupe de colonnes
+**Décision** : dans un groupe de colonnes, ne garder que les `+U` propres au métier (avec la condition d'entité intégrée) ; l'administrateur, le hors-entité et le refus final sont portés une seule fois par la table et par les règles par défaut.
+**Raison** : Arrivées-Départs comptait 245 règles illisibles ; 133 après simplification, droits identiques.
+
 ### 2026-11-23 — Création du dossier `norme/`
 **Décision** : les règles écrites, les décisions et les audits vivent dans ce dépôt, à côté de la structure.
 
 ---
 
 ## Points ouverts
+
+- **Support : confidentialité des commentaires** : la règle de `Support_commentaires` lit `rec.Demande.Demandeur` à travers une référence, que Grist n'évalue pas. Ajouter une colonne `Demandeur` (formule `$Demande.Demandeur`) dans `Support_commentaires` et écrire la règle sur `rec.Demandeur`.
 
 - **Forme des noms de colonnes** : la norme mélange `Nom_complet` (mots séparés par `_`) et `CreeLe` (mots collés). Choisir une forme unique pour les nouvelles colonnes, sans renommer l'existant.
 - **Bureaux en sous-entités** : dans les applications qui ont une table de bureaux propre (Arrivées-Départs), la passer en sous-entités de `Entites` — à faire quand une évolution le justifie.
