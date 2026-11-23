@@ -66,6 +66,12 @@ Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une imag
 - **Par script** : console du navigateur (F12) sur le document, coller `scripts/installer-gouvernance.js` puis
   `await installerGouvernance(['utilisateurs', 'parametres', 'accueil_public', 'support', 'journal', 'documentation'])`.
 
+## Auditer une application
+
+Console du navigateur (F12) sur le document, coller `scripts/auditer-norme.js` puis `const audit = await auditerNorme()`.
+Le script ne modifie rien : il contrôle chaque principe (socle, traçabilité, nommage, ordre, droits, registre unique, widgets, formules)
+et produit dans `audit.markdown` le tableau à coller dans `norme/applications/<application>.md`.
+
 ## Faire évoluer la norme : Grist → Git → toutes les applications
 
 1. **Modifier** les tables standard dans le Grist « Gouvernance » (Parametres : `Source_norme` = `oui`).

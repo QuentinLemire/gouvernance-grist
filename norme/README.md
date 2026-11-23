@@ -13,7 +13,7 @@ La structure technique des tables standard est dans `../structure/` ; ici, ce so
 
 ## Comment on avance
 
-1. **Auditer** une application avec la checklist → fichier dans `applications/`.
+1. **Auditer** une application : `scripts/auditer-norme.js` dans la console du document (voir le README du dépôt), complété par la checklist → fichier dans `applications/`.
 2. **Décider** les points ouverts → une entrée dans `decisions.md` (et `principes.md` si la règle change).
 3. **Appliquer** : d'abord ce qui ne fait qu'ajouter (tables standard, traçabilité), ensuite ce qui touche aux droits.
 4. **Publier** : la structure via « 📤 Publier la norme » (Grist Gouvernance), ce dossier via Git.
