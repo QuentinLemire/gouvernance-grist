@@ -120,8 +120,12 @@ async function chargerTout(docId, depot) {
       .filter((c) => c.parentId === t.id && c.colId !== 'manualSort' && !c.colId.startsWith('gristHelper'))
       .sort((a, b) => a.parentPos - b.parentPos));
   }
-  // Tables « métier » : celles de l'application, hors tables internes et tables de résumé.
-  const metier = tables.filter((t) => !t.tableId.startsWith('_grist') && !t.summarySourceTable).map((t) => t.tableId);
+  // Tables « métier » : celles de l'application, hors tables internes, tables de résumé
+  // et tables techniques d'une seule colonne (ex. un « verrou » qui sert à cacher des pages).
+  const metier = tables
+    .filter((t) => !t.tableId.startsWith('_grist') && !t.summarySourceTable)
+    .map((t) => t.tableId)
+    .filter((t) => colonnesDe.get(t).length > 1);
 
   return { docId, tables, colonnes, sections, vues, regles, norme, colParId, nomTable, colonnesDe, metier };
 }
