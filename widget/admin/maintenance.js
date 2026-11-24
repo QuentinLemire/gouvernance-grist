@@ -558,7 +558,6 @@ function carteSauvegardes() {
     <p class="aide">Grist enregistre automatiquement des versions du document. Ouvrez-en une pour la consulter (lecture seule) ;
     pour revenir en arrière, utilisez <i>Historique du document</i> dans Grist. Avant une grosse modification, téléchargez une copie.</p>`;
   if (!etat.sauvegardes) {
-    Outils.api('/download').then((r) => r.blob()).then((b) => avis('[diag] download ' + b.size + ' octets', 'erreur'), (e) => avis('[diag] download : ' + e.message, 'erreur'));
     etat.sauvegardes = { enCours: true };
     Promise.all([Outils.api('/snapshots').then((r) => r.json()), Outils.adresseDocument()])
       .then(([r, adresse]) => { etat.sauvegardes = { liste: r.snapshots || [], adresse }; })

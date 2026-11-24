@@ -84,85 +84,46 @@ function ongletUtilisateurs() {
     ${cartePartage()}`;
 }
 
+/** Personnes actives et bien formées, groupées par accès Grist à leur donner (« Éditeur », « Lecteur »). */
+function aPartager() {
+  const groupes = { 'Éditeur': [], 'Lecteur': [] };
+  for (const u of etat.d.Gouv_Utilisateurs || []) {
+    if (u.Actif !== false && u.Role && estCourriel(u.Courriel)) groupes[accesNecessaire(u.Role)].push(u.Courriel.trim());
+  }
+  return groupes;
+}
+
 /**
- * Carte « Partage du document Grist » : compare la table Utilisateurs (qui a quel rôle) au partage
- * du document dans Grist (qui peut l'ouvrir, et avec quel accès). Les deux doivent concorder :
- * Grist plafonne les droits (une personne partagée en lecture ne modifie rien, quel que soit son rôle),
- * et une personne partagée mais non inscrite ne voit que l'accueil.
+ * Carte « Partage du document Grist » : le rôle (table Utilisateurs) ne suffit pas, il faut aussi
+ * que Grist laisse la personne ouvrir le document, avec le bon accès. Grist ne laisse pas un widget
+ * lire ni modifier ce partage : la carte donne la liste à reporter dans la fenêtre « Partager ».
  * @returns {string} HTML de la carte
  */
 function cartePartage() {
-  const entete = '<section class="carte"><h2>🔗 Partage du document Grist</h2>';
-  if (!etat.partage) { chargerPartage().then(afficher); return entete + '<p class="vide">Lecture du partage…</p></section>'; }
-  if (etat.partage.enCours) return entete + '<p class="vide">Lecture du partage…</p></section>';
-  if (etat.partage.erreur) return entete + `<div class="encadre alerte">Partage illisible : seuls les <b>propriétaires</b> du document le voient. (${esc(etat.partage.erreur)})</div></section>`;
-  const P = etat.partage;
-  const actifs = (etat.d.Gouv_Utilisateurs || []).filter((u) => u.Actif !== false && estCourriel(u.Courriel));
-  const inscrits = new Set(actifs.map((u) => cle(u.Courriel)));
-  const ordre = (a) => ACCES_GRIST.indexOf(a);
-  const libelle = (a) => (a ? LIBELLE_ACCES[a] : 'aucun');
-  // 1. Inscrits dont l'accès Grist ne suffit pas à leur rôle
-  const aPartager = actifs.filter((u) => u.Role && ordre(accesGrist(u.Courriel)) < ordre(accesNecessaire(u.Role)));
-  // 2. Personnes qui ont accès au document sans être inscrites (ou inactives) : elles ne voient que l'accueil
-  const personnes = [...P.personnes.values()];
-  const nonInscrits = personnes.filter((p) => !p.service && p.acces && p.acces !== 'owners' && !inscrits.has(cle(p.courriel)));
-  const proprietaires = personnes.filter((p) => p.acces === 'owners');
-  const services = personnes.filter((p) => p.service).length;
-  const ligne = (courriel, gauche, droite) => `<tr><td>${esc(courriel)}</td><td>${gauche}</td><td>${droite}</td></tr>`;
-  return entete + `
-    <p class="aide">Le <b>rôle</b> (table Utilisateurs) dit ce qu'une personne peut faire ; le <b>partage</b> Grist dit si elle peut ouvrir le document.
-    Grist plafonne : partagée en lecture, une personne ne modifie rien, quel que soit son rôle.</p>
-    ${P.public ? `<div class="encadre">🌐 Le document est ouvert à <b>tout le monde</b> en ${esc(libelle(P.public))} (lien public) : une personne non inscrite n'y voit que l'accueil, grâce aux règles d'accès.</div>` : ''}
-    <h3>⚠️ Accès Grist insuffisant pour leur rôle (${aPartager.length})</h3>
-    ${aPartager.length ? `<div class="defile"><table class="tableau"><tr><th>Courriel</th><th>Rôle</th><th>Accès Grist → nécessaire</th></tr>
-      ${aPartager.map((u) => ligne(u.Courriel, esc(u.Role), `${esc(libelle(accesGrist(u.Courriel)))} → <b>${esc(libelle(accesNecessaire(u.Role)))}</b>`)).join('')}</table></div>
-      <div class="barre-outils" style="margin-top:10px"><button class="bouton primaire" data-action="partager">Partager le document avec ces ${aPartager.length} personne(s)</button>
-      <span class="aide" style="margin:0">Grist leur enverra une invitation par courriel.</span></div>`
-      : '<p class="vide">✅ Chaque personne inscrite a l\'accès Grist que demande son rôle.</p>'}
-    <h3>👤 Ont accès au document sans être inscrits ou actifs (${nonInscrits.length})</h3>
-    ${nonInscrits.length ? `<p class="aide">Elles ne voient que la page d'accueil. Inscrivez celles qui doivent travailler dans l'application.</p>
-      <div class="defile"><table class="tableau"><tr><th>Courriel</th><th>Accès Grist</th><th>Dans Utilisateurs</th></tr>
-      ${nonInscrits.map((p) => { const u = (etat.d.Gouv_Utilisateurs || []).find((x) => cle(x.Courriel) === cle(p.courriel));
-        return ligne(p.courriel, esc(libelle(p.acces)), u ? '<span class="badge orange">inactif</span>' : '<span class="badge">absent</span>'); }).join('')}</table></div>
-      <div class="barre-outils" style="margin-top:10px"><button class="bouton" data-action="preparer-ajout">Préparer leur inscription ↑</button></div>`
-      : '<p class="vide">✅ Toute personne qui a accès au document est inscrite.</p>'}
-    <h3>👑 Propriétaires (${proprietaires.length})</h3>
-    <p class="aide">Ils voient et modifient tout, quelles que soient les règles d'accès.${services ? ` ${services} compte(s) de service ignoré(s).` : ''}</p>
-    <p>${proprietaires.map((p) => `<span class="badge bleu" style="margin:0 6px 6px 0">${esc(p.courriel)}</span>`).join('')}</p>
+  const g = aPartager();
+  const bloc = (acces, quoi) => `<div>
+      <h3>${acces === 'Éditeur' ? '✏️' : '👁️'} ${acces} (${g[acces].length})</h3>
+      <p class="aide">${quoi}</p>
+      ${g[acces].length ? `<textarea class="champ" rows="3" readonly style="width:100%" id="partage-${acces === 'Éditeur' ? 'editeur' : 'lecteur'}">${esc(g[acces].join(', '))}</textarea>
+      <button class="bouton petit" data-action="copier-partage" data-valeur="${acces}">📋 Copier les ${g[acces].length} courriel(s)</button>` : '<p class="vide">Personne.</p>'}
+    </div>`;
+  return `<section class="carte"><h2>🔗 Partage du document Grist</h2>
+    <p class="aide">Le <b>rôle</b> dit ce qu'une personne peut faire ; encore faut-il que le document soit <b>partagé</b> avec elle dans Grist.
+    Grist plafonne : partagée en lecture, une personne ne modifie rien, quel que soit son rôle. Grist ne laisse pas les widgets lire le partage :
+    copiez ces listes dans le bouton <b>Partager</b> de Grist (en haut à droite), avec l'accès indiqué.</p>
+    <div class="grille-2">
+      ${bloc('Éditeur', 'Rôles qui modifient (Administrateur, Gestionnaire, Contributeur, rôles métier).')}
+      ${bloc('Lecteur', 'Rôle Lecteur.')}
+    </div>
+    <p class="aide" style="margin-top:12px">Une personne partagée mais absente d'ici, ou inactive, ne voit que la page d'accueil. Les <b>propriétaires</b> voient tout, quelles que soient les règles.</p>
   </section>`;
 }
 
-/**
- * Partage le document dans Grist avec les personnes inscrites dont l'accès ne suffit pas à leur rôle
- * (lecture pour un Lecteur, modification pour les autres). Grist envoie une invitation à chacune.
- * Effet : partage du document modifié (API /access), tracé au journal. Rien n'est retiré.
- * @param {HTMLElement} bouton
- */
-async function partagerAvec(bouton) {
-  const ordre = (a) => ACCES_GRIST.indexOf(a);
-  const cibles = (etat.d.Gouv_Utilisateurs || []).filter((u) => u.Actif !== false && estCourriel(u.Courriel) && u.Role
-    && ordre(accesGrist(u.Courriel)) < ordre(accesNecessaire(u.Role)));
-  if (!cibles.length) return;
-  const liste = cibles.map((u) => u.Courriel + ' (' + LIBELLE_ACCES[accesNecessaire(u.Role)] + ')').join(', ');
-  if (!await demander(`Partager le document avec ${cibles.length} personne(s) : ${liste} ? Grist leur enverra une invitation par courriel.`, { ok: 'Partager' })) return;
-  await occupe(bouton, async () => {
-    const users = Object.fromEntries(cibles.map((u) => [u.Courriel.trim().toLowerCase(), accesNecessaire(u.Role)]));
-    await Outils.api('/access', { method: 'PATCH', body: JSON.stringify({ delta: { users } }) });
-    await tracer('Document partagé', liste);
-    message('✅ Document partagé avec ' + cibles.length + ' personne(s).');
-    etat.partage = null;
-    afficher();
-  });
-}
-
-/** Recopie les courriels des personnes non inscrites dans « Ajouter des personnes », prêts à être ajoutés. */
-function preparerAjout() {
-  const inscrits = new Set((etat.d.Gouv_Utilisateurs || []).map((u) => cle(u.Courriel)));
-  const absents = [...etat.partage.personnes.values()].filter((p) => !p.service && p.acces && p.acces !== 'owners' && !inscrits.has(cle(p.courriel)));
-  $('ajout-liste').value = absents.map((p) => p.courriel).join('\n');
-  $('ajout-liste').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  $('ajout-liste').focus();
-  message(absents.length ? absents.length + ' courriel(s) prêts : choisissez le rôle et l\'entité, puis « Ajouter ». (Les inactifs se réactivent dans le tableau.)' : 'Aucune personne absente de la table.');
+/** Copie la liste des courriels d'un accès (« Éditeur » ou « Lecteur ») ; si le navigateur refuse, la sélectionne. */
+async function copierPartage(acces) {
+  const zone = $(acces === 'Éditeur' ? 'partage-editeur' : 'partage-lecteur');
+  try { await navigator.clipboard.writeText(zone.value); message('✅ Courriels copiés : collez-les dans « Partager » de Grist, accès ' + acces + '.'); }
+  catch (e) { zone.focus(); zone.select(); message('Courriels sélectionnés : copiez-les avec Ctrl+C (Cmd+C sur Mac).'); }
 }
 
 /**

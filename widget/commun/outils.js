@@ -40,7 +40,7 @@
  *    - Outils.avis(texte, genre) bandeau de message en haut de la page
  *    - Outils.demander(question) petite fenêtre de question (oui/non, ou texte à saisir)
  *    - Outils.identifiant(texte) identifiant Grist selon la norme (« date d'arrivée » → Date_d_arrivee)
- *    - Outils.api(chemin)        API REST du document (partage, sauvegardes…), avec le jeton du widget
+ *    - Outils.api(chemin)        API REST du document (sauvegardes, téléchargement…), avec le jeton du widget
  *    - Outils.adresseDocument()  adresse de la page du document (ou d'une sauvegarde), pour un lien
  *
  *  Aucune de ces fonctions n'écrit dans le document : elles ne font que lire
@@ -283,14 +283,17 @@ window.Outils = (() => {
   // ===== 8. API REST du document =====
 
   /**
-   * Appelle l'API REST du document (partage, sauvegardes, téléchargement…), avec le jeton que Grist
+   * Appelle l'API REST du document (sauvegardes, téléchargement, données…), avec le jeton que Grist
    * donne au widget (accès complet requis). Le jeton est court et propre à ce document.
+   * Attention : les routes de l'espace (partage /access…) ne reconnaissent pas ce jeton.
    * @param {string} chemin   chemin après /api/docs/<id>, ex. « /snapshots »
    * @param {RequestInit} [options]  options de fetch (method, body…)
    * @returns {Promise<Response>}
    * @throws si Grist refuse ou répond une erreur
    */
   async function api(chemin, options = {}) {
+    // Jeton complet même pour lire : Grist refuse les sauvegardes et le téléchargement d'un document
+    // protégé par des règles d'accès à un jeton « lecture seule ».
     const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: false });
     const r = await fetch(`${baseUrl}${chemin}${chemin.includes('?') ? '&' : '?'}auth=${token}`,
       { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
