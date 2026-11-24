@@ -4,7 +4,6 @@
  */
 // --- 7. Onglet « Droits » : matrice rôle × table → règles d'accès Grist --------------------------
 
-const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.memo || '').startsWith(MARQUE));
 
 /**
  * Reconstitue la matrice à partir des règles « [Admin] » déjà écrites dans le document,

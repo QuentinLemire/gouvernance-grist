@@ -522,6 +522,9 @@ const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</o
 // ressource : cible d'une règle (table et colonnes visées) ; reglesDuPanneau : règles portant la mention [Admin].
 const ressource = (id) => etat.acl.ressources.find((r) => r.id === id);
 
+/** Règles d'accès écrites par le panneau des droits (mention [Admin]) ; lues aussi par le tableau de bord. */
+const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.memo || '').startsWith(MARQUE));
+
 // --- Démarrage -------------------------------------------------------------------------------------
 
 // Style propre à l'administration (matrice des droits, fiches du support…), chargé avec la version de la page
