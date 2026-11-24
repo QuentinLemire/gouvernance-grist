@@ -299,6 +299,8 @@ input.champ:focus, select.champ:focus, textarea.champ:focus { outline: 2px solid
 .puce.externe { background: var(--alerte-fond); border-color: var(--alerte); color: var(--alerte); }
 
 /* ---------- Petites mises en page ---------- */
+/* l'attribut hidden doit toujours masquer, même un bouton ou un bandeau qui a son propre « display » */
+[hidden] { display: none !important; }
 .cache { display: none !important; }
 .pile > * + * { margin-top: 10px; }
 .discret { color: var(--texte-doux); font-size: 13px; }
