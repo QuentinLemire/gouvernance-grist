@@ -149,13 +149,16 @@ async function mettreAJourPages(bouton) {
       sections = await sectionsWidgets();
     }
     const cible = (s) => { const r = remplacante(s.fichier); return r ? { fichier: r.fichier, module: r.module } : { fichier: s.fichier, module: s.module }; };
+    // une ancienne page devenue outil (ex. la Boîte à outils) passe sur la table des outils : elle hérite du même verrou
+    const outils = anciennes.length ? await tableDesOutils(sections) : null;
+    const table = (s) => (outils && remplacante(s.fichier) ? { tableRef: outils } : {});
     const aFaire = sections.filter((s) => s.version !== version || s.ancienne || remplacante(s.fichier));
     if (!aFaire.length) return message('✅ Les pages sont déjà à la dernière version (' + version.slice(0, 7) + ').');
     await tracer(anciennes.length ? 'Passage aux outils d\'administration' : 'Pages mises à jour', 'version ' + version.slice(0, 7) + ' : '
       + [...new Set(aFaire.map((s) => s.fichier + (remplacante(s.fichier) ? ' → ' + cible(s).module : '')))].join(', '));
     // En dernier : cette page-ci se recharge aussitôt sa propre adresse changée.
     const moi = (s) => location.href.includes('/widget/' + s.fichier);
-    await agir([...aFaire.filter((s) => !moi(s)), ...aFaire.filter(moi)].map((s) => ['UpdateRecord', '_grist_Views_section', s.id, { options: JSON.stringify({ ...s.options,
+    await agir([...aFaire.filter((s) => !moi(s)), ...aFaire.filter(moi)].map((s) => ['UpdateRecord', '_grist_Views_section', s.id, { ...table(s), options: JSON.stringify({ ...s.options,
       customView: JSON.stringify({ ...s.vue, url: URL_WIDGET(version, cible(s).fichier, cible(s).module) }) }) }]));
     message('✅ ' + aFaire.length + ' page(s) mises à la version ' + version.slice(0, 7) + '.');
   });
@@ -371,6 +374,22 @@ const PAGES = [
   { ...OUTIL, cle: 'aide', nom: '❓ Aide', module: 'aide' },
 ];
 
+/**
+ * Table à laquelle rattacher les outils d'administration : celle du widget de la page Administration.
+ * Une application peut y mettre une table-verrou (ex. VueAdmin, lisible des seuls administrateurs) : les
+ * outils en héritent et restent cachés aux autres. Sinon (ou sans page Administration) : Gouv_Parametres.
+ * @param {object[]} sections  résultat de sectionsWidgets()
+ * @returns {Promise<number|undefined>} identifiant interne de la table
+ */
+async function tableDesOutils(sections) {
+  const admin = sections.find((s) => { const p = pageDeLAdresse(s.vue.url || ''); return p && p.cle === 'administration'; });
+  if (admin) {
+    const sec = ((await lire('_grist_Views_section')) || []).find((x) => x.id === admin.id);
+    if (sec?.tableRef) return sec.tableRef;
+  }
+  return etat.meta.parId.Gouv_Parametres?.id;
+}
+
 /** La page standard affichée par une adresse de widget (fichier, et module pour la console), ou undefined. */
 function pageDeLAdresse(url) {
   let u;
@@ -418,10 +437,12 @@ async function creerPages(bouton, seulement = null) {
       await installerTablesSujet(x.sujet);
       await chargerStructure();
     }
+    const outils = await tableDesOutils(await sectionsWidgets());
     for (const page of PAGES.filter((x) => !presentes.has(x.cle) && x.table && tableRef(x.table) && voulue(x))) {
       if (page.native) await creerPageNative(page, tableRef(page.table));
       else {
-        const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
+        const surTable = page.fichier === OUTIL.fichier && outils ? outils : tableRef(page.table);
+        const r = (await agir([['CreateViewSection', surTable, 0, 'custom', null, null]])).retValues[0];
         await agir([
           ['UpdateRecord', '_grist_Views', r.viewRef, { name: page.nom }],
           ['UpdateRecord', '_grist_Views_section', r.sectionRef, { title: page.nom.replace(/^\S+\s/, ''), options: JSON.stringify({ customView: JSON.stringify({
