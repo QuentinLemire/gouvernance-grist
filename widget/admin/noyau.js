@@ -48,11 +48,10 @@ window.Console = (() => {
   const NORME = ['commun/norme.js'];   // règles de la norme (commun avec scripts/auditer-norme.js)
   const GESTION = [...NORME, 'admin/gestion.js'];
   const MODULES = [
-    { cle: 'tableau', titre: '🏠 Tableau de bord', rubrique: '', avec: GESTION },
+    { cle: 'sante', titre: '🩺 Santé du document', rubrique: '', avec: NORME },   // page d'entrée (🛡️ Administration)
     { cle: 'droits', titre: '🔐 Rôles et droits', rubrique: 'Personnes', avec: GESTION },
     { cle: 'explorateur', titre: '🔍 Explorateur', rubrique: 'Données' },
     { cle: 'atelier', titre: '🏗️ Atelier', rubrique: 'Données' },
-    { cle: 'sante', titre: '🩺 Santé du document', rubrique: 'Qualité', avec: NORME },
     { cle: 'support', titre: '🆘 Support', rubrique: 'Support', avec: GESTION },
     { cle: 'maintenance', titre: '🧱 Maintenance', rubrique: 'Maintenance', avec: GESTION },
     { cle: 'aide', titre: '❓ Aide', rubrique: '' },

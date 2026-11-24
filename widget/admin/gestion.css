@@ -2,10 +2,6 @@
 .admin { padding: 20px 24px 40px; max-width: 1200px; }
 /* Compléments propres au panneau d'administration ; couleurs, cartes, boutons et tableaux viennent de commun/dsfr-grist.css. */
 /* Onglets et barres d'outils : dans commun/dsfr-grist.css (partagés avec les autres outils). */
-/* Tableau de bord : liste des contrôles de santé (icône, texte, bouton « Corriger »). */
-.vigilance li { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--bordure); list-style: none; }
-.vigilance ul { padding: 0; margin: 0; }
-.vigilance li > span:nth-child(2) { flex: 1; }
 /* Onglet Droits : matrice rôle × table, puis aperçu des règles sur fond sombre. */
 .matrice select { width: 100%; min-width: 118px; padding: 5px 8px; font-size: 13px; }
 .matrice td, .matrice th { padding: 6px; }

@@ -8,8 +8,8 @@
 - [ ] Bureaux et services rangés comme sous-entités (`Entites.Parent`), pas dans une table à part
 - [ ] Parametres (avec `Nom_application`, `Contact_support`, `Logo_DGOM`) et Accueil
 - [ ] Journal_Admin
-- [ ] Pages : Accueil, Administration › Utilisateurs, Rôles et droits, Explorateur, Atelier, Santé du document, Maintenance, Aide
-- [ ] 🩺 Santé du document : aucun point « à corriger »
+- [ ] Pages : Accueil, Administration › Utilisateurs, Rôles et droits, Explorateur, Atelier, Journal, Maintenance, Aide
+- [ ] Administration (santé du document) : aucun point « à corriger »
 
 ## Hors socle (si installés, ils doivent être complets)
 - [ ] Support + Support_commentaires (page Support sous l'Accueil)

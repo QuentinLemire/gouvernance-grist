@@ -31,7 +31,7 @@ async function auditerNorme({ docId = null, depot = Norme.DEPOT } = {}) {
     // un non-propriétaire reçoit une liste vide : les règles sont alors illisibles, pas absentes
     regles: regles && regles.length ? regles : null,
     norme: await Norme.lireNorme(depot) });
-  const lignes = [...Norme.controler(d), ...(await Norme.formules(d, lire)), ...Norme.colonnesInutilisees(d)];
+  const lignes = [...Norme.controler(d), ...(await Norme.personnes(d, lire)), ...(await Norme.formules(d, lire)), ...Norme.colonnesInutilisees(d)];
   const synthese = Norme.synthese(lignes);
   const markdown = Norme.enMarkdown(lignes, document.title.replace(/ - Grist$/, ''));
   console.table(lignes.map((l) => ({ Principe: l.objet, État: l.etat, Détail: l.detail })));

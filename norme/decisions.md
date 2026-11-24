@@ -4,6 +4,14 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-24 — Plus de tableau de bord : Administration = santé du document ; Journal en page classique
+**Décision** : le tableau de bord est supprimé. La page 🛡️ Administration affiche la santé du document (la page Santé séparée disparaît) ;
+le journal devient une page Grist classique 📒 Journal (le plus récent en haut).
+**Raison** : le tableau de bord ne faisait que répéter, en moins complet, ce que montrent les autres pages (Santé, Utilisateurs, Rôles et droits,
+Maintenance) ; ses tuiles n'aidaient à aucune décision ; ses 8 dernières actions valaient moins qu'une table du journal filtrable.
+**Conséquences** : la santé du document contrôle aussi les personnes (au moins un administrateur actif, un rôle pour chaque personne active,
+courriels bien formés et uniques), dans `commun/norme.js` : le script d'audit le fait aussi.
+
 ### 2026-11-24 — Utilisateurs : une page Grist classique, pas un widget
 **Décision** : la page 👥 Utilisateurs redevient une page Grist classique (annuaire trié par nom et fiche liée). L'outil « Utilisateurs » de la console est supprimé.
 **Raison** : il n'apportait rien que Grist ne fasse déjà (filtres, modification, collage en masse, export) et faisait moins bien (courriel non modifiable,

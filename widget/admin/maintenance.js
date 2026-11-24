@@ -135,14 +135,14 @@ const remplacante = (fichier) => PAGES.find((x) => (x.anciens || []).includes(fi
  * Fait pointer toutes les pages de la norme (Accueil, Documentation, Support, Administration et ses outils)
  * sur le dernier commit du dépôt. Les pages se rechargent d'elles-mêmes, sans attendre aucun cache.
  * Document pas encore passé aux outils séparés : les outils qui manquent sont d'abord créés, puis
- * l'ancien panneau devient le tableau de bord et la Boîte à outils l'Explorateur (même page, même place).
+ * l'ancien panneau devient la Santé du document et la Boîte à outils l'Explorateur (même page, même place).
  * @param {HTMLElement} bouton
  */
 async function mettreAJourPages(bouton) {
   await occupe(bouton, async () => {
     const version = await derniereVersion();
     let sections = await sectionsWidgets();
-    const anciennes = sections.filter((s) => remplacante(s.fichier) || estRetiree(s));
+    const anciennes = sections.filter((s) => remplacante(s.fichier));
     if (anciennes.length) {
       // les outils manquants d'abord : cette page-ci sera remplacée (et rechargée) en dernier
       await creerPages(null);
@@ -347,7 +347,8 @@ async function rangerColonnes(tables) {
  * « table » : table rattachée à la page (la page n'est créée que si elle existe) ;
  * « sousPage » : page placée en retrait sous Administration ;
  * « anciens » : fichiers d'avant la console, reconnus pour ranger le menu d'un document pas encore migré ;
- * « native » : page Grist classique, sans widget (reconnue par son nom).
+ * « native » : page Grist classique, sans widget (reconnue par son nom) : colonnes de la liste, tri (« -Date » :
+ *   du plus récent au plus ancien), fiche liée à droite ou non, colonnes techniques cachées de la fiche.
  */
 const OUTIL = { fichier: 'console.html', table: 'Gouv_Parametres', sousPage: true };
 const PAGES = [
@@ -355,38 +356,20 @@ const PAGES = [
   // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
   { cle: 'documentation', nom: '📖 Documentation', table: 'Gouv_Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
   { cle: 'support', nom: '🆘 Support', table: 'Gouv_Support', fichier: 'support.html', facultative: true, sujet: 'support' },
-  // Administration : le tableau de bord, puis un outil par page en dessous
-  { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'tableau', sousPage: false, anciens: ['administration.html'] },
-  // Utilisateurs : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
-  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: true },
+  // Administration : la Santé du document, puis un outil par page en dessous
+  { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'sante', sousPage: false, anciens: ['administration.html'] },
+  // Utilisateurs et Journal : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
+  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: {
+    titre: 'Annuaire', colonnes: ['Nom', 'Courriel', 'Entite', 'Role', 'Actif', 'Acces_Grist'], tri: 'Nom', fiche: true,
+    cachees: ['Courriel_cle', 'Courriel_valide', 'Doublon'] } },
   { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
-  { ...OUTIL, cle: 'sante', nom: '🩺 Santé du document', module: 'sante' },
+  { cle: 'journal', nom: '📒 Journal', table: 'Gouv_Journal', sousPage: true, native: {
+    titre: 'Journal d\'administration', colonnes: ['Date', 'Auteur', 'Action', 'Detail', 'Personne'], tri: '-Date', fiche: false } },
   { ...OUTIL, cle: 'maintenance', nom: '🧱 Maintenance', module: 'maintenance' },
   { ...OUTIL, cle: 'aide', nom: '❓ Aide', module: 'aide' },
 ];
-
-/**
- * Outils de la console qui n'existent plus, et la page qui les remplace : la migration retire leur page
- * (un widget, sans donnée) avant de créer la remplaçante.
- */
-const MODULES_RETIRES = { utilisateurs: 'utilisateurs' };
-const estRetiree = (s) => s.fichier === 'console.html' && !!MODULES_RETIRES[s.module];
-
-/**
- * Retire les pages d'un outil de la console qui n'existe plus (ex. Utilisateurs, devenue une page Grist
- * classique) : ce sont des widgets, sans donnée. La page qui les remplace est créée ensuite.
- * @returns {Promise<string[]>} outils dont la page a été retirée
- */
-async function retirerPagesRetirees() {
-  const retirees = (await sectionsWidgets()).filter(estRetiree);
-  if (!retirees.length) return [];
-  const vues = ((await lire('_grist_Views_section')) || []).filter((x) => retirees.some((s) => s.id === x.id)).map((x) => x.parentId);
-  await agir([...new Set(vues)].map((v) => ['RemoveView', v]));
-  await tracer('Pages remplacées', retirees.map((s) => 'outil ' + s.module + ' → page Grist classique').join(', '));
-  return retirees.map((s) => s.module);
-}
 
 /** La page standard affichée par une adresse de widget (fichier, et module pour la console), ou undefined. */
 function pageDeLAdresse(url) {
@@ -425,7 +408,6 @@ async function lirePages() {
  */
 async function creerPages(bouton, seulement = null) {
   await occupe(bouton, async () => {
-    if (!seulement) await retirerPagesRetirees();
     const presentes = new Set((await lirePages()).map((p) => p.cle));
     const tableRef = (t) => etat.meta.parId[t]?.id;
     const creees = [];
@@ -459,26 +441,29 @@ async function creerPages(bouton, seulement = null) {
 }
 
 /**
- * Page Utilisateurs en Grist classique : l'annuaire (liste triée par nom, colonnes utiles) et la fiche
- * de la personne choisie, côte à côte. La mise en forme des courriels est posée à part (marquerCourriels),
- * à la fin de creerPages.
+ * Page Grist classique (Utilisateurs, Journal) : une liste avec les colonnes utiles, triée, et si demandé
+ * la fiche de la ligne choisie à droite. Réglages dans PAGES (champ « native »). La mise en forme des
+ * courriels est posée à part (marquerCourriels), à la fin de creerPages.
  * @param {object} page      entrée de PAGES
  * @param {number} tableRef  identifiant interne de la table
  */
 async function creerPageNative(page, tableRef) {
+  const n = page.native;
   const r1 = (await agir([['CreateViewSection', tableRef, 0, 'record', null, null]])).retValues[0];
-  const r2 = (await agir([['CreateViewSection', tableRef, r1.viewRef, 'single', null, null]])).retValues[0];
-  const champs = ((await lire('_grist_Views_section_field')) || []).filter((f) => f.parentId === r1.sectionRef || f.parentId === r2.sectionRef);
+  const r2 = n.fiche ? (await agir([['CreateViewSection', tableRef, r1.viewRef, 'single', null, null]])).retValues[0] : null;
+  const sections = [r1.sectionRef, r2?.sectionRef].filter(Boolean);
+  const champs = ((await lire('_grist_Views_section_field')) || []).filter((f) => sections.includes(f.parentId));
   const colId = (f) => etat.meta.colonnesParId[f.colRef]?.colId || '';
-  const technique = ['Courriel_cle', 'Courriel_valide', 'Doublon', 'manualSort'];
-  const enListe = ['Nom', 'Courriel', 'Entite', 'Role', 'Actif', 'Acces_Grist'];
-  const retirer = champs.filter((f) => technique.includes(colId(f)) || colId(f).startsWith('gristHelper')
-    || (f.parentId === r1.sectionRef && !enListe.includes(colId(f))));
+  const cachees = [...(n.cachees || []), 'manualSort'];
+  const retirer = champs.filter((f) => cachees.includes(colId(f)) || colId(f).startsWith('gristHelper')
+    || (f.parentId === r1.sectionRef && !n.colonnes.includes(colId(f))));
+  // tri : « Nom » croissant, « -Date » décroissant (Grist note un tri décroissant par l'identifiant en négatif)
+  const tri = colonne(page.table, n.tri.replace(/^-/, ''))?.id;
   await agir([
     ...(retirer.length ? [['BulkRemoveRecord', '_grist_Views_section_field', retirer.map((f) => f.id)]] : []),
-    ['UpdateRecord', '_grist_Views', r1.viewRef, { name: page.nom, layoutSpec: JSON.stringify({ children: [{ children: [{ size: 125, leaf: r1.sectionRef }, { size: 75, leaf: r2.sectionRef }] }], collapsed: [] }) }],
-    ['UpdateRecord', '_grist_Views_section', r1.sectionRef, { title: 'Annuaire', sortColRefs: JSON.stringify([colonne(page.table, 'Nom')?.id].filter(Boolean)) }],
-    ['UpdateRecord', '_grist_Views_section', r2.sectionRef, { title: 'Fiche', linkSrcSectionRef: r1.sectionRef, linkSrcColRef: 0, linkTargetColRef: 0 }],
+    ['UpdateRecord', '_grist_Views', r1.viewRef, { name: page.nom, ...(r2 ? { layoutSpec: JSON.stringify({ children: [{ children: [{ size: 125, leaf: r1.sectionRef }, { size: 75, leaf: r2.sectionRef }] }], collapsed: [] }) } : {}) }],
+    ['UpdateRecord', '_grist_Views_section', r1.sectionRef, { title: n.titre, sortColRefs: JSON.stringify(tri ? [n.tri.startsWith('-') ? -tri : tri] : []) }],
+    ...(r2 ? [['UpdateRecord', '_grist_Views_section', r2.sectionRef, { title: 'Fiche', linkSrcSectionRef: r1.sectionRef, linkSrcColRef: 0, linkTargetColRef: 0 }]] : []),
   ]);
 }
 

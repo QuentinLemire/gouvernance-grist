@@ -1,8 +1,9 @@
 /*
  * 🩺 Santé du document — module de la console d'administration.
  *
- * Contrôle tout le document en une fois, en lecture seule :
+ * Page d'entrée de l'administration (🛡️ Administration). Contrôle tout le document en une fois, en lecture seule :
  *   - la norme DGOM, principe par principe (P1 à P7) ;
+ *   - les personnes : administrateurs, rôles, courriels ;
  *   - les formules en erreur ;
  *   - les colonnes qui ne servent nulle part ;
  *   - les widgets : tables introuvables, appels vers internet, jetons d'accès.
@@ -40,6 +41,7 @@ async function controlerSante() {
     dessinerSante('Recherche des formules en erreur…');
     const lignes = [
       ...Norme.controler(d),
+      ...(await Norme.personnes(d, lireSante)),
       ...(await Norme.formules(d, lireSante)),
       ...Norme.colonnesInutilisees(d, luesParWidgets),
       ...Norme.analyseWidgets(analyses),
@@ -58,7 +60,8 @@ function pointSante(l) {
   const ok = l.etat === Norme.OK;
   const titreOutil = (Console.modules.find((m) => m.cle === l.outil) || {}).titre || '';
   const bouton = !ok && l.outil && titreOutil
-    ? `<button class="bouton petit" data-sante-outil="${esc(l.outil)}" title="Ouvrir ${esc(titreOutil)}">Corriger →</button>` : '';
+    ? `<button class="bouton petit" data-sante-outil="${esc(l.outil)}" title="Ouvrir ${esc(titreOutil)}">Corriger →</button>`
+    : !ok && l.page ? `<span class="discret" title="Page Grist du menu de gauche">page ${esc(l.page)}</span>` : '';
   const elements = (l.elements || []).length && !ok
     ? `<div class="elements puces">${l.elements.map((e) => `<span class="puce">${esc(e)}</span>`).join('')}</div>` : '';
   return `<details class="point ${elements ? '' : 'sans-detail'}">
@@ -125,7 +128,8 @@ function dessinerSante(attente) {
       <div class="tuile"><div class="valeur">${etatSante.analyses.length}</div><div class="libelle">widget(s) analysé(s)</div></div>
     </div>
     ${bloc('📐 Norme DGOM', 'Les sept principes de la norme (norme/principes.md). Cliquez sur un point pour voir les éléments en cause.', L.filter((l) => /^P\d/.test(l.principe)))}
-    ${bloc('🧪 Qualité du document', 'Formules en erreur, colonnes qui ne servent nulle part, widgets. Une colonne « inutilisée » est à vérifier : elle peut être remplie par un import.', L.filter((l) => !/^P\d/.test(l.principe)))}
+    ${L.some((l) => l.principe === 'Personnes') ? bloc('👥 Personnes', 'Qui administre l\'application, et si chaque personne a un rôle et un courriel correct. À corriger dans la page 👥 Utilisateurs.', L.filter((l) => l.principe === 'Personnes')) : ''}
+    ${bloc('🧪 Qualité du document', 'Formules en erreur, colonnes qui ne servent nulle part, widgets. Une colonne « inutilisée » est à vérifier : elle peut être remplie par un import.', L.filter((l) => !/^P\d/.test(l.principe) && l.principe !== 'Personnes'))}
     <section class="carte"><h2>🌐 Sorties vers internet</h2>
       <p class="discret">Sites appelés par le code des widgets. Le détail (tables et colonnes lues) est dans l'Explorateur, onglet Widgets.</p>
       ${tableauSorties()}</section>`;

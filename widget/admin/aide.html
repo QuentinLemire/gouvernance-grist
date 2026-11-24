@@ -16,18 +16,18 @@
   <section class="carte">
     <h2>❓ Administrer l'application</h2>
     <p>Chaque outil a sa page, sous <b>Administration</b> dans le menu de gauche. Ils ne suppriment jamais de données,
-    et tout ce qu'ils modifient est noté dans le journal (Tableau de bord › Dernières actions).
+    et tout ce qu'ils modifient est noté dans la page <b>📒 Journal</b>.
     Ils sont réservés aux propriétaires du document.</p>
   </section>
 
   <h2 class="section">Les outils</h2>
   <div class="outils">
-    <div class="outil"><h3>🛡️ Tableau de bord</h3><p>Chiffres clés, points de vigilance (administrateurs, rôles, droits) et dernières actions.</p><button class="bouton petit" data-aide-outil="tableau">Ouvrir →</button></div>
+    <div class="outil"><h3>🛡️ Administration : santé du document</h3><p>La page d'entrée. Conformité à la norme DGOM, personnes (administrateurs, rôles, courriels), formules en erreur, colonnes inutilisées, sorties vers internet. Chaque point a son lien pour corriger.</p><button class="bouton petit" data-aide-outil="sante">Ouvrir →</button></div>
     <div class="outil"><h3>👥 Utilisateurs</h3><p>Une page Grist classique (pas un outil) : l'annuaire et la fiche de la personne choisie. Courriel en rouge s'il est mal formé, en orange s'il est en double.</p></div>
     <div class="outil"><h3>🔐 Rôles et droits</h3><p>Ce que chaque rôle peut faire, table par table. « Voir en tant que » pour vérifier.</p><button class="bouton petit" data-aide-outil="droits">Ouvrir →</button></div>
     <div class="outil"><h3>🔍 Explorateur</h3><p>Le schéma des tables (MLD), les pages et leurs données, et ce que fait chaque widget (tables lues, appels vers internet).</p><button class="bouton petit" data-aide-outil="explorateur">Ouvrir →</button></div>
     <div class="outil"><h3>🏗️ Atelier</h3><p>Créer ou modifier une table et ses colonnes selon la norme : noms, types, traçabilité. Aperçu avant d'appliquer.</p><button class="bouton petit" data-aide-outil="atelier">Ouvrir →</button></div>
-    <div class="outil"><h3>🩺 Santé du document</h3><p>Conformité à la norme DGOM, formules en erreur, colonnes inutilisées, sorties vers internet. Rapport à copier.</p><button class="bouton petit" data-aide-outil="sante">Ouvrir →</button></div>
+    <div class="outil"><h3>📒 Journal</h3><p>Une page Grist classique : tout ce que les outils ont modifié, le plus récent en haut. Filtres et recherche de Grist.</p></div>
     <div class="outil"><h3>🧱 Maintenance</h3><p>Tables et pages standard, version des pages, sauvegardes, copie du document, paramètres (nom, contact, logo).</p><button class="bouton petit" data-aide-outil="maintenance">Ouvrir →</button></div>
     <div class="outil"><h3>🆘 Support</h3><p>Répondre aux demandes, les clore ou les rouvrir. Présent si le module Support est installé (Maintenance).</p><button class="bouton petit" data-aide-outil="support">Ouvrir →</button></div>
   </div>
@@ -60,10 +60,10 @@
   </ol><button class="bouton petit" data-aide-outil="atelier">Ouvrir l'Atelier →</button></details>
 
   <details class="tache"><summary>Vérifier que l'application respecte la norme</summary><ol>
-    <li><b>Santé du document</b> : les points rouges sont à corriger, les orange à améliorer.</li>
+    <li>Page <b>🛡️ Administration</b> (santé du document) : les points rouges sont à corriger, les orange à améliorer.</li>
     <li>Cliquer sur un point pour voir les tables ou colonnes en cause, puis « Corriger → » pour aller à l'outil qui le règle.</li>
     <li>« 📋 Copier le rapport » donne le tableau à coller dans le dossier de la norme (norme/applications/).</li>
-  </ol><button class="bouton petit" data-aide-outil="sante">Ouvrir la Santé →</button></details>
+  </ol><button class="bouton petit" data-aide-outil="sante">Ouvrir la santé du document →</button></details>
 
   <details class="tache"><summary>Comprendre un document qu'on ne connaît pas</summary><ol>
     <li><b>Explorateur</b> › Diagramme : les tables et leurs liens. Survoler une table met ses liens en valeur.</li>

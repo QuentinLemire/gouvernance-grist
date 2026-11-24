@@ -2,7 +2,7 @@
  * =====================================================================
  *  Moteur de l'administration — console d'administration (DGOM)
  * =====================================================================
- *  Partagé par les modules Tableau de bord, Utilisateurs, Rôles et droits, Support, Maintenance et
+ *  Partagé par les modules Rôles et droits, Support, Maintenance et
  *  Aide (chargé une seule fois, avant le premier d'entre eux) : configuration de la norme, état,
  *  outils, lecture du document, enregistrement des champs et réaction aux boutons (data-action).
  *  Chaque module n'apporte que sa vue (ongletXxx) et la déclare avec declarerVue().
@@ -121,7 +121,7 @@ const TRACABILITE = [
  * etat.ticket (demande affichée dans l'onglet Support) s'y ajoute en cours d'utilisation.
  */
 const etat = {
-  onglet: 'accueil',
+  onglet: '',
   meta: { tables: [], parId: {}, colonnesParId: {} },  // structure du document
   d: {},                                              // données des tables utiles
   acl: { ressources: [], regles: [] },                // règles d'accès
@@ -294,7 +294,7 @@ const parametres = () => Object.fromEntries((etat.d.Gouv_Parametres || []).map((
  * vue en se chargeant (VUES.droits = ongletDroits…) ; la Maintenance réunit Structure et Paramètres.
  */
 const VUES = {};
-const MODULE_DE = { accueil: 'tableau', droits: 'droits', support: 'support',
+const MODULE_DE = { droits: 'droits', support: 'support',
   structure: 'maintenance', parametres: 'maintenance' };
 
 /** Redessine la vue courante dans la zone de son module ; pour les droits, calcule aussi l'aperçu des règles. */
@@ -305,7 +305,7 @@ function afficher() {
   if (etat.onglet === 'droits') majApercu();
 }
 
-/** Ouvre une autre vue (lien « Corriger → » du tableau de bord…), ou un autre module de la console. */
+/** Ouvre une autre vue (lien « Installer → »…), ou un autre module de la console. */
 function allerA(onglet) { Console.ouvrir(MODULE_DE[onglet] || onglet); }
 
 /** Module qui porte chaque action des boutons (data-action), chargé au besoin avant de l'exécuter. */
@@ -370,7 +370,7 @@ document.addEventListener('click', async (e) => {
   if (b.dataset.support) { etat.filtres.support = b.dataset.support; return afficher(); }
   if (b.dataset.ticket) { etat.ticket = Number(b.dataset.ticket); return afficher(); }
   const id = Number(b.dataset.id);
-  // une action peut venir d'un autre module (ex. « Corriger » du tableau de bord) : on charge son module d'abord
+  // une action peut venir d'un autre module : on charge son module d'abord
   const proprietaire = MODULE_DE_L_ACTION[b.dataset.action];
   if (proprietaire) await Console.charger(proprietaire);
   switch (b.dataset.action) {
@@ -452,7 +452,7 @@ async function chargerSujets() {
   etat.sujets = res;
 }
 
-// ticketOuvert : règle commune à tous les widgets (commun/outils.js), utilisée par le tableau de bord et le support.
+// ticketOuvert : règle commune à tous les widgets (commun/outils.js), utilisée par le support.
 const ticketOuvert = (t) => Outils.ticketOuvert(t);
 
 const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</option>` + valeurs.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(choisie) ? ' selected' : ''}>${esc(l)}</option>`).join('');
@@ -460,7 +460,7 @@ const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</o
 // ressource : cible d'une règle (table et colonnes visées) ; reglesDuPanneau : règles portant la mention [Admin].
 const ressource = (id) => etat.acl.ressources.find((r) => r.id === id);
 
-/** Règles d'accès écrites par le panneau des droits (mention [Admin]) ; lues aussi par le tableau de bord. */
+/** Règles d'accès écrites par le panneau des droits (mention [Admin]). */
 const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.memo || '').startsWith(MARQUE));
 
 /** Ce document est-il la source de la norme (Grist Gouvernance) ? Oui si Parametres.Source_norme vaut « oui ». */
@@ -480,6 +480,6 @@ const estSource = () => /^oui$/i.test(parametres().Source_norme || '');
 // rechargement pour plusieurs changements rapprochés).
 let minuterie = null;
 grist.onRecords(() => { clearTimeout(minuterie); minuterie = setTimeout(actualiser, 400); });
-// Première lecture, puis celle du dépôt de la norme (plus lente) pour compléter tableau de bord et maintenance.
+// Première lecture, puis celle du dépôt de la norme (plus lente) pour compléter la maintenance.
 const pret = actualiser();
-pret.then(() => chargerSujets().then(() => { if (etat.onglet === 'accueil' || etat.onglet === 'structure') afficher(); }));
+pret.then(() => chargerSujets().then(() => { if (etat.onglet === 'structure') afficher(); }));

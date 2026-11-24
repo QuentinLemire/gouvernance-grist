@@ -58,10 +58,11 @@
  *  « norme » : les sujets de Norme.SUJETS, chacun avec sa définition { tables } (champ « def »).
  *
  *  Chaque contrôle rend des lignes :
- *      { principe, objet, etat, detail, elements, outil }
+ *      { principe, objet, etat, detail, elements, outil ou page }
  *  etat : Norme.OK, Norme.PARTIEL ou Norme.ABSENT (ou ➖ / ❔ quand le point ne s'applique pas) ;
  *  elements : les tables ou colonnes en cause, pour les lister à l'écran ;
- *  outil : le module de la console qui permet de corriger (atelier, droits, maintenance…).
+ *  outil : le module de la console qui permet de corriger (atelier, droits, maintenance…) ;
+ *  page : à défaut, la page Grist où corriger (ex. « 👥 Utilisateurs »).
  *
  *  Lecture seule : rien n'est écrit dans le document.
  */
@@ -404,6 +405,35 @@
       elements: inutiles, outil: 'explorateur' }];
   }
 
+  /**
+   * Personnes (table Gouv_Utilisateurs, lit les données) : au moins un administrateur actif, un rôle pour
+   * chaque personne active, des courriels bien formés et uniques. À corriger dans la page 👥 Utilisateurs.
+   * @param {Function} lireTable  async (tableId) → lignes { id, … } ou null
+   */
+  async function personnes(d, lireTable) {
+    if (!d.colonnesDe.get('Gouv_Utilisateurs')) return [];
+    const U = (await lireTable('Gouv_Utilisateurs')) || [];
+    const page = '👥 Utilisateurs';
+    const actifs = U.filter((u) => u.Actif !== false);
+    const admins = actifs.filter((u) => u.Role === 'Administrateur');
+    const sansRole = actifs.filter((u) => !u.Role).map((u) => u.Courriel || `ligne ${u.id}`);
+    // colonnes calculées de la norme (Courriel_valide, Doublon), ou le même calcul si elles manquent
+    const cle = (c) => String(c || '').trim().toLowerCase();
+    const valide = (u) => ('Courriel_valide' in u ? u.Courriel_valide : /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(cle(u.Courriel)));
+    const doublon = (u) => ('Doublon' in u ? u.Doublon : !!cle(u.Courriel) && U.filter((x) => cle(x.Courriel) === cle(u.Courriel)).length > 1);
+    const malFormes = U.filter((u) => u.Courriel && !valide(u)).map((u) => u.Courriel);
+    const doublons = [...new Set(U.filter(doublon).map((u) => cle(u.Courriel)))];
+    return [
+      { principe: 'Personnes', objet: 'Administrateurs actifs', etat: admins.length ? OK : ABSENT, page,
+        detail: admins.length ? `${admins.length} administrateur(s) actif(s)` : 'Aucun administrateur actif : personne ne peut gérer l\'application en dehors des propriétaires', elements: [] },
+      { principe: 'Personnes', objet: 'Personnes actives sans rôle', etat: sansRole.length ? PARTIEL : OK, page,
+        detail: sansRole.length ? `${sansRole.length} personne(s) active(s) sans rôle : elles ne voient que l'accueil` : 'Chaque personne active a un rôle', elements: sansRole },
+      { principe: 'Personnes', objet: 'Courriels', etat: malFormes.length || doublons.length ? PARTIEL : OK, page,
+        detail: [malFormes.length && `${malFormes.length} mal formé(s) (en rouge)`, doublons.length && `${doublons.length} en double (en orange)`].filter(Boolean).join(' ; ') || 'Tous bien formés et uniques',
+        elements: [...malFormes, ...doublons] },
+    ];
+  }
+
   /** Un domaine internet est-il de confiance (dépôt de la norme, Grist) ? */
   const deConfiance = (domaine) => SITES_DE_CONFIANCE.some((s) => String(domaine).includes(s));
 
@@ -487,7 +517,7 @@
 
   const Norme = {
     DEPOT, SUJETS, TRACABILITE, ROLES_GENERIQUES, WIDGETS_GENERIQUES, OK, PARTIEL, ABSENT,
-    preparer, decrire, controler, formules, colonnesInutilisees, analyseWidgets, genreSortie, synthese, enMarkdown, lireNorme,
+    preparer, decrire, controler, formules, personnes, colonnesInutilisees, analyseWidgets, genreSortie, synthese, enMarkdown, lireNorme,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Norme;
   else racine.Norme = Norme;
@@ -526,7 +556,7 @@ async function auditerNorme({ docId = null, depot = Norme.DEPOT } = {}) {
     // un non-propriétaire reçoit une liste vide : les règles sont alors illisibles, pas absentes
     regles: regles && regles.length ? regles : null,
     norme: await Norme.lireNorme(depot) });
-  const lignes = [...Norme.controler(d), ...(await Norme.formules(d, lire)), ...Norme.colonnesInutilisees(d)];
+  const lignes = [...Norme.controler(d), ...(await Norme.personnes(d, lire)), ...(await Norme.formules(d, lire)), ...Norme.colonnesInutilisees(d)];
   const synthese = Norme.synthese(lignes);
   const markdown = Norme.enMarkdown(lignes, document.title.replace(/ - Grist$/, ''));
   console.table(lignes.map((l) => ({ Principe: l.objet, État: l.etat, Détail: l.detail })));
