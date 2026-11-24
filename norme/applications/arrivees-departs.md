@@ -95,7 +95,7 @@ Renommées `Gouv_…` (🧱 socle, 🧩 modules) ; les tables métier et le réf
 - **Pilotage** (avec, dessous, Fiche d'arrivée, Fiche de départ, Personnel présent, Personnel parti, Fiches des agents partis) : réservé aux gestionnaires RH (BRC), au BSSIOM et aux administrateurs. Verrou : section repliée « Verrou pilotage » sur la table `VuePilotage`, réglée dans le panneau des droits comme `VueAdmin`.
 - **Administration** : administrateurs et BSSIOM (lecture de `VueAdmin` ouverte au rôle BSSIOM).
 - **👥 Agents de mon bureau** (nouvelle page, pour tous) : liste des agents non partis que l'on peut voir (le chef : ceux de son bureau) et leur fiche, au choix arrivée ou départ ; le chef y signe les départs. Widget fiche en mode `BUR`.
-- **Annuaire** sorti du Pilotage pour rester visible de tous.
+- **Annuaire** : sous le Pilotage, même verrou (RH, BSSIOM, administrateurs) ; les bureaux n'ont besoin que de leurs agents (page « Agents de mon bureau »).
 - **Bannette du bureau** masquée aux gestionnaires RH (verrou `VueBannette`) : elle ne montre que les fiches en attente chez un bureau ; la RH suit les fiches signées dans le Pilotage.
 - **Agent affecté au BRC** : étape « RH seul » (formule `Personnel.Etape`), le BRC remplit toute la fiche lui-même, sans transmission ; la signature reste celle du chef (ou adjoint) du BRC.
 
