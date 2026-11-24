@@ -34,6 +34,11 @@ const escapeHtml = Outils.esc;
 
 grist.ready({ requiredAccess: 'full' });
 
+// Une erreur inattendue ne doit jamais passer inaperçue : elle s'affiche dans le bandeau (avec le
+// fichier et la ligne, pour pouvoir la corriger), au lieu de laisser une page figée sur « Chargement… ».
+window.addEventListener('error', (e) => avis('Erreur : ' + e.message + (e.filename ? ' (' + e.filename.split('/').pop().split('?')[0] + ', ligne ' + e.lineno + ')' : ''), 'erreur'));
+window.addEventListener('unhandledrejection', (e) => avis('Erreur : ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason), 'erreur'));
+
 window.Console = (() => {
   /**
    * Modules, dans l'ordre du menu.
