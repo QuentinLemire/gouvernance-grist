@@ -296,7 +296,7 @@ const parametres = () => Object.fromEntries((etat.d.Gouv_Parametres || []).map((
  */
 const VUES = {};
 const MODULE_DE = { accueil: 'tableau', utilisateurs: 'utilisateurs', droits: 'droits', support: 'support',
-  structure: 'maintenance', parametres: 'maintenance', aide: 'aide' };
+  structure: 'maintenance', parametres: 'maintenance' };
 
 /** Redessine la vue courante dans la zone de son module ; pour les droits, calcule aussi l'aperçu des règles. */
 function afficher() {

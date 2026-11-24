@@ -56,7 +56,7 @@ window.Console = (() => {
     { cle: 'sante', titre: '🩺 Santé du document', rubrique: 'Qualité', avec: NORME },
     { cle: 'support', titre: '🆘 Support', rubrique: 'Support', avec: GESTION },
     { cle: 'maintenance', titre: '🧱 Maintenance', rubrique: 'Maintenance', avec: GESTION },
-    { cle: 'aide', titre: '❓ Aide', rubrique: '', avec: GESTION },
+    { cle: 'aide', titre: '❓ Aide', rubrique: '' },
   ];
 
   // Version de la page (?v=…) : les fichiers des modules sont chargés avec la même, jamais une ancienne copie
