@@ -124,12 +124,18 @@
   }
   #diagramWrap.grabbing { cursor: grabbing; }
   #diagramSvg { display: block; }
-  .dg-table-box rect.dg-header { fill: var(--accent); }
+  .dg-table-box rect.dg-header { fill: #000091; }
   .dg-table-box rect.dg-body { fill: #ffffff; stroke: var(--border); stroke-width: 1; }
   .dg-table-box text.dg-title { fill: #ffffff; font-weight: 700; font-size: 12.5px; font-family: -apple-system, sans-serif; }
   .dg-table-box text.dg-col { font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; fill: var(--fg); }
   .dg-table-box text.dg-col-type { fill: var(--muted); }
-  .dg-table-box rect.dg-row-pk { fill: var(--accent-bg); }
+  .dg-table-box rect.dg-row-pk { fill: #eeeefb; }
+  .dg-table-box text.dg-cle { font-size: 9.5px; font-weight: 700; fill: #000091; font-family: -apple-system, sans-serif; }
+  .dg-table-box text.dg-pk { text-decoration: underline; font-weight: 700; }
+  .dg-table-box text.dg-calc { font-style: italic; fill: #6b6b6b; }
+  .dg-card { font-size: 10.5px; font-weight: 700; fill: #4a4a4a; font-family: -apple-system, sans-serif; }
+  #diagramSvg.dg-focus .dg-card { opacity: 0.15; }
+  #diagramSvg.dg-focus .dg-rel-path.dg-actif { stroke: #000091; }
   .dg-rel-path { fill: none; stroke-width: 1.6; opacity: 0.8; stroke-linejoin: round; }
   .dg-rel-path:hover { opacity: 1; stroke-width: 2.6; }
   .dg-table-box text.dg-plus { fill: var(--muted); font-style: italic; }
@@ -273,8 +279,8 @@
           <button id="btnResetLayout">↺ Réinitialiser la disposition</button>
           <button id="btnHideAll">🙈 Tout masquer</button>
           <label class="toolbar-check">
-            <input type="checkbox" id="chkShowUnlinkedColumns">
-            Afficher toutes les colonnes
+            <input type="checkbox" id="chkShowUnlinkedColumns" checked>
+            Tous les attributs (sinon : clés seulement)
           </label>
           <label class="toolbar-check">
             <input type="checkbox" id="chkHideSummaryTables">
@@ -398,6 +404,16 @@ function setStatus(html, isError) {
 }
 
 // Mappe un type de colonne Grist vers une pseudo-syntaxe DBML
+/** Type Grist → type lisible en français, pour le MLD (« Réf. → Gouv_Entites », « Texte »…). */
+function typeFrancais(type) {
+  if (!type) return 'Texte';
+  if (type.startsWith('RefList:')) return 'Réf. multiple → ' + type.slice(8);
+  if (type.startsWith('Ref:')) return 'Réf. → ' + type.slice(4);
+  if (type.startsWith('DateTime')) return 'Date et heure';
+  return ({ Text: 'Texte', Numeric: 'Décimal', Int: 'Entier', Bool: 'Booléen', Date: 'Date', Choice: 'Choix',
+    ChoiceList: 'Choix multiple', Attachments: 'Pièces jointes', Any: 'Calcul' })[type] || type;
+}
+
 function mapGristType(type) {
   if (!type) return { dbmlType: 'text' };
   if (type.startsWith('Ref:')) {
@@ -488,7 +504,7 @@ let manualPositions = {}; // { tableId: {x, y} }
 let diagramTables = [];   // dernières données chargées, pour pouvoir re-rendre sans refetch
 let diagramColumns = [];
 let saveStateTimer = null;
-let showUnlinkedColumns = false; // vrai = toutes les colonnes ; faux (par défaut) = la clé et les colonnes de lien, plus « + n autres »
+let showUnlinkedColumns = true; // MLD complet par défaut ; faux = « Clés seulement » (PK et FK, plus « + n attributs »)
 let hideSummaryTables = false; // true = masquer les tables de regroupement (*_summary_*)
 const viewState = { scale: 1 }; // échelle courante du canevas, lue par le glisser-déposer des tables
 
@@ -526,7 +542,7 @@ async function loadDiagramState() {
     if (saved && typeof saved === 'object') {
       hiddenTableIds = new Set(Array.isArray(saved.hidden) ? saved.hidden : []);
       manualPositions = (saved.positions && typeof saved.positions === 'object') ? saved.positions : {};
-      showUnlinkedColumns = saved.showUnlinkedColumns === true;
+      showUnlinkedColumns = saved.showUnlinkedColumns !== false;
       hideSummaryTables = saved.hideSummaryTables === true;
       diagramVersions = (saved.versions && typeof saved.versions === 'object') ? saved.versions : {};
       diagramActiveVersionName = typeof saved.activeVersion === 'string' ? saved.activeVersion : null;
@@ -569,7 +585,7 @@ function applyDiagramSnapshot(snap) {
   hiddenTableIds = new Set(Array.isArray(snap.hidden) ? snap.hidden : []);
   manualPositions = (snap.positions && typeof snap.positions === 'object')
     ? JSON.parse(JSON.stringify(snap.positions)) : {};
-  showUnlinkedColumns = snap.showUnlinkedColumns === true;
+  showUnlinkedColumns = snap.showUnlinkedColumns !== false;
   hideSummaryTables = snap.hideSummaryTables === true;
 }
 
@@ -690,18 +706,19 @@ function buildDiagramModel(tables, columns) {
   const visibles = tables.filter(t => !hiddenTableIds.has(t.tableId) && !(hideSummaryTables && isSummaryTableId(t.tableId)));
   const ids = new Set(visibles.map(t => t.tableId));
 
-  // Boîtes : la clé, les colonnes de lien, puis les autres colonnes (toutes, ou résumées en « + n »)
+  // Entités du MLD : la clé primaire (id), les clés étrangères (#…), puis les attributs — tous, ou
+  // résumés en « + n attributs » avec « Clés seulement ». Les attributs calculés sont marqués.
   const boxes = visibles.map(t => {
     const cols = (colsByTable[t.id] || []).map(c => {
-      const { dbmlType, refTable } = mapGristType(c.type);
-      return { colId: c.colId, typeLabel: dbmlType, isPk: false, isRef: !!refTable && ids.has(refTable), refTable };
+      const { refTable } = mapGristType(c.type);
+      return { colId: c.colId, typeLabel: typeFrancais(c.type), isPk: false, isRef: !!refTable && ids.has(refTable), refTable, calc: !!c.isFormula };
     });
     const liens = cols.filter(c => c.isRef), autres = cols.filter(c => !c.isRef);
-    const rows = [{ colId: 'id', typeLabel: 'integer', isPk: true, isRef: false }, ...liens,
-      ...(showUnlinkedColumns ? autres : (autres.length ? [{ colId: '+ ' + autres.length + ' autre' + (autres.length > 1 ? 's' : '') + ' colonne' + (autres.length > 1 ? 's' : ''), typeLabel: '', isMore: true }] : []))];
+    const rows = [{ colId: 'id', typeLabel: 'Entier', isPk: true, isRef: false }, ...liens,
+      ...(showUnlinkedColumns ? autres : (autres.length ? [{ colId: '+ ' + autres.length + ' attribut' + (autres.length > 1 ? 's' : ''), typeLabel: '', isMore: true }] : []))];
     let width = Math.max(MIN_W, measureTextWidth(t.tableId, 13) + PAD_X * 2 + 30);
-    for (const r of rows) width = Math.max(width, measureTextWidth(r.colId + '  ' + r.typeLabel, 11.5) + PAD_X * 2 + 16);
-    width = Math.min(width, MAX_W);
+    for (const r of rows) width = Math.max(width, measureTextWidth(r.colId + '   ' + r.typeLabel, 11.5) + PAD_X * 2 + 34);
+    width = Math.min(width, MAX_W + 60);
     return { tableId: t.tableId, tableRef: t.id, rows, width, height: HEADER_H + rows.length * ROW_H + 6 };
   });
   const boxByTableId = {};
@@ -712,9 +729,8 @@ function buildDiagramModel(tables, columns) {
   boxes.forEach(b => b.rows.forEach((r, rowIndex) => {
     if (r.isRef && boxByTableId[r.refTable]) relations.push({ fromBox: b, fromRowIndex: rowIndex, colId: r.colId, toBox: boxByTableId[r.refTable] });
   }));
-  // Une couleur par table référencée : toutes les flèches vers une même table se ressemblent
-  const cibles = [...new Set(relations.map(r => r.toBox.tableId))].sort();
-  relations.forEach(r => { r.color = REL_COLORS[cibles.indexOf(r.toBox.tableId) % REL_COLORS.length]; });
+  // MLD : des liens sobres, d'une seule couleur (le survol les met en valeur en bleu)
+  relations.forEach(r => { r.color = '#4a4a4a'; });
 
   // Colonne de chaque table : 0 si elle ne référence rien, sinon 1 + la colonne la plus à droite
   // de ses cibles (les boucles éventuelles A → B → A sont coupées)
@@ -832,6 +848,10 @@ function renderDiagramSvg(model) {
     rel.pathEl = path;
     const title = svgEl('title', {}, path);
     title.textContent = rel.fromBox.tableId + '.' + rel.colId + ' → ' + rel.toBox.tableId + '.id';
+    // cardinalités du MLD : « n » du côté de la clé étrangère, « 1 » du côté de la clé primaire
+    rel.nEl = svgEl('text', { class: 'dg-card' }, relsGroup); rel.nEl.textContent = 'n';
+    rel.unEl = svgEl('text', { class: 'dg-card' }, relsGroup); rel.unEl.textContent = '1';
+    placerCardinalites(rel, model);
   });
 
   // Boîtes de tables
@@ -839,7 +859,7 @@ function renderDiagramSvg(model) {
     const g = svgEl('g', { class: 'dg-table-box', transform: `translate(${b.x},${b.y})`, 'data-table': b.tableId }, root);
     svgEl('rect', { class: 'dg-body', x: 0, y: 0, width: b.width, height: b.height, rx: 6 }, g);
     svgEl('rect', { class: 'dg-header', x: 0, y: 0, width: b.width, height: model.HEADER_H, rx: 6 }, g);
-    svgEl('rect', { x: 0, y: model.HEADER_H - 6, width: b.width, height: 6, fill: 'var(--accent)' }, g);
+    svgEl('rect', { x: 0, y: model.HEADER_H - 6, width: b.width, height: 6, fill: '#000091' }, g);
     const title = svgEl('text', { class: 'dg-title', x: model.PAD_X, y: model.HEADER_H / 2 + 4 }, g);
     title.textContent = b.tableId;
 
@@ -865,12 +885,17 @@ function renderDiagramSvg(model) {
       if (r.isPk) {
         svgEl('rect', { class: 'dg-row-pk', x: 0, y, width: b.width, height: model.ROW_H }, g);
       }
+      // MLD : repère PK / FK dans la marge, clé primaire soulignée, clé étrangère préfixée de #,
+      // attribut calculé en italique
+      if (r.isPk || r.isRef) {
+        svgEl('text', { class: 'dg-cle', x: model.PAD_X, y: y + model.ROW_H / 2 + 4 }, g).textContent = r.isPk ? 'PK' : 'FK';
+      }
       const colText = svgEl('text', {
-        class: 'dg-col', x: model.PAD_X, y: y + model.ROW_H / 2 + 4,
+        class: 'dg-col' + (r.isPk ? ' dg-pk' : '') + (r.calc ? ' dg-calc' : '') + (r.isMore ? ' dg-plus' : ''),
+        x: model.PAD_X + 24, y: y + model.ROW_H / 2 + 4,
       }, g);
-      const keyMark = r.isPk ? '🔑 ' : (r.isRef ? '↗ ' : '');
-      colText.textContent = keyMark + r.colId;
-      if (r.isMore) colText.setAttribute('class', 'dg-col dg-plus');
+      colText.textContent = (r.isRef ? '#' : '') + r.colId;
+      if (r.calc) svgEl('title', {}, colText).textContent = 'Attribut calculé (formule)';
       const typeText = svgEl('text', {
         class: 'dg-col dg-col-type', x: b.width - model.PAD_X, y: y + model.ROW_H / 2 + 4,
         'text-anchor': 'end',
@@ -934,11 +959,25 @@ function computeRelPathD(rel, model) {
   return `M ${x1} ${y1} C ${x1 + (versDroite ? dx : -dx)} ${y1}, ${xa + (versDroite ? -dx : dx)} ${y2}, ${xa} ${y2}`;
 }
 
+/** Place les cardinalités d'un lien : « n » à la sortie de la clé étrangère, « 1 » à l'arrivée. */
+function placerCardinalites(rel, model) {
+  if (!rel.nEl) return;
+  const src = rel.fromBox, dst = rel.toBox;
+  const y1 = src.y + model.HEADER_H + rel.fromRowIndex * model.ROW_H + model.ROW_H / 2;
+  const y2 = dst.y + model.HEADER_H + model.ROW_H / 2;
+  const versGauche = src !== dst && dst.x + dst.width + 30 < src.x;
+  rel.nEl.setAttribute('x', versGauche || src === dst ? (src === dst ? src.x + src.width + 4 : src.x - 10) : src.x + src.width + 4);
+  rel.nEl.setAttribute('y', y1 - 3);
+  rel.unEl.setAttribute('x', dst.x + dst.width + 4);
+  rel.unEl.setAttribute('y', y2 - 3);
+}
+
 // Recalcule et applique en direct le tracé des relations connectées à une boîte (pendant son déplacement).
 function updateConnectedRelations(box, model) {
   model.relations.forEach(rel => {
     if ((rel.fromBox === box || rel.toBox === box) && rel.pathEl) {
       rel.pathEl.setAttribute('d', computeRelPathD(rel, model));
+      placerCardinalites(rel, model);
     }
   });
 }
@@ -1719,7 +1758,12 @@ function exporterSvg(idSvg, nomFichier) {
   style.textContent = `
     text { font-family: system-ui, -apple-system, sans-serif; }
     .dg-table-box .dg-body { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1px; }
-    .dg-table-box .dg-header { fill: #2f855a; }
+    .dg-table-box .dg-header { fill: #000091; }
+    .dg-row-pk { fill: #eeeefb; }
+    .dg-cle { font-size: 9.5px; font-weight: 700; fill: #000091; }
+    .dg-pk { text-decoration: underline; font-weight: 700; }
+    .dg-calc { font-style: italic; fill: #6b6b6b; }
+    .dg-card { font-size: 10.5px; font-weight: 700; fill: #4a4a4a; }
     .dg-title { fill: #ffffff; font-size: 13px; font-weight: 600; }
     .dg-col { fill: #374151; font-size: 12px; }
     .dg-col-type, .ug-source-label { fill: #9ca3af; font-style: italic; }
