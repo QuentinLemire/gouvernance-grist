@@ -157,8 +157,8 @@ const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
 // Les widgets sont servis par GitHub Pages (raw.githack, utilisé jusqu'au 24/11/2026, est tombé en panne).
 // Le commit est noté dans l'adresse (?v=…) : nouvelle adresse à chaque version, donc jamais d'ancienne copie
 // gardée par le navigateur, et la version des pages reste lisible dans l'onglet Structure.
-const PAGES = `https://${GITHUB.proprietaire.toLowerCase()}.github.io/${GITHUB.depot}/widget/`;
-const URL_WIDGET = (version, fichier) => `${PAGES}${fichier}?v=${version}`;
+const SITE_WIDGETS = `https://${GITHUB.proprietaire.toLowerCase()}.github.io/${GITHUB.depot}/widget/`;
+const URL_WIDGET = (version, fichier) => `${SITE_WIDGETS}${fichier}?v=${version}`;
 // Reconnaît une adresse de widget de la norme : GitHub Pages (fichier, version) ou ancienne adresse raw.githack (version, fichier).
 const ADRESSE_WIDGET = new RegExp(`(?:/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]+)|${GITHUB.proprietaire}\\.github\\.io/${GITHUB.depot})/widget/([^?#]+)(?:\\?v=([0-9a-f]+))?`, 'i');
 
@@ -172,7 +172,7 @@ const ADRESSE_WIDGET = new RegExp(`(?:/${GITHUB.proprietaire}/${GITHUB.depot}/([
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (GitHub Pages peut servir l'ancienne copie une à deux minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-24.3';
+const VERSION_WIDGET = '2026-11-24.4';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -205,8 +205,12 @@ const NIVEAUX = [
 /** Correspondance inverse permission Grist → niveau, pour relire les règles déjà écrites. */
 const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) => [n.perm, n.code]));
 
-/** Tables jamais gérées par la matrice : la page d'accueil doit rester lisible par tous. */
-const HORS_MATRICE = ['Gouv_Accueil'];
+/**
+ * Tables jamais gérées par la matrice, qui ont leurs propres règles [Gouvernance] :
+ * la page d'accueil, lisible par tous, et la documentation, lisible par les inscrits et
+ * modifiable par les seuls propriétaires du document (voir reglesDocumentation).
+ */
+const HORS_MATRICE = ['Gouv_Accueil', 'Gouv_Documentation'];
 /**
  * Tables qui ont des règles propres à l'application (ni [Admin] ni [Gouvernance]), par exemple les fiches
  * d'Arrivées-Départs (droits par entité, bureau, étape). Le panneau ne les modifie pas : ses règles passent
@@ -836,10 +840,44 @@ async function appliquerDroits(bouton, retirer) {
     if (actions.length) await agir(actions);
     // « Bloquer toute personne sans rôle reconnu » : la garde du document (non inscrits, inactifs, sans rôle → accueil seulement)
     if (!retirer && etat.droits.bloquerAutres && !gardePresente()) { etat.acl.regles = await lire('_grist_ACLRules'); await poserGarde(null); }
+    if (!retirer) await reglesDocumentation();
     await tracer(retirer ? 'Droits retirés' : 'Droits appliqués', retirer ? anciennes.length + ' règle(s) retirée(s)' : regles.length + ' règle(s) sur ' + new Set(regles.map((r) => r.table)).size + ' table(s)');
     message(retirer ? '✅ Règles du panneau retirées.' : '✅ ' + regles.length + ' règles appliquées.');
     await actualiser();
   });
+}
+
+/**
+ * Documentation : lecture pour les personnes inscrites (actives et avec un rôle), modification
+ * réservée aux propriétaires du document (décision du 24/11/2026). Règles [Gouvernance] posées sur
+ * la table elle-même, donc avant les règles générales ; les propriétaires passent ensuite par la
+ * règle « Propriétaires : tous les droits ». Rien n'est fait si elles sont déjà là.
+ */
+async function reglesDocumentation() {
+  if (!aTable('Gouv_Documentation')) return;
+  let res = (await lire('_grist_ACLResources')) || [];
+  const regles = (await lire('_grist_ACLRules')) || [];
+  if (regles.some((r) => String(r.memo || '').startsWith('[Gouvernance] Documentation'))) return;
+  const actions = [];
+  // les anciennes règles du panneau sur cette table ne servent plus
+  const doc = res.find((r) => r.tableId === 'Gouv_Documentation' && r.colIds === '*');
+  const anciennes = doc ? regles.filter((r) => r.resource === doc.id && String(r.memo || '').startsWith(MARQUE)) : [];
+  if (anciennes.length) actions.push(['BulkRemoveRecord', '_grist_ACLRules', anciennes.map((r) => r.id)]);
+  if (!doc) {
+    await agir([['AddRecord', '_grist_ACLResources', null, { tableId: 'Gouv_Documentation', colIds: '*' }]]);
+    res = (await lire('_grist_ACLResources')) || [];
+  }
+  const id = res.find((r) => r.tableId === 'Gouv_Documentation' && r.colIds === '*').id;
+  actions.push(['BulkAddRecord', '_grist_ACLRules', [null, null], {
+    resource: [id, id],
+    aclFormula: ['user.Access != OWNER and user.Profil and user.Profil.Actif and user.Profil.Role', 'user.Access != OWNER'],
+    permissionsText: ['+R-CUD', '-CRUD'],
+    rulePos: [5, 6],
+    memo: ['[Gouvernance] Documentation : lecture pour les inscrits', '[Gouvernance] Documentation : modification réservée aux propriétaires'],
+    userAttributes: ['', ''],
+  }]);
+  await agir(actions);
+  await tracer('Documentation protégée', 'Modification réservée aux propriétaires du document');
 }
 
 /**
@@ -867,6 +905,7 @@ async function poserGarde(bouton) {
     const cles = Object.keys(a[0]);
     await agir([['BulkAddRecord', '_grist_ACLRules', a.map(() => null), Object.fromEntries(cles.map((k) => [k, a.map((x) => x[k])]))]]);
     await tracer('Garde posée', 'Non inscrits : page d\'accueil seulement');
+    await reglesDocumentation();
     message('✅ Les personnes non inscrites ne voient plus que la page d\'accueil.');
     await actualiser();
   });

@@ -166,8 +166,20 @@ async function lireRubriques() {
  * première page de la liste est affichée à la place.
  * Effet sur le document Grist : aucun (lecture seule).
  */
+// La documentation n'est modifiable que par les propriétaires du document (règle d'accès de la norme).
+// Seuls eux peuvent lire les règles d'accès : c'est ainsi qu'on les reconnaît, pour n'afficher
+// « Nouvelle page » et « Modifier » qu'à eux (Quentin, 24/11/2026).
+let proprietaire = null;
+async function estProprietaire() {
+  if (proprietaire === null) {
+    try { await grist.docApi.fetchTable('_grist_ACLRules'); proprietaire = true; } catch (e) { proprietaire = false; }
+  }
+  return proprietaire;
+}
+
 async function charger() {
   const [docs, p, r] = await Promise.all([lire('Gouv_Documentation'), parametres(), lireRubriques()]);
+  document.getElementById('nouvelle').hidden = !(await estProprietaire());
   entete(p, 'Documentation');
   rubriques = r;
   pages = (docs || []).sort((a, b) => String(a.Rubrique || '').localeCompare(String(b.Rubrique || '')) || (a.Ordre || 0) - (b.Ordre || 0) || String(a.Titre).localeCompare(String(b.Titre)));
@@ -208,11 +220,11 @@ function afficherListe() {
 function afficherPage() {
   const d = pages.find((x) => x.id === courante);
   const zone = document.getElementById('page');
-  if (!d) { zone.innerHTML = '<p class="vide">Aucune page pour le moment. Cliquez sur « Nouvelle page ».</p>'; return; }
+  if (!d) { zone.innerHTML = '<p class="vide">Aucune page pour le moment.' + (proprietaire ? ' Cliquez sur « Nouvelle page ».' : '') + '</p>'; return; }
   zone.innerHTML = `<div class="meta">
       ${d.Rubrique ? `<span class="badge bleu">${esc(d.Rubrique)}</span>` : ''}
       ${d.ModifieLe || d.CreeLe ? `<span>Mis à jour le ${date(d.ModifieLe || d.CreeLe)}</span>` : ''}
-      <span class="actions"><button class="bouton petit" id="modifier">✏️ Modifier</button></span>
+      ${proprietaire ? '<span class="actions"><button class="bouton petit" id="modifier">✏️ Modifier</button></span>' : ''}
     </div>
     <div class="markdown"><h1>${esc(d.Titre || 'Sans titre')}</h1>${markdown(d.Contenu)}</div>`;
 }
