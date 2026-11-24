@@ -96,6 +96,8 @@ Renommées `Gouv_…` (🧱 socle, 🧩 modules) ; les tables métier et le réf
 - **Administration** : administrateurs et BSSIOM (lecture de `VueAdmin` ouverte au rôle BSSIOM).
 - **👥 Agents de mon bureau** (nouvelle page, pour tous) : liste des agents non partis que l'on peut voir (le chef : ceux de son bureau) et leur fiche, au choix arrivée ou départ ; le chef y signe les départs. Widget fiche en mode `BUR`.
 - **Annuaire** sorti du Pilotage pour rester visible de tous.
+- **Bannette du bureau** masquée aux gestionnaires RH (verrou `VueBannette`) : elle ne montre que les fiches en attente chez un bureau ; la RH suit les fiches signées dans le Pilotage.
+- **Agent affecté au BRC** : étape « RH seul » (formule `Personnel.Etape`), le BRC remplit toute la fiche lui-même, sans transmission ; la signature reste celle du chef (ou adjoint) du BRC.
 
 ## Campagne de tests des droits (2026-11-23, données vidées)
 Comptes fictifs : admin.test, rh.dgom, rh.sma, chef.bcl, adjoint.bcl, chef.baei, bssiom, lecteur.bcl, contributeur.dgom, inactif, sansrole (+ un inconnu).
