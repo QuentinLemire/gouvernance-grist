@@ -25,8 +25,6 @@ function utilisateursFiltres() {
 // options : construit les <option> d'une liste déroulante à partir de paires [valeur, libellé].
 const estDoublon = (u) => (etat.d.Gouv_Utilisateurs || []).filter((x) => cle(x.Courriel) && cle(x.Courriel) === cle(u.Courriel)).length > 1;
 const nomEntite = (id) => (etat.d.Gouv_Entites || []).find((e) => e.id === id)?.Nom || '';
-const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</option>` + valeurs.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(choisie) ? ' selected' : ''}>${esc(l)}</option>`).join('');
-
 /**
  * Contenu de l'onglet « Utilisateurs » : filtres, actions groupées sur les personnes cochées,
  * tableau modifiable en direct (chaque changement est enregistré aussitôt, voir enregistrerChamp),

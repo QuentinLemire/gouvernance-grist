@@ -166,5 +166,5 @@ window.Console = (() => {
   dessinerMenu();
   ouvrir(demande || location.hash.slice(1));
 
-  return { zone, ouvrir, quandAffiche, ecrire, modules: MODULES };
+  return { zone, ouvrir, charger, quandAffiche, ecrire, modules: MODULES };
 })();

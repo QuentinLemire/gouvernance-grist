@@ -329,6 +329,14 @@ function afficher() {
 /** Ouvre une autre vue (lien « Corriger → » du tableau de bord…), ou un autre module de la console. */
 function allerA(onglet) { Console.ouvrir(MODULE_DE[onglet] || onglet); }
 
+/** Module qui porte chaque action des boutons (data-action), chargé au besoin avant de l'exécuter. */
+const MODULE_DE_L_ACTION = {
+  'export-csv': 'utilisateurs', ajouter: 'utilisateurs', 'g-activer': 'utilisateurs', 'g-desactiver': 'utilisateurs', 'ajouter-role': 'utilisateurs',
+  standard: 'droits', vider: 'droits', 'appliquer-droits': 'droits', 'retirer-droits': 'droits', garde: 'droits',
+  repondre: 'support', 'repondre-clore': 'support', clore: 'support', rouvrir: 'support',
+  installer: 'maintenance', publier: 'maintenance', versions: 'maintenance', pages: 'maintenance', 'page-installer': 'maintenance', module: 'maintenance',
+};
+
 /**
  * Déclare la vue d'un module de la console : à chaque affichage du module, la vue devient
  * courante et se redessine (une fois les données lues).
@@ -416,6 +424,9 @@ document.addEventListener('click', async (e) => {
   if (b.dataset.support) { etat.filtres.support = b.dataset.support; return afficher(); }
   if (b.dataset.ticket) { etat.ticket = Number(b.dataset.ticket); return afficher(); }
   const id = Number(b.dataset.id);
+  // une action peut venir d'un autre module (ex. « Corriger » du tableau de bord) : on charge son module d'abord
+  const proprietaire = MODULE_DE_L_ACTION[b.dataset.action];
+  if (proprietaire) await Console.charger(proprietaire);
   switch (b.dataset.action) {
     case 'actualiser': etat.sujets = null; return actualiser();
     case 'export-csv': return exporterCsv();
@@ -444,6 +455,72 @@ document.addEventListener('click', async (e) => {
     case 'module': return installerModule(b, b.dataset.sujet);
   }
 });
+
+// --- Fonctions partagées par plusieurs modules ----------------------------------------------
+// (dépôt de la norme, liste de choix, demandes ouvertes, ressources des règles d'accès)
+
+/**
+ * Dépôt de la norme à utiliser : un GitLab si Parametres le configure (Gitlab_API et Gitlab_projet),
+ * sinon le dépôt public GitHub. Donne aussi le jeton éventuel, nécessaire pour publier.
+ * @returns {{gitlab: boolean, api?: string, jeton?: string, branche?: string}}
+ */
+function depot() {
+  const p = parametres();
+  return p.Gitlab_API && p.Gitlab_projet
+    ? { gitlab: true, api: p.Gitlab_API.replace(/\/$/, '') + '/projects/' + encodeURIComponent(p.Gitlab_projet), jeton: p.Gitlab_jeton, branche: p.Gitlab_branche || 'main' }
+    : { gitlab: false, jeton: p.Github_jeton };
+}
+
+/**
+ * Lit un fichier JSON du dépôt, sans cache (toujours la version la plus récente).
+ * @param {string} chemin  chemin dans le dépôt, ex. « structure/support.json »
+ * @returns {Promise<object>}
+ * @throws si le fichier est introuvable ou le dépôt injoignable
+ */
+async function lireDepot(chemin) {
+  const d = depot();
+  const url = d.gitlab ? `${d.api}/repository/files/${encodeURIComponent(chemin)}/raw?ref=${d.branche}` : DEPOT + chemin;
+  const r = await fetch(url, { cache: 'no-store', headers: d.gitlab && d.jeton ? { 'PRIVATE-TOKEN': d.jeton } : {} });
+  if (!r.ok) throw new Error('Dépôt : ' + chemin + ' introuvable (' + r.status + ')');
+  return r.json();
+}
+
+/**
+ * Lit chaque sujet sur le dépôt et le compare au document ; résultat dans etat.sujets.
+ * État : « present », « partiel » (colonnes manquantes ou dans le désordre), « absent »,
+ * ou « inconnu » si le dépôt est injoignable. Note aussi les colonnes propres au document (« ajouts »).
+ */
+async function chargerSujets() {
+  const res = {};
+  await Promise.all(SUJETS.map(async (s) => {
+    try {
+      const def = await lireDepot('structure/' + s.fichier + '.json');
+      const manques = [], ajouts = [];
+      for (const t of def.tables) for (const c of t.columns) if (!colonne(t.tableId, c.id)) manques.push(t.tableId + '.' + c.id);
+      // Colonnes du document absentes de la norme : à publier si ce document est la source.
+      // (pas pour une table « extension » : ses autres colonnes appartiennent au sujet principal)
+      for (const t of def.tables.filter((u) => !u.extension)) for (const c of (etat.meta.parId[t.tableId]?.colonnes || [])) if (!t.columns.some((x) => x.id === c.colId)) ajouts.push(t.tableId + '.' + c.colId);
+      // Absent : aucune de ses tables propres (une table « extension », comme Entites pour Territoires, appartient au socle)
+      const propres = def.tables.filter((t) => !t.extension);
+      const absent = (propres.length ? propres : def.tables).every((t) => !aTable(t.tableId));
+      // Hors document source : colonnes présentes mais pas dans l'ordre de la norme.
+      const desordre = !estSource() && def.tables.some((t) => {
+        const ici = (etat.meta.parId[t.tableId]?.colonnes || []).map((c) => c.colId).filter((id) => t.columns.some((x) => x.id === id));
+        return ici.join() !== t.columns.map((c) => c.id).filter((id) => ici.includes(id)).join();
+      });
+      res[s.fichier] = { def, manques, ajouts, desordre, etat: absent ? 'absent' : manques.length || desordre ? 'partiel' : 'present' };
+    } catch (e) { res[s.fichier] = { erreur: true, etat: 'inconnu' }; }
+  }));
+  etat.sujets = res;
+}
+
+// ticketOuvert : règle commune à tous les widgets (commun/outils.js), utilisée par le tableau de bord et le support.
+const ticketOuvert = (t) => Outils.ticketOuvert(t);
+
+const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</option>` + valeurs.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(choisie) ? ' selected' : ''}>${esc(l)}</option>`).join('');
+
+// ressource : cible d'une règle (table et colonnes visées) ; reglesDuPanneau : règles portant la mention [Admin].
+const ressource = (id) => etat.acl.ressources.find((r) => r.id === id);
 
 // --- Démarrage -------------------------------------------------------------------------------------
 

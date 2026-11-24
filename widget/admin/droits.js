@@ -4,8 +4,6 @@
  */
 // --- 7. Onglet « Droits » : matrice rôle × table → règles d'accès Grist --------------------------
 
-// ressource : cible d'une règle (table et colonnes visées) ; reglesDuPanneau : règles portant la mention [Admin].
-const ressource = (id) => etat.acl.ressources.find((r) => r.id === id);
 const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.memo || '').startsWith(MARQUE));
 
 /**

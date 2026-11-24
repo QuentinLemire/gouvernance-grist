@@ -4,32 +4,6 @@
  */
 // --- 9. Onglet « Structure » : sujets transverses du dépôt Git -----------------------------------
 
-/**
- * Dépôt de la norme à utiliser : un GitLab si Parametres le configure (Gitlab_API et Gitlab_projet),
- * sinon le dépôt public GitHub. Donne aussi le jeton éventuel, nécessaire pour publier.
- * @returns {{gitlab: boolean, api?: string, jeton?: string, branche?: string}}
- */
-function depot() {
-  const p = parametres();
-  return p.Gitlab_API && p.Gitlab_projet
-    ? { gitlab: true, api: p.Gitlab_API.replace(/\/$/, '') + '/projects/' + encodeURIComponent(p.Gitlab_projet), jeton: p.Gitlab_jeton, branche: p.Gitlab_branche || 'main' }
-    : { gitlab: false, jeton: p.Github_jeton };
-}
-
-/**
- * Lit un fichier JSON du dépôt, sans cache (toujours la version la plus récente).
- * @param {string} chemin  chemin dans le dépôt, ex. « structure/support.json »
- * @returns {Promise<object>}
- * @throws si le fichier est introuvable ou le dépôt injoignable
- */
-async function lireDepot(chemin) {
-  const d = depot();
-  const url = d.gitlab ? `${d.api}/repository/files/${encodeURIComponent(chemin)}/raw?ref=${d.branche}` : DEPOT + chemin;
-  const r = await fetch(url, { cache: 'no-store', headers: d.gitlab && d.jeton ? { 'PRIVATE-TOKEN': d.jeton } : {} });
-  if (!r.ok) throw new Error('Dépôt : ' + chemin + ' introuvable (' + r.status + ')');
-  return r.json();
-}
-
 /** Ce document est-il la source de la norme (Grist Gouvernance) ? Oui si Parametres.Source_norme vaut « oui ». */
 const estSource = () => /^oui$/i.test(parametres().Source_norme || '');
 
@@ -215,35 +189,6 @@ function colonnesDuSujet(fichier, tableId) {
 /** Colonnes d'une table apportées par les sujets « extension » (autres que `sauf`). */
 function colonnesDesExtensions(tableId, sauf) {
   return new Set(SUJETS.filter((o) => o.fichier !== sauf && estExtension(o.fichier, tableId)).flatMap((o) => colonnesDuSujet(o.fichier, tableId)));
-}
-
-/**
- * Lit chaque sujet sur le dépôt et le compare au document ; résultat dans etat.sujets.
- * État : « present », « partiel » (colonnes manquantes ou dans le désordre), « absent »,
- * ou « inconnu » si le dépôt est injoignable. Note aussi les colonnes propres au document (« ajouts »).
- */
-async function chargerSujets() {
-  const res = {};
-  await Promise.all(SUJETS.map(async (s) => {
-    try {
-      const def = await lireDepot('structure/' + s.fichier + '.json');
-      const manques = [], ajouts = [];
-      for (const t of def.tables) for (const c of t.columns) if (!colonne(t.tableId, c.id)) manques.push(t.tableId + '.' + c.id);
-      // Colonnes du document absentes de la norme : à publier si ce document est la source.
-      // (pas pour une table « extension » : ses autres colonnes appartiennent au sujet principal)
-      for (const t of def.tables.filter((u) => !u.extension)) for (const c of (etat.meta.parId[t.tableId]?.colonnes || [])) if (!t.columns.some((x) => x.id === c.colId)) ajouts.push(t.tableId + '.' + c.colId);
-      // Absent : aucune de ses tables propres (une table « extension », comme Entites pour Territoires, appartient au socle)
-      const propres = def.tables.filter((t) => !t.extension);
-      const absent = (propres.length ? propres : def.tables).every((t) => !aTable(t.tableId));
-      // Hors document source : colonnes présentes mais pas dans l'ordre de la norme.
-      const desordre = !estSource() && def.tables.some((t) => {
-        const ici = (etat.meta.parId[t.tableId]?.colonnes || []).map((c) => c.colId).filter((id) => t.columns.some((x) => x.id === id));
-        return ici.join() !== t.columns.map((c) => c.id).filter((id) => ici.includes(id)).join();
-      });
-      res[s.fichier] = { def, manques, ajouts, desordre, etat: absent ? 'absent' : manques.length || desordre ? 'partiel' : 'present' };
-    } catch (e) { res[s.fichier] = { erreur: true, etat: 'inconnu' }; }
-  }));
-  etat.sujets = res;
 }
 
 /**

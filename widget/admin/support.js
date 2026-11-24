@@ -4,8 +4,6 @@
  */
 // --- 8. Onglet « Support » -----------------------------------------------------------------------
 
-// ticketOuvert : règle commune à tous les widgets (commun/outils.js) ; couleurStatut : couleur du badge de chaque statut.
-const ticketOuvert = (t) => Outils.ticketOuvert(t);
 const couleurStatut = { 'Nouveau': 'bleu', 'En cours': 'orange', 'En attente': '', 'Résolu': 'vert', 'Fermé': '' };
 
 /** Échanges d'une demande, du plus ancien au plus récent. */
