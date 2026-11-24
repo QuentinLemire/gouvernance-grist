@@ -243,7 +243,7 @@
             <div class="ml-3">📥 <b>Analyse du code python</b> provenant de &lt;/&gt; Vue du code d'un <b>autre document Grist</b>, permettant de créer une table identique en un clic.</div>
   <br/>
 <b>En bonus :</b><br/>
-    <div class="ml-3">👯 Création en un clic de deux tables pour une <b>gestion des utilisateurs</b> "classique" : Entités (qui contient des utilisateurs) et Utilisateurs.</div>
+    <div class="ml-3">✅ Contrôles avant d'appliquer : noms de colonnes selon la norme, pas de doublon, <b>Courriel</b> plutôt qu'Email ; tout s'applique en une seule fois et s'annule d'un clic.</div>
     <div class="ml-3">📅 Création d'une table permettant de faire un <b>sondage sur des disponibilités de date</b> : création des colonnes Courriel/Commentaire/ + une colonne par créneau ; ensuite, il suffit de créer puis publier le formulaire par défaut.</div>
 
           </span>
@@ -4232,6 +4232,8 @@ function createUserManagement() {
             if (c.formula) {
                 actions.push(['ModifyColumn', tableId, c.id, c.recalcWhen === 2 ? buildTriggerPayload(c) : buildModifyPayload(c)]);
             }
+            // Grist ignore ce réglage à la création : on le pose juste après, pour toutes les colonnes
+            actions.push(['ModifyColumn', tableId, c.id, { untieColIdFromLabel: true }]);
             return actions;
         }
 
@@ -4255,9 +4257,12 @@ function createUserManagement() {
                 const erreurs = controler(colonnes, tableId, nouvelle, tablesExistantes);
                 if (erreurs.length) return avis("Rien n'a été modifié : " + erreurs.join(' ; ') + '.', 'erreur');
 
-                // ordre : colonnes ordinaires, puis celles recalculées à chaque modification,
-                // puis HISTORY_RAW, et HISTORY en dernier (elle lit HISTORY_RAW)
-                const rang = c => c.id === 'HISTORY' ? 3 : c.id === 'HISTORY_RAW' ? 2 : c.recalcWhen === 2 ? 1 : 0;
+                // ordre : colonnes ordinaires, puis celles recalculées à chaque modification, puis la
+                // traçabilité (en fin de table, comme le veut la norme), puis HISTORY_RAW, et HISTORY en
+                // dernier (elle lit HISTORY_RAW)
+                const TRACES = ['CreeLe', 'CreePar', 'ModifieLe', 'ModifiePar'];
+                const rang = c => c.id === 'HISTORY' ? 4 : c.id === 'HISTORY_RAW' ? 3 : TRACES.includes(c.id) ? 2
+                    : c.recalcWhen === 2 ? 1 : 0;
                 const ajouts = colonnes.filter(c => !c.internalId).sort((a, b) => rang(a) - rang(b));
                 const modifs = colonnes.filter(c => c.internalId && aChange(c)).sort((a, b) => rang(a) - rang(b));
 
@@ -4272,7 +4277,7 @@ function createUserManagement() {
 
                 await loadTables(tableId);
                 avis(nouvelle
-                    ? `Table ${tableId} créée avec ${ajouts.length} colonne(s). Ajoutez-la à une page pour la voir.`
+                    ? `Table ${tableId} créée avec ${ajouts.length} colonne(s) ; Grist lui a ajouté une page dans le menu.`
                     : `${tableId} : ${ajouts.length} colonne(s) ajoutée(s), ${modifs.length} modifiée(s). Pensez à afficher les nouvelles colonnes dans vos vues.`,
                     'ok');
             } catch (err) {
