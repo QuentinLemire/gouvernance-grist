@@ -457,10 +457,13 @@ async function creerPageNative(page, tableRef) {
   const cachees = [...(n.cachees || []), 'manualSort'];
   const retirer = champs.filter((f) => cachees.includes(colId(f)) || colId(f).startsWith('gristHelper')
     || (f.parentId === r1.sectionRef && !n.colonnes.includes(colId(f))));
+  // la liste dans l'ordre demandé (et non celui de la table)
+  const gardes = champs.filter((f) => f.parentId === r1.sectionRef && !retirer.includes(f)).sort((x, y) => n.colonnes.indexOf(colId(x)) - n.colonnes.indexOf(colId(y)));
   // tri : « Nom » croissant, « -Date » décroissant (Grist note un tri décroissant par l'identifiant en négatif)
   const tri = colonne(page.table, n.tri.replace(/^-/, ''))?.id;
   await agir([
     ...(retirer.length ? [['BulkRemoveRecord', '_grist_Views_section_field', retirer.map((f) => f.id)]] : []),
+    ['BulkUpdateRecord', '_grist_Views_section_field', gardes.map((f) => f.id), { parentPos: gardes.map((_, i) => i + 1) }],
     ['UpdateRecord', '_grist_Views', r1.viewRef, { name: page.nom, ...(r2 ? { layoutSpec: JSON.stringify({ children: [{ children: [{ size: 125, leaf: r1.sectionRef }, { size: 75, leaf: r2.sectionRef }] }], collapsed: [] }) } : {}) }],
     ['UpdateRecord', '_grist_Views_section', r1.sectionRef, { title: n.titre, sortColRefs: JSON.stringify(tri ? [n.tri.startsWith('-') ? -tri : tri] : []) }],
     ...(r2 ? [['UpdateRecord', '_grist_Views_section', r2.sectionRef, { title: 'Fiche', linkSrcSectionRef: r1.sectionRef, linkSrcColRef: 0, linkTargetColRef: 0 }]] : []),
