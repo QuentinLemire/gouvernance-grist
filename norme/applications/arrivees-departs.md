@@ -87,6 +87,8 @@ Renommées `Gouv_…` (🧱 socle, 🧩 modules) ; les tables métier et le réf
 ## Partage RH / chef de bureau à la DGOM (2026-11-24)
 - RH : identité, grade, date du mouvement, date de fin de contrat, statut, bureau, poste et équipements, observations.
 - Chef de bureau (ou adjoint) : fonction, pièce, téléphonie, accès internet, réseau local, applications, messagerie, **listes de diffusion et accès aux boîtes partagées** (passés de la RH au chef de bureau), puis signature. SMA et CABMOM (« RH seul ») : la RH remplit tout.
+- Affichage : tant que la fiche n'est pas signée, chacun ne voit que sa partie (la RH la sienne, le chef de bureau la sienne) ; la partie de l'autre est remplacée par un encadré. Identité, affectation, signature et observations restent visibles de tous. Fiche entière une fois signée, pour les administrateurs, et à l'étape « RH seul ». C'est un confort d'affichage, pas une protection : les données restent lisibles selon les règles d'accès.
+- La RH peut corriger sa partie jusqu'à la signature, même après la transmission au bureau (droits et fiche).
 - « Transmettre au bureau » reste grisé tant que la partie RH est incomplète : nom, prénom, grade, date du mouvement, statut (et sa précision si « Autre »), date de fin de contrat pour un contractuel, vacataire, stagiaire ou apprenti, bureau. La fiche affiche ce qui manque.
 
 ## Campagne de tests des droits (2026-11-23, données vidées)
