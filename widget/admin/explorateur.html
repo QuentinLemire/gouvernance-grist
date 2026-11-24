@@ -1,0 +1,365 @@
+<!--
+  =====================================================================
+  🔍 Module Explorateur — console d'administration (DGOM)
+  =====================================================================
+  Idée et première version : Florent Ballu (Boîte à outils, https://github.com/balludgom/TableManager).
+  Version 2 : Quentin Lemire, 24/11/2026.
+
+  Comprendre un document, sans rien modifier :
+    - 📊 Diagramme       les tables et leurs liens (références) ;
+    - 🗺️ Pages ↔ Données quelle page affiche quelle table, et ce que lisent les widgets ;
+    - 🔗 DBML            le schéma au format DBML (pour dbdiagram.io et autres outils) ;
+    - 🧩 Widgets         pour chaque widget : tables et colonnes utilisées, et toutes ses
+                          sorties vers internet (bibliothèques, adresses appelées).
+  Seules écritures : les dispositions enregistrées des schémas (options du widget, « Vue »).
+
+  Socle commun : commun/outils.js (messages), commun/structure.js (lecture de la structure,
+  analyse des widgets), commun/dsfr-grist.css (styles partagés).
+  Accès requis : « Accès complet au document ».
+  =====================================================================
+-->
+<style>
+  #module-explorateur, #module-explorateur #app-explorer { height: 100%; }
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2430;
+    --muted: #6b7280;
+    --border: #e3e5e8;
+    --accent: #2f855a;
+    --accent-bg: #eaf7f0;
+    --code-bg: #0f172a;
+    --code-fg: #e2e8f0;
+    --warn-bg: #fff8e6;
+    --warn-fg: #92700a;
+  }
+  #app-explorer, #app-explorer * { box-sizing: border-box; }
+  #app-explorer {
+    display: flex; flex-direction: column; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--fg); background: var(--bg);
+    font-size: 13px;
+  }
+  #app-explorer header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #app-explorer header h1 { font-size: 14px; margin: 0; font-weight: 600; flex: 1; }
+  #app-explorer button {
+    font: inherit; cursor: pointer; color: var(--fg);
+  }
+  #app-explorer button:hover { background: #f4f5f6; }
+  #app-explorer button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #app-explorer button.primary:hover { filter: brightness(1.05); }
+  .tabs { display: flex; gap: 4px; padding: 6px 14px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab {
+    padding: 6px 12px; cursor: pointer; border-bottom: 2px solid transparent;
+    color: var(--muted); font-weight: 500;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  #app-explorer main { flex: 1; overflow: auto; padding: 10px 14px; }
+  .status { padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); margin-bottom: 12px; }
+  .status.error { background: #fdecea; color: #b3261e; }
+  pre#dbml {
+    background: var(--code-bg); color: var(--code-fg); padding: 16px; border-radius: 8px;
+    overflow: auto; white-space: pre; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; line-height: 1.5; max-height: calc(100vh - 160px);
+  }
+  .top-bars-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap; /* Permet un retour à la ligne propre si l'écran est trop étroit */
+  }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .toolbar-check {
+    display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
+    font-size: 12px; cursor: pointer; margin-left: 4px; user-select: none;
+  }
+  .toolbar-check input { cursor: pointer; }
+  .version-bar {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    padding: 6px 10px; background: #f4f6fb; border: 1px solid var(--border); border-radius: 8px;
+  }
+  .version-bar-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .version-bar select {
+    font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 6px; background: #fff; color: var(--fg); max-width: 240px;
+  }
+  .version-bar button { font-size: 12.5px; padding: 4px 9px; }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+  .card {
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fff;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 13.5px; }
+  .card .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .badge {
+    display: inline-block; background: var(--accent-bg); color: var(--accent);
+    border-radius: 5px; padding: 1px 7px; font-size: 11.5px; font-weight: 600; margin-right: 4px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .chip {
+    background: #f1f2f4; border: 1px solid var(--border); border-radius: 12px;
+    padding: 2px 9px; font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .section-label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; margin: 8px 0 3px; }
+  .url { word-break: break-all; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  code.inline { background: #f1f2f4; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  footer.note { padding: 5px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11.5px; flex-shrink: 0; }
+
+  #diagramWrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    height: calc(100vh - 150px); min-height: 480px; position: relative;
+    background: #fbfbfc; cursor: grab;
+    background-image: radial-gradient(circle, #e3e5e8 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  #diagramWrap.grabbing { cursor: grabbing; }
+  #diagramSvg { display: block; }
+  .dg-table-box rect.dg-header { fill: #000091; }
+  .dg-table-box rect.dg-body { fill: #ffffff; stroke: var(--border); stroke-width: 1; }
+  .dg-table-box text.dg-title { fill: #ffffff; font-weight: 700; font-size: 12.5px; font-family: -apple-system, sans-serif; }
+  .dg-table-box text.dg-col { font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; fill: var(--fg); }
+  .dg-table-box text.dg-col-type { fill: var(--muted); }
+  .dg-table-box rect.dg-row-pk { fill: #eeeefb; }
+  .dg-table-box text.dg-cle { font-size: 9.5px; font-weight: 700; fill: #000091; font-family: -apple-system, sans-serif; }
+  .dg-table-box text.dg-pk { text-decoration: underline; font-weight: 700; }
+  .dg-table-box text.dg-calc { font-style: italic; fill: #6b6b6b; }
+  .dg-card { font-size: 10.5px; font-weight: 700; fill: #4a4a4a; font-family: -apple-system, sans-serif; }
+  #diagramSvg.dg-focus .dg-card { opacity: 0.15; }
+  #diagramSvg.dg-focus .dg-rel-path.dg-actif { stroke: #000091; }
+  .dg-rel-path { fill: none; stroke-width: 1.6; opacity: 0.8; stroke-linejoin: round; }
+  .dg-rel-path:hover { opacity: 1; stroke-width: 2.6; }
+  .dg-table-box text.dg-plus { fill: var(--muted); font-style: italic; }
+  /* survol d'une table : ses liens et ses voisines restent nets, le reste s'estompe */
+  #diagramSvg.dg-focus .dg-rel-path { opacity: 0.12; }
+  #diagramSvg.dg-focus .dg-rel-path.dg-actif { opacity: 1; stroke-width: 2.6; }
+  #diagramSvg.dg-focus .dg-table-box { opacity: 0.35; }
+  #diagramSvg.dg-focus .dg-table-box.dg-actif { opacity: 1; }
+  .zoom-controls { display: flex; gap: 6px; }
+  .zoom-controls button { width: 30px; padding: 5px 0; }
+  #hiddenBar, #usageHiddenBar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    padding: 8px 10px; margin-bottom: 10px; background: var(--warn-bg); border-radius: 8px;
+  }
+  #hiddenBar .hb-label, #usageHiddenBar .hb-label,{ color: var(--warn-fg); font-size: 12px; font-weight: 600; margin-right: 2px; }
+  .hb-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    padding: 2px 4px 2px 10px; font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .hb-chip button {
+    border: none; background: transparent; border-radius: 50%; width: 18px; height: 18px;
+    padding: 0; line-height: 1; color: var(--muted);
+  }
+  .hb-chip button:hover { background: #f1f2f4; color: var(--fg); }
+  .dg-table-box { cursor: grab; }
+  .dg-table-box.dg-dragging { cursor: grabbing; }
+  .dg-hide-btn { cursor: pointer; }
+  .dg-hide-btn circle { transition: fill 0.1s; }
+  .dg-hide-btn:hover circle { fill: rgba(255,255,255,0.4); }
+
+  #usageWrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    height: calc(100vh - 150px); min-height: 480px; position: relative;
+    background: #fbfbfc; cursor: grab;
+    background-image: radial-gradient(circle, #e3e5e8 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  #usageWrap.grabbing { cursor: grabbing; }
+  #usageSvg { display: block; }
+  .ug-table-box rect.dg-header { fill: #2b6cb0; }
+  .ug-source-label { fill: var(--muted); }
+  .ug-tree-link { fill: none; stroke: #b7bfcc; stroke-width: 1.4; stroke-dasharray: 3 3; }
+  .ug-code-link { fill: none; stroke: #8a8fa3; stroke-width: 1.3; stroke-dasharray: 5 3; opacity: 0.8; }
+  .ug-code-link:hover { opacity: 1; stroke-width: 2; }
+  .dg-code-link { fill: none; stroke: #9f7aea; stroke-width: 1.4; stroke-dasharray: 5 3; opacity: 0.8; }
+  .dg-code-link:hover { opacity: 1; stroke-width: 2.2; }
+
+  .kind-badge {
+    display: inline-block; border-radius: 5px; padding: 1px 7px; font-size: 11px; font-weight: 600;
+    margin-right: 6px; vertical-align: middle;
+  }
+  .kind-badge.builder { background: var(--accent-bg); color: var(--accent); }
+  .kind-badge.url { background: #e8f0fe; color: #1a56db; }
+
+  /* ---------------------------------------------------------------- */
+  /* Écran d'accueil : choix entre les deux outils                    */
+  /* ---------------------------------------------------------------- */
+  #home {
+    min-height: 100%; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #f7f8fa, #eef1f5);
+    padding: 20px 20px; box-sizing: border-box;
+  }
+  #home .home-inner { width: 100%; text-align: center; }
+  #home h1 { font-size: 26px; margin: 0 0 30px;  color: #1f2430; }
+  #home p.home-subtitle { color: #6b7280; margin: 0 0 30px; font-size: 14px; }
+  #home .home-buttons { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  #home .home-btn {
+    flex: 1 1 340px; max-width: 600px; text-align: left; cursor: pointer;
+    background: #fff; border: 1px solid #e3e5e8; border-radius: 14px; padding: 26px;
+    display: flex; flex-direction: column; gap: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    font: inherit; color: #1f2430;
+  }
+  #home .home-btn:hover {
+    transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.09); border-color: #94a3b8;
+  }
+  #home .home-btn.explorer:hover { border-color: #2f855a; }
+  #home .home-btn.manager:hover { border-color: #4f46e5; }
+  #home .home-btn-icon { font-size: 36px; line-height: 1; }
+  #home .home-btn-title { font-size: 25px; font-weight: 700; }
+  #home .home-btn-desc { font-size: 12.5px; color: #6b7280; line-height: 1.55; margin-top:15px;}
+  #home .explain { font-size: 12px; color: #6b7280; margin-top: 30px }
+  
+
+  /* --- Explorateur V2 : en-tête, aides, onglet Widgets --- */
+  #app-explorer button { font-size: 13px; white-space: nowrap; }
+  #app-explorer .toolbar-check { font-size: 13px; }
+  .hidden { display: none !important; }
+  .aide-onglet { position: relative; padding-right: 40px; }
+  .fermer-aide { position: absolute; top: 6px; right: 8px; border: none; background: none; cursor: pointer; color: var(--muted); }
+  .fiche-widget h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 14px; }
+  .kind-badge.ecrit { background: #fff1e6; color: #b34000; }
+  .kind-badge.jeton { background: #fdecec; color: #ce0500; }
+  .colonnes-fiche { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 10px; }
+  @media (max-width: 760px) { .colonnes-fiche { grid-template-columns: 1fr; } }
+  .ligne-table { margin-bottom: 6px; }
+  details.sortie { margin-bottom: 6px; }
+  details.sortie summary { cursor: pointer; }
+  details.sortie ul { margin: 6px 0 0 18px; padding: 0; }
+  details.sortie li { margin-bottom: 3px; word-break: break-all; }
+  .tableau-sorties { border-collapse: collapse; width: 100%; }
+  .tableau-sorties th, .tableau-sorties td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+</style>
+<div id="app-explorer">
+  <header>
+    <h1>🔍 Explorateur du document</h1>
+    <button id="btnRefresh">↻ Actualiser</button>
+  </header>
+  <div class="tabs">
+    <div class="tab active" data-tab="diagram">📊 Diagramme</div>
+    <div class="tab" data-tab="usage">🗺️ Pages ↔ Données</div>
+    <div class="tab" data-tab="dbml">🔗 DBML</div>
+    <div class="tab" data-tab="widgets">🧩 Widgets</div>
+  </div>
+  <main>
+    <div id="statusBox"></div>
+    <div id="panel-diagram">
+      <div id="help-diagram" class="status hidden aide-onglet" style="margin-bottom:12px;">
+        <button onclick="toggleHelpDiagram()" class="fermer-aide" title="Fermer l\'aide">
+          <span class="text-sm font-semibold">x</span>
+        </button> 
+        <p>📁 Vue » permet d'enregistrer plusieurs dispositions nommées (ex. « Métier », « Support », « Administration ») — chacune capture les éléments masqués, les positions déplacées et, pour le diagramme de schéma, l'affichage des colonnes non liées ; tout est stocké dans les options du widget. 
+        </p>
+      </div>
+      <div class="top-bars-container">
+        <div class="toolbar">
+          <button onclick="toggleHelpDiagram()" class="zoom-controls">
+                <span>❓</span>
+          </button>
+          <button id="btnFit">⤢ Ajuster à l'écran</button>
+          <div class="zoom-controls">
+            <button id="btnZoomOut">−</button>
+            <button id="btnZoomIn">+</button>
+          </div>
+          <button id="btnDownloadSvg">⬇ Télécharger .svg</button>
+          <button id="btnResetLayout">↺ Réinitialiser la disposition</button>
+          <button id="btnHideAll">🙈 Tout masquer</button>
+          <label class="toolbar-check">
+            <input type="checkbox" id="chkShowUnlinkedColumns" checked>
+            Tous les attributs (sinon : clés seulement)
+          </label>
+          <label class="toolbar-check">
+            <input type="checkbox" id="chkHideSummaryTables">
+            Masquer les tables de regroupement (*_summary_*)
+          </label>
+        </div>
+        <div class="version-bar">
+          <span class="version-bar-label">📁 Vue :</span>
+          <select id="diagramVersionSelect"></select>
+          <button id="btnDiagramSaveVersion">💾 Enregistrer sous…</button>
+          <button id="btnDiagramDeleteVersion" disabled>🗑 Supprimer</button>
+        </div>
+      </div>
+      <div id="hiddenBar" class="hidden"></div>
+      <div id="diagramWrap">
+        <svg id="diagramSvg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z"></path>
+            </marker>
+          </defs>
+          <g id="diagramRoot"></g>
+        </svg>
+      </div>
+    </div>
+    <div id="panel-usage" style="display:none;">
+      <div id="help-usage" class="status hidden aide-onglet" style="margin-bottom:12px;">
+        <button onclick="toggleHelpUsage()" class="fermer-aide" title="Fermer l\'aide">
+          <span class="text-sm font-semibold">x</span>
+        </button> 
+        <p>Colonne de gauche : les <strong>pages</strong> du document (organisées selon la même hiérarchie que le
+        panneau de pages de Grist, d'après <code class="inline">_grist_Pages</code>) et les widgets (vues)
+        qu'elles contiennent — les traits en pointillés gris relient une page à ses sous-pages.
+        Colonne de droite : les <strong>tables sources</strong> du document. Chaque trait coloré relie un
+        widget à la table qu'il affiche (<code class="inline">tableRef</code> de la section). Pour les
+        widgets personnalisés (Custom widget builder ou URL externe), des traits gris <strong>en
+        pointillés</strong> relient en plus le widget aux autres tables que son code utilise réellement
+        (détectées via <code class="inline">grist.docApi.fetchTable(...)</code> /
+        <code class="inline">grist.onRecords(...)</code>, comme dans l'onglet « 🧱 Custom widgets »).</p>
+
+        <p>📁 Vue » permet d'enregistrer plusieurs dispositions nommées (ex. « Métier », « Support », « Administration ») — chacune capture les éléments masqués, les positions déplacées et, pour le diagramme de schéma, l'affichage des colonnes non liées ; tout est stocké dans les options du widget. 
+        </p>
+      </div>
+      <div class="top-bars-container">
+        <div class="toolbar">
+          <button onclick="toggleHelpUsage()" class="zoom-controls">
+                <span>❓</span>
+          </button>
+          <button id="btnUsageFit">⤢ Ajuster à l'écran</button>
+          <div class="zoom-controls">
+            <button id="btnUsageZoomOut">−</button>
+            <button id="btnUsageZoomIn">+</button>
+          </div>
+          <button id="btnUsageDownloadSvg">⬇ Télécharger .svg</button>
+          <button id="btnUsageResetLayout">↺ Réinitialiser la disposition</button>
+          <button id="btnUsageHideAll">🙈 Tout masquer</button>
+          
+        </div>
+        <div class="version-bar">
+          <span class="version-bar-label">📁 Vue :</span>
+          <select id="usageVersionSelect"></select>
+          <button id="btnUsageSaveVersion">💾 Enregistrer sous…</button>
+          <button id="btnUsageDeleteVersion" disabled>🗑 Supprimer</button>
+        </div>
+      </div>
+      <div id="usageHiddenBar" class="hidden"></div>
+      <div id="usageWrap">
+        <svg id="usageSvg" xmlns="http://www.w3.org/2000/svg">
+          <defs></defs>
+          <g id="usageRoot"></g>
+        </svg>
+      </div>
+    </div>
+    <div id="panel-dbml" style="display:none;">
+      <div class="toolbar">
+        <button id="btnCopy">📋 Copier le DBML</button>
+        <button id="btnDownload">⬇ Télécharger .dbml</button>
+      </div>
+      <pre id="dbml">Chargement…</pre>
+    </div>
+    <div id="panel-widgets" style="display:none;">
+      <div class="status" style="margin-bottom:12px;">
+        Pour chaque widget du document : d'où il vient, les tables et colonnes qu'il utilise, et <b>toutes ses
+        sorties vers internet</b> (bibliothèques chargées, adresses appelées). Les widgets chargés par adresse sont
+        téléchargés pour être lus, avec les fichiers du même site qu'ils chargent.
+      </div>
+      <div class="toolbar">
+        <input id="filtreWidgets" type="search" placeholder="Filtrer : widget, page, table, colonne, domaine…" style="flex:1; min-width:220px; padding:6px 10px; border:1px solid var(--border);">
+      </div>
+      <div id="widgetsList"><div class="empty">Chargement…</div></div>
+    </div>
+  </main>
+</div>

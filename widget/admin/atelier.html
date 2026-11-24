@@ -1,0 +1,230 @@
+<!--
+  =====================================================================
+  🏗️ Module Atelier — console d'administration (DGOM)
+  =====================================================================
+  Idée et première version : Florent Ballu (Boîte à outils, https://github.com/balludgom/TableManager).
+  Version 2 : Quentin Lemire, 24/11/2026.
+
+  Créer et modifier les tables et les colonnes du document, selon la norme :
+    - identifiants sans accents, avec une majuscule ; libellés qui ne renomment jamais les colonnes ;
+    - contrôles avant d'écrire (nom de table libre, pas de doublon, Courriel plutôt qu'Email) ;
+    - aperçu en clair, puis une seule opération Grist, annulable d'un coup ;
+    - aides : traçabilité, courriel valide, historique, sondage de dates, import depuis la
+      « Vue du code » d'un autre document.
+  Rien n'est jamais supprimé : le ✕ retire une ligne du formulaire, pas une colonne du document.
+
+  Socle commun : commun/outils.js (messages, questions, identifiants), commun/structure.js
+  (types en français), commun/dsfr-grist.css (styles partagés).
+  Accès requis : « Accès complet au document ».
+  =====================================================================
+-->
+<style>
+  main.atelier { max-width: 1180px; margin: 0 auto; padding: 20px 24px 40px; }
+  .entete-outil h1 { margin: 0 0 2px; font-size: 22px; }
+  .entete-outil p { margin: 0 0 16px; }
+  .carte { margin-bottom: 16px; }
+  details.guide summary { cursor: pointer; font-weight: 700; }
+  details.guide h3 { margin: 16px 0 6px; font-size: 15px; }
+  details.guide code { background: var(--fond); padding: 0 4px; }
+  .ligne { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .ligne > .champ { flex: 1; min-width: 220px; }
+  label.titre { display: block; font-weight: 700; margin-bottom: 8px; }
+  textarea.code, .champ.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .import textarea { min-height: 70px; }
+  table.colonnes { width: 100%; }
+  table.colonnes th { font-size: 12px; text-transform: uppercase; color: var(--texte-doux); }
+  table.colonnes td { vertical-align: top; padding: 6px; }
+  table.colonnes .champ { width: 100%; padding: 6px 8px; font-size: 14px; }
+  table.colonnes textarea { min-height: 38px; resize: vertical; }
+  table.colonnes .centre, th.centre { text-align: center; }
+  table.colonnes .centre input { margin-top: 10px; width: 16px; height: 16px; }
+  .lecture-seule { background: var(--fond) !important; color: var(--texte-doux); }
+  .ligne-technique { opacity: .6; }
+  .retirer { border: none; background: none; color: var(--erreur); font-weight: 700; cursor: pointer; font-size: 15px; margin-top: 6px; }
+  .pied { margin: 16px 0 0; }
+  .hidden { display: none !important; }
+  .question p { white-space: pre-line; }
+  /* fenêtre du sondage de dates */
+  #datePollModal .question { width: min(560px, 94vw); max-height: 90vh; overflow-y: auto; }
+  .agenda-tete { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .agenda-jours, #pollCalendarGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+  .agenda-jours span { font-size: 12px; color: var(--texte-doux); }
+  .jour { width: 34px; height: 34px; margin: 0 auto; border: none; background: none; border-radius: 50%; cursor: pointer; }
+  .jour:hover { background: var(--bleu-clair); }
+  .jour.aujourdhui { border: 1px solid var(--bleu); }
+  .jour.choisi { background: var(--bleu); color: #fff; font-weight: 700; }
+  .bloc-sondage { border: 1px solid var(--bordure); padding: 10px; margin-top: 12px; }
+  .valeur-sondage { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .valeur-sondage .champ { flex: 1; }
+  .couleur { width: 34px; height: 30px; padding: 1px; border: 1px solid var(--bordure); cursor: pointer; }
+  .apercu-valeur { font-size: 12px; padding: 3px 8px; min-width: 80px; text-align: center; white-space: nowrap; }
+  .creneau { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--bordure); padding: 4px 10px; margin-bottom: 4px; list-style: none; }
+  #pollSlotsList { padding: 0; margin: 6px 0 0; }
+</style>
+<main class="atelier">
+  <header class="entete-outil">
+    <h1>🏗️ Atelier</h1>
+    <p class="discret">Créer et modifier les tables et les colonnes, selon la norme : identifiants sans accents avec une majuscule, traçabilité en fin de table, aperçu avant d'appliquer.</p>
+  </header>
+
+  <details class="carte guide">
+    <summary>📖 Guide d'utilisation</summary>
+
+            <div>
+                <h3>🏗️ Créer ou modifier une table</h3>
+                <p>Choisissez une table existante dans le menu déroulant pour en modifier les colonnes, ou sélectionnez <em>« Créer une nouvelle table »</em> pour partir de zéro. Cliquez sur <strong>Appliquer les modifications</strong> pour enregistrer.</p>
+            </div>
+            <div>
+                <h3>📋 Types de colonnes</h3>
+                <ul>
+                    <li><strong>Texte</strong> — texte libre</li>
+                    <li><strong>Décimal / Entier</strong> — nombre</li>
+                    <li><strong>Booléen</strong> — case à cocher (vrai/faux)</li>
+                    <li><strong>Date / Date et heure</strong></li>
+                    <li><strong>Choix / Choix multiple</strong> — liste de valeurs</li>
+                    <li><strong>Réf. → Table</strong> — lien vers une ligne d'une autre table (proposé pour chaque table du document)</li>
+                </ul>
+            </div>
+            <div>
+                <h3>⚡ Formules et déclencheurs</h3>
+                <p>La colonne <strong>Formule</strong> accepte du Python sans le signe <code>=</code>. Exemples : <code>$Prenom + ' ' + $Nom</code>, <code>NOW()</code>, <code>user.Email</code>.</p>
+                <ul>
+                    <li><strong>À la création</strong> — la formule s'exécute une seule fois à la création de la ligne, puis la valeur reste figée.</li>
+                    <li><strong>À la modif.</strong> — la formule se réexécute à chaque modification de la ligne.</li>
+                    <li>Sans cocher aucune case, la formule est une <strong>formule standard</strong> recalculée en permanence.</li>
+                </ul>
+            </div>
+            <div>
+                <h3>✨ Traçabilité</h3>
+                <p>Ajoute les 4 colonnes de la norme : <strong>CreeLe</strong>, <strong>CreePar</strong>, <strong>ModifieLe</strong>, <strong>ModifiePar</strong> (heure de Paris), à la fin de la table. Utile pour un suivi simple des créations et modifications.</p>
+            </div>
+            <div>
+                <h3>📜 Historique</h3>
+                <p>Application du code trouvé ici : https://forum.grist.libre.sh/t/suivi-automatique-de-lhistorique-des-modifications-des-donnees-dans-grist proposé par Céline (https://forum.grist.libre.sh/u/celine) 👏 & 🙏</p>
+                <p>Crée deux colonnes <strong>HISTORY_RAW</strong> et <strong>HISTORY</strong> qui enregistrent automatiquement l'intégralité des modifications ligne par ligne, avec horodatage et nom d'utilisateur.</p>
+                <ul>
+                    <li>Cochez <strong>📜 Historique</strong> sur les colonnes à surveiller avant d'appliquer.</li>
+                    <li>Vous pouvez ajouter ou retirer des colonnes suivies à tout moment en modifiant les coches puis en réappliquant.</li>
+                    <li><strong>HISTORY</strong> est la colonne à afficher aux utilisateurs (sans les données techniques), on peut modifier son nom. <strong>HISTORY_RAW</strong> contient les snapshots encodés et <b>ne doit pas être modifiée manuellement</b>.</li>
+                </ul>
+            </div>
+            <div>
+                <h3>📥 Importer depuis la <b>&lt;/&gt; Vue du Code</b></h3>
+                <p>Copier la définition d'une table d'un autre document, typiquement : </p>
+                <p><code>@grist.UserTable <br/>
+                  class Table1:<br/>
+                    Nom = grist.Text()<br/>
+                    Prenom = grist.Text()<br/>
+                  <br/>
+                    def _default_CreeLe(rec, table, value, user):<br/>
+                      return NOW()<br/>
+                    CreeLe = grist.DateTime()<br/>
+                  <br/>
+                    def _default_CreePar(rec, table, value, user):<br/>
+                      return user.Email<br/>
+                    CreePar = grist.Text()<br/>
+                </code></p>
+                <p>Puis cliquer sur le bouton <b>Analyser & préparer</b></p>
+                <p>La table trouvée et ses colonnes seront proposées à la création, de la même manière que si cela avait été fait à la main dans le formulaire</b></p>
+                <p>Si la proposition vous convient, cliquez sur <b>Appliquer les modifications</b> : un aperçu récapitule ce qui va être créé avant d'écrire quoi que ce soit.</p>
+            </div>
+            <div>
+                <h3>👯 Tables Utilisateurs et Entités</h3>
+                <p>Elles s'installent depuis la page <strong>🛡️ Administration</strong>, onglet « Structure » : c'est la version tenue à jour avec la norme (rôles, périmètre, courriel valide, doublons, traçabilité).</p>
+            </div>
+            <div>
+                <h3>📅 Sondage de dates</h3>
+                <p>Le bouton <strong>📅 Sondage de dates</strong> ouvre un agenda dans une pop-up. Cliquez sur une date, précisez éventuellement une heure de début/fin, puis <strong>+ Ajouter ce créneau</strong> ; répétez pour chaque créneau à proposer.</p>
+                <p>Les <strong>valeurs de réponse</strong> (par défaut : Disponible / Compliqué / Impossible) sont modifiables dans la pop-up : renommez-les, changez leur couleur de fond et de texte via les pastilles de couleur, supprimez-en ou ajoutez-en avec <strong>+ Ajouter une valeur</strong>.</p>
+                <p>À la validation, la pop-up se ferme et les colonnes suivantes sont ajoutées à la liste : une colonne <strong>Courriel</strong> (texte), une colonne de type <strong>Choix</strong> par créneau sélectionné (libellé = date/heure du créneau, avec les valeurs définies dans la pop-up), puis une colonne <strong>Commentaires</strong> (texte). Il ne reste plus qu'à cliquer sur <strong>Appliquer les modifications</strong> pour créer ou compléter la table.</p>
+            </div>
+        </div>
+  
+
+  </details>
+
+  <section class="carte">
+    <label class="titre" for="tableSelect">Table</label>
+    <div class="ligne">
+      <select id="tableSelect" class="champ" onchange="handleTableChange()">
+        <option value="__NEW__">➕ Créer une nouvelle table…</option>
+      </select>
+      <input id="newTableName" class="champ" type="text" placeholder="Nom de la nouvelle table">
+    </div>
+  </section>
+
+  <section class="carte import">
+    <label class="titre" for="pythonCodeInput">📥 Importer depuis la « Vue du code » d'un autre document</label>
+    <div class="ligne">
+      <textarea id="pythonCodeInput" class="champ code" rows="3" placeholder="Collez ici la classe Python complète (ex. @grist.UserTable class MaTable…)"></textarea>
+      <button type="button" class="bouton" onclick="parseAndLoadPythonCode()">Analyser et préparer</button>
+    </div>
+  </section>
+
+  <section class="carte">
+    <div class="barre-outils">
+      <h2 style="margin:0">Colonnes de la table</h2>
+      <span class="espace"></span>
+      <button type="button" class="bouton petit" onclick="addEmailValidationColumn()" title="Colonne « Courriel valide » (Oui/Non) qui vérifie le format de la colonne Courriel">✉️ Courriel valide</button>
+      <button type="button" class="bouton petit" onclick="addTraceabilityColumns()" title="Colonnes CreeLe, CreePar, ModifieLe, ModifiePar de la norme">✨ Traçabilité</button>
+      <button type="button" class="bouton petit" onclick="addHistoryColumns()" title="Suivi détaillé des modifications (cochez ensuite les colonnes à suivre)">📜 Historique</button>
+      <button type="button" class="bouton petit primaire" onclick="addColumnRow()">＋ Colonne</button>
+    </div>
+    <div class="defile">
+      <table class="tableau colonnes">
+        <thead>
+          <tr>
+            <th style="width:22%">Libellé</th>
+            <th style="width:17%">Type</th>
+            <th title="Formule Python, sans le signe =">Formule</th>
+            <th class="centre" title="La formule s'exécute une fois, à la création de la ligne">À la création</th>
+            <th class="centre" title="La formule s'exécute à chaque modification de la ligne">À chaque modif.</th>
+            <th class="centre hidden" id="th-history" title="Les modifications de cette colonne sont suivies dans l'historique">📜 Historique</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="columnsContainer"></tbody>
+      </table>
+    </div>
+    <div class="barre-outils pied">
+      <button type="button" class="bouton" onclick="openDatePollModal()" title="Agenda pour choisir des créneaux : une colonne Choix par créneau, plus Courriel et Commentaires">📅 Sondage de dates</button>
+      <span class="espace"></span>
+      <span id="info" class="discret"></span>
+      <button id="saveBtn" class="bouton primaire" onclick="saveStructure()">Appliquer les modifications</button>
+    </div>
+  </section>
+</main>
+
+<!-- Fenêtre du sondage de dates -->
+<div id="datePollModal" class="question-fond hidden">
+  <div class="question" role="dialog" aria-modal="true">
+    <h2 style="margin-top:0">📅 Sondage de dates</h2>
+    <p class="discret">Choisissez une date, précisez éventuellement un horaire, puis « Ajouter ce créneau ». Répétez pour chaque créneau. Une colonne Choix sera créée par créneau, avec les valeurs ci-dessous.</p>
+    <div class="agenda-tete">
+      <button type="button" class="bouton petit" onclick="pollCalPrevMonth()" aria-label="Mois précédent">‹</button>
+      <b id="pollCalendarLabel"></b>
+      <button type="button" class="bouton petit" onclick="pollCalNextMonth()" aria-label="Mois suivant">›</button>
+    </div>
+    <div class="agenda-jours"><span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span></div>
+    <div id="pollCalendarGrid"></div>
+    <div class="bloc-sondage">
+      <label class="titre">Valeurs possibles pour chaque créneau (texte et couleurs)</label>
+      <div id="pollChoicesList"></div>
+      <button type="button" class="bouton petit" onclick="addPollChoice()">＋ Ajouter une valeur</button>
+    </div>
+    <div class="bloc-sondage ligne">
+      <label>Heure de début (facultatif)<br><input id="pollTimeStart" class="champ" type="time"></label>
+      <label>Heure de fin (facultatif)<br><input id="pollTimeEnd" class="champ" type="time"></label>
+      <span class="espace" style="flex:1"></span>
+      <button type="button" class="bouton primaire" id="pollAddSlotBtn" onclick="addPollSlot()" disabled>＋ Ajouter ce créneau</button>
+    </div>
+    <div class="bloc-sondage">
+      <label class="titre">Créneaux choisis</label>
+      <ul id="pollSlotsList"><li class="discret">Aucun créneau ajouté pour l'instant.</li></ul>
+    </div>
+    <div class="question-boutons" style="margin-top:14px">
+      <button type="button" class="bouton" onclick="closeDatePollModal()">Annuler</button>
+      <button type="button" class="bouton primaire" id="pollValidateBtn" onclick="validateDatePoll()" disabled>Valider (0 créneau)</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  🛡️ Console d'administration — Boîte à outils Grist V2 (DGOM)
+  =====================================================================
+  Idée de la Boîte à outils et première version : Florent Ballu.
+  Console V2 : Quentin Lemire, 24/11/2026.
+
+  Une seule page pour administrer une application Grist : personnes et droits, données
+  (Explorateur, Atelier), qualité (Santé), support, maintenance de la norme.
+  Chaque module n'est chargé que la première fois qu'on l'ouvre (admin/noyau.js) : la page
+  reste légère quel que soit le nombre de modules.
+
+  Ouvrir directement un module : console.html?module=atelier (ou #atelier).
+  Accès requis : « Accès complet au document ».
+  =====================================================================
+-->
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administration</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<script>
+  // Fichiers communs chargés avec la version de la page (?v=…) : jamais d'ancienne copie en cache.
+  const VERSION_PAGE = new URLSearchParams(location.search).get('v') || '';
+  const commun = (fichier) => 'commun/' + fichier + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '');
+  document.write('<link rel="stylesheet" href="' + commun('dsfr-grist.css') + '">');
+</script>
+<style>
+  /* Console : menu à gauche, module ouvert à droite ; le module défile seul, le menu reste en place. */
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .console { flex: 1; display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
+  #menu { background: #fff; border-right: 1px solid var(--bordure); padding: 14px 10px; overflow-y: auto; }
+  #menu h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--texte-doux); margin: 16px 8px 6px; }
+  #menu button { display: block; width: 100%; text-align: left; font: inherit; font-size: 15px; padding: 8px 10px;
+    border: none; background: none; cursor: pointer; color: var(--texte); border-left: 3px solid transparent; }
+  #menu button:hover { background: var(--fond); }
+  #menu button.actif { background: var(--bleu-clair); color: var(--bleu); border-left-color: var(--bleu); font-weight: 700; }
+  #menu button.a-venir { color: #9a9a9a; }
+  #modules { overflow: auto; min-width: 0; background: var(--fond); }
+  .module { min-height: 100%; }
+  @media (max-width: 760px) { .console { grid-template-columns: 1fr; } #menu { border-right: none; border-bottom: 1px solid var(--bordure); } }
+</style>
+</head>
+<body>
+  <div class="console">
+    <nav id="menu" aria-label="Modules de la console"></nav>
+    <main id="modules"></main>
+  </div>
+<script>
+  document.write('<script src="' + commun('outils.js') + '"><\/script>');
+  document.write('<script src="' + commun('structure.js') + '"><\/script>');
+  document.write('<script src="admin/noyau.js' + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '') + '"><\/script>');
+</script>
+</body>
+</html>
