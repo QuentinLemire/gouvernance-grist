@@ -103,3 +103,7 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 
 - **Forme des noms de colonnes** : la norme mélange `Nom_complet` (mots séparés par `_`) et `CreeLe` (mots collés). Choisir une forme unique pour les nouvelles colonnes, sans renommer l'existant.
 - **Bureaux en sous-entités** : dans les applications qui ont une table de bureaux propre (Arrivées-Départs), la passer en sous-entités de `Entites` — à faire quand une évolution le justifie.
+
+## Documentation modifiable par les seuls propriétaires (2026-11-24)
+**Décision** : la table `Gouv_Documentation` est lisible par les personnes inscrites (actives, avec un rôle) et modifiable uniquement par les **propriétaires du document**. Elle sort de la matrice des droits (comme `Gouv_Accueil`) et reçoit deux règles « [Gouvernance] Documentation », posées par l'Administration (garde ou « Appliquer les droits »). La page Documentation n'affiche « Nouvelle page » et « Modifier » qu'aux propriétaires.
+**Raison** : la documentation engage l'application ; elle ne doit pas être modifiée par un rôle métier, même administrateur de l'application.
