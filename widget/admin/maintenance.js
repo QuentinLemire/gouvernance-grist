@@ -546,6 +546,63 @@ function ongletParametres() {
 }
 
 // Vue du module dans la console : la structure de la norme, puis les paramètres et le journal
-VUES.structure = () => ongletStructure() + ongletParametres();
+// --- Sauvegardes du document -----------------------------------------------------------------------
+
+/**
+ * Carte « Sauvegardes » : les versions que Grist garde automatiquement (API /snapshots), avec un lien
+ * pour ouvrir chacune (en lecture seule), et le téléchargement d'une copie complète du document.
+ * @returns {string} HTML de la carte
+ */
+function carteSauvegardes() {
+  const entete = `<section class="carte"><h2>💾 Sauvegardes</h2>
+    <p class="aide">Grist enregistre automatiquement des versions du document. Ouvrez-en une pour la consulter (lecture seule) ;
+    pour revenir en arrière, utilisez <i>Historique du document</i> dans Grist. Avant une grosse modification, téléchargez une copie.</p>`;
+  if (!etat.sauvegardes) {
+    etat.sauvegardes = { enCours: true };
+    Promise.all([Outils.api('/snapshots').then((r) => r.json()), Outils.adresseDocument()])
+      .then(([r, adresse]) => { etat.sauvegardes = { liste: r.snapshots || [], adresse }; })
+      .catch((e) => { etat.sauvegardes = { erreur: e.message }; })
+      .then(afficher);
+  }
+  const S = etat.sauvegardes;
+  const copie = '<button class="bouton primaire" data-action="telecharger-copie">📥 Télécharger une copie (.grist)</button>';
+  if (S.enCours) return entete + '<p class="vide">Lecture des sauvegardes…</p></section>';
+  if (S.erreur) return entete + `<div class="encadre alerte">Sauvegardes illisibles : ${esc(S.erreur)}</div><div class="barre-outils">${copie}</div></section>`;
+  const date = (d) => new Date(d).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' });
+  const ilYa = (d) => {
+    const min = Math.round((Date.now() - new Date(d)) / 60000);
+    return min < 60 ? `il y a ${min} min` : min < 1440 ? `il y a ${Math.round(min / 60)} h` : `il y a ${Math.round(min / 1440)} j`;
+  };
+  const base = S.adresse.replace(/\/[^/]+$/, '/');   // adresse du document sans son identifiant
+  return entete + `
+    <div class="barre-outils">${copie}<span class="aide" style="margin:0">${S.liste.length} sauvegarde(s) disponibles.</span></div>
+    <div class="defile"><table class="tableau"><tr><th>Version du</th><th></th><th></th></tr>
+      ${S.liste.slice(0, 12).map((v) => `<tr><td>${esc(date(v.lastModified))}</td><td class="discret">${esc(ilYa(v.lastModified))}</td>
+        <td><a class="bouton petit" href="${esc(base + v.docId)}" target="_blank" rel="noopener">Ouvrir ↗</a></td></tr>`).join('')}
+    </table></div>
+    ${S.liste.length > 12 ? `<p class="aide">Les ${S.liste.length - 12} plus anciennes sont dans <i>Historique du document</i>.</p>` : ''}
+  </section>`;
+}
+
+/**
+ * Télécharge une copie complète du document (fichier .grist : données, pages, règles), datée.
+ * Rien n'est modifié ; le téléchargement est noté au journal.
+ * @param {HTMLElement} bouton
+ */
+async function telechargerCopie(bouton) {
+  await occupe(bouton, async () => {
+    const fichier = await (await Outils.api('/download')).blob();
+    const nom = (parametres().Nom_application || 'document').replace(/[^\p{L}\p{N}]+/gu, '-') + '-' + new Date().toISOString().slice(0, 10) + '.grist';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(fichier);
+    a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    await tracer('Copie du document téléchargée', nom);
+    message('✅ Copie téléchargée : ' + nom);
+  });
+}
+
+VUES.structure = () => ongletStructure() + carteSauvegardes() + ongletParametres();
 VUES.parametres = VUES.structure;
 declarerVue('maintenance', 'structure');

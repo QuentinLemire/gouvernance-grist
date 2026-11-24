@@ -40,9 +40,12 @@
  *    - Outils.avis(texte, genre) bandeau de message en haut de la page
  *    - Outils.demander(question) petite fenêtre de question (oui/non, ou texte à saisir)
  *    - Outils.identifiant(texte) identifiant Grist selon la norme (« date d'arrivée » → Date_d_arrivee)
+ *    - Outils.api(chemin)        API REST du document (partage, sauvegardes…), avec le jeton du widget
+ *    - Outils.adresseDocument()  adresse de la page du document (ou d'une sauvegarde), pour un lien
  *
  *  Aucune de ces fonctions n'écrit dans le document : elles ne font que lire
- *  et mettre en forme. Les écritures restent dans chaque widget.
+ *  et mettre en forme (Outils.api écrit seulement si le widget le lui demande).
+ *  Les écritures restent dans chaque widget.
  */
 // Tout est enfermé dans une fonction exécutée immédiatement : les fonctions
 // internes ne « débordent » pas dans la page, seul l'objet Outils est exposé.
@@ -277,9 +280,38 @@ window.Outils = (() => {
     return id ? id.charAt(0).toUpperCase() + id.slice(1) : '';
   }
 
-  // ===== 8. Ce que le fichier rend disponible =====
+  // ===== 8. API REST du document =====
+
+  /**
+   * Appelle l'API REST du document (partage, sauvegardes, téléchargement…), avec le jeton que Grist
+   * donne au widget (accès complet requis). Le jeton est court et propre à ce document.
+   * @param {string} chemin   chemin après /api/docs/<id>, ex. « /snapshots »
+   * @param {RequestInit} [options]  options de fetch (method, body…)
+   * @returns {Promise<Response>}
+   * @throws si Grist refuse ou répond une erreur
+   */
+  async function api(chemin, options = {}) {
+    const lecture = !options.method || options.method === 'GET';
+    const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: lecture });
+    const r = await fetch(`${baseUrl}${chemin}${chemin.includes('?') ? '&' : '?'}auth=${token}`,
+      { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
+    if (!r.ok) throw new Error('Grist a refusé (' + r.status + ') : ' + ((await r.text()).slice(0, 200) || chemin));
+    return r;
+  }
+
+  /**
+   * Adresse de la page du document dans Grist (ou d'une de ses sauvegardes), pour un lien « ↗ ».
+   * @param {string} [docId]  identifiant d'une autre version (sauvegarde) ; par défaut, le document
+   */
+  async function adresseDocument(docId) {
+    const { baseUrl } = await grist.docApi.getAccessToken({ readOnly: true });
+    const m = baseUrl.match(/^(.*)\/api\/docs\/([^/]+)/);
+    return m ? m[1] + '/' + (docId || m[2]) : '';
+  }
+
+  // ===== 9. Ce que le fichier rend disponible =====
   // Seules ces fonctions sont accessibles depuis les widgets (Outils.xxx).
 
   return { esc, lire, enLignes, parametres, entete, markdown, conversation, ticketOuvert, dateHeure,
-    avis, demander, identifiant };
+    avis, demander, identifiant, api, adresseDocument };
 })();

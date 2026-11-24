@@ -311,10 +311,10 @@ function allerA(onglet) { Console.ouvrir(MODULE_DE[onglet] || onglet); }
 
 /** Module qui porte chaque action des boutons (data-action), chargé au besoin avant de l'exécuter. */
 const MODULE_DE_L_ACTION = {
-  'export-csv': 'utilisateurs', ajouter: 'utilisateurs', 'g-activer': 'utilisateurs', 'g-desactiver': 'utilisateurs', 'ajouter-role': 'utilisateurs',
+  'export-csv': 'utilisateurs', partager: 'utilisateurs', 'preparer-ajout': 'utilisateurs', ajouter: 'utilisateurs', 'g-activer': 'utilisateurs', 'g-desactiver': 'utilisateurs', 'ajouter-role': 'utilisateurs',
   standard: 'droits', vider: 'droits', 'appliquer-droits': 'droits', 'retirer-droits': 'droits', garde: 'droits',
   repondre: 'support', 'repondre-clore': 'support', clore: 'support', rouvrir: 'support',
-  installer: 'maintenance', publier: 'maintenance', versions: 'maintenance', pages: 'maintenance', 'page-installer': 'maintenance', module: 'maintenance',
+  installer: 'maintenance', 'telecharger-copie': 'maintenance', publier: 'maintenance', versions: 'maintenance', pages: 'maintenance', 'page-installer': 'maintenance', module: 'maintenance',
 };
 
 /**
@@ -357,6 +357,7 @@ document.addEventListener('change', async (e) => {
   if (el.dataset.u || el.dataset.t || el.dataset.p) return enregistrerChamp(el);
   if (el.id === 'u-role') { etat.filtres.role = el.value; return afficher(); }
   if (el.id === 'u-statut') { etat.filtres.statut = el.value; return afficher(); }
+  if (el.id === 'simu-personne') { etat.simulation = el.value; return afficher(); }
   if (el.dataset.sel) { el.checked ? etat.selection.add(Number(el.dataset.sel)) : etat.selection.delete(Number(el.dataset.sel)); return afficher(); }
   if (el.id === 'u-tous') { utilisateursFiltres().forEach((u) => (el.checked ? etat.selection.add(u.id) : etat.selection.delete(u.id))); return afficher(); }
   if (el.id === 'g-role' && el.value) return groupe({ Role: el.value }, 'Rôle « ' + el.value + ' »');
@@ -410,6 +411,8 @@ document.addEventListener('click', async (e) => {
   switch (b.dataset.action) {
     case 'actualiser': etat.sujets = null; return actualiser();
     case 'export-csv': return exporterCsv();
+    case 'partager': return partagerAvec(b);
+    case 'preparer-ajout': return preparerAjout();
     case 'ajouter': return ajouterPersonnes(b);
     case 'g-activer': return groupe({ Actif: true }, 'activées');
     case 'g-desactiver': return groupe({ Actif: false }, 'désactivées');
@@ -430,6 +433,7 @@ document.addEventListener('click', async (e) => {
     case 'installer': return installerSujet(b, b.dataset.sujet);
     case 'publier': return publierNorme(b);
     case 'versions': return mettreAJourPages(b);
+    case 'telecharger-copie': return telechargerCopie(b);
     case 'pages': return creerPages(b);
     case 'page-installer': return creerPages(b, [b.dataset.valeur]);
     case 'module': return installerModule(b, b.dataset.sujet);
@@ -507,6 +511,47 @@ const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.mem
 
 /** Ce document est-il la source de la norme (Grist Gouvernance) ? Oui si Parametres.Source_norme vaut « oui ». */
 const estSource = () => /^oui$/i.test(parametres().Source_norme || '');
+
+// --- Partage du document dans Grist (qui peut l'ouvrir, et avec quel accès) ------------------------
+
+/** Accès Grist du plus faible au plus fort ; le rôle d'Utilisateurs ne peut pas dépasser l'accès Grist. */
+const ACCES_GRIST = [null, 'viewers', 'editors', 'owners'];
+const LIBELLE_ACCES = { viewers: 'lecture', editors: 'modification', owners: 'propriétaire' };
+const plusFort = (a, b) => (ACCES_GRIST.indexOf(a) >= ACCES_GRIST.indexOf(b) ? a : b);
+const plusFaible = (a, b) => (ACCES_GRIST.indexOf(a) <= ACCES_GRIST.indexOf(b) ? a : b);
+/** Accès Grist nécessaire à un rôle : le Lecteur lit, les autres rôles écrivent. */
+const accesNecessaire = (role) => (role === 'Lecteur' ? 'viewers' : 'editors');
+
+/**
+ * Lit le partage du document (API /access) dans etat.partage, une fois :
+ *   public : accès donné à tout le monde par un lien public (ou null) ;
+ *   personnes : Map courriel (minuscules) → { courriel, nom, acces (effectif), service } ;
+ *   erreur : message si Grist refuse (seuls les propriétaires voient le partage).
+ * L'accès effectif tient compte de l'héritage de l'espace, plafonné par le document.
+ */
+async function chargerPartage() {
+  if (etat.partage && !etat.partage.enCours) return etat.partage;
+  etat.partage = { enCours: true, personnes: new Map(), public: null };
+  try {
+    const a = await (await Outils.api('/access')).json();
+    for (const u of a.users || []) {
+      if (u.email === 'everyone@getgrist.com') { etat.partage.public = u.access; continue; }
+      if (u.anonymous) continue;
+      const acces = plusFort(u.access || null, plusFaible(u.parentAccess || null, a.maxInheritedRole || 'owners'));
+      etat.partage.personnes.set(cle(u.email), { courriel: u.email, nom: u.name, acces, service: /serviceaccounts\.invalid$/.test(u.email) });
+    }
+  } catch (e) {
+    etat.partage.erreur = e.message;
+  }
+  etat.partage.enCours = false;
+  return etat.partage;
+}
+
+/** Accès Grist effectif d'un courriel (lien public compris) : null s'il ne peut pas ouvrir le document. */
+function accesGrist(courriel) {
+  const p = etat.partage?.personnes.get(cle(courriel));
+  return plusFort(p?.acces || null, etat.partage?.public || null);
+}
 
 // --- Démarrage -------------------------------------------------------------------------------------
 

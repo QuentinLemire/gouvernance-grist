@@ -141,9 +141,66 @@ function ongletDroits() {
       <div class="barre-outils">
         <button class="bouton primaire" data-action="appliquer-droits">Appliquer ces droits</button>
         <button class="bouton" data-action="retirer-droits">Retirer les règles du panneau</button>
-        <span class="aide" style="margin:0">Vérifiez ensuite avec « Voir en tant que » dans <i>Permissions avancées</i>.</span>
+        <span class="aide" style="margin:0">Vérifiez ensuite avec « Voir en tant que » ci-dessous.</span>
       </div>
-    </section>`;
+    </section>
+    ${carteSimulation()}`;
+}
+
+/**
+ * Carte « Voir en tant que » : ce qu'une personne peut faire, table par table, d'après les droits
+ * APPLIQUÉS (pas la matrice en cours de modification), plafonnés par son partage Grist ; plus un lien
+ * qui ouvre le vrai document avec ses droits (mode « Voir en tant que » de Grist, propriétaires seulement).
+ * @returns {string} HTML de la carte
+ */
+function carteSimulation() {
+  if (!etat.partage) chargerPartage().then(afficher);
+  if (etat.adresseDoc === undefined) { etat.adresseDoc = ''; Outils.adresseDocument().then((a) => { etat.adresseDoc = a; afficher(); }).catch(() => {}); }
+  const U = (etat.d.Gouv_Utilisateurs || []).filter((u) => estCourriel(u.Courriel)).sort((a, b) => cle(a.Courriel).localeCompare(cle(b.Courriel)));
+  const inscrits = new Set(U.map((u) => cle(u.Courriel)));
+  const autres = etat.partage?.personnes ? [...etat.partage.personnes.values()].filter((p) => !p.service && !inscrits.has(cle(p.courriel))) : [];
+  const choisi = etat.simulation || '';
+  const choix = `<select class="champ" id="simu-personne" style="min-width:320px">
+      <option value="">Choisir une personne…</option>
+      <optgroup label="Inscrits dans Utilisateurs">${U.map((u) => `<option value="${esc(u.Courriel)}" ${cle(u.Courriel) === cle(choisi) ? 'selected' : ''}>${esc(u.Courriel)}${u.Role ? ' — ' + esc(u.Role) : ''}${u.Actif === false ? ' (inactif)' : ''}</option>`).join('')}</optgroup>
+      ${autres.length ? `<optgroup label="Partagés dans Grist, non inscrits">${autres.map((p) => `<option value="${esc(p.courriel)}" ${cle(p.courriel) === cle(choisi) ? 'selected' : ''}>${esc(p.courriel)}</option>`).join('')}</optgroup>` : ''}
+    </select>`;
+  const lien = choisi && etat.adresseDoc
+    ? `<a class="bouton" href="${esc(etat.adresseDoc + '?aclAsUser_=' + encodeURIComponent(choisi))}" target="_blank" rel="noopener">Ouvrir le document en tant que cette personne ↗</a>` : '';
+  return `<section class="carte"><h2>🎭 Voir en tant que</h2>
+    <p class="aide">Ce qu'une personne peut faire, d'après les droits <b>appliqués</b> et son partage Grist. Pour le vérifier en vrai, le lien ouvre le document avec ses droits (réservé aux propriétaires).</p>
+    <div class="barre-outils">${choix}${lien}</div>
+    ${choisi ? simulation(choisi) : ''}
+  </section>`;
+}
+
+/** Résultat de la simulation pour un courriel : un message, ou un tableau table → droits. */
+function simulation(courriel) {
+  if (!etat.partage || etat.partage.enCours) return '<p class="vide">Lecture du partage…</p>';
+  const u = (etat.d.Gouv_Utilisateurs || []).find((x) => cle(x.Courriel) === cle(courriel));
+  const grist = etat.partage.erreur ? 'editors' : accesGrist(courriel);   // partage illisible : on ne plafonne pas
+  const encadre = (classe, texte) => `<div class="encadre ${classe}" style="margin-top:12px">${texte}</div>`;
+  if (!grist) return encadre('alerte', "🚫 <b>N'ouvre pas le document</b> : il n'est pas partagé avec cette personne dans Grist (voir Utilisateurs › Partage).");
+  if (grist === 'owners') return encadre('', '👑 <b>Propriétaire</b> : voit et modifie tout, quelles que soient les règles d\'accès.');
+  if (!u || u.Actif === false || !u.Role) {
+    const pourquoi = !u ? 'absente de la table Utilisateurs' : u.Actif === false ? 'inactive' : 'sans rôle';
+    return gardePresente()
+      ? encadre('', `🏠 Personne ${pourquoi} : elle <b>ne voit que la page d'accueil</b>.`)
+      : encadre('alerte', `⚠️ Personne ${pourquoi}, et les non-inscrits ne sont pas bloqués : elle a les droits par défaut du document (${esc(LIBELLE_ACCES[grist])} Grist).`);
+  }
+  const m = lireMatrice();
+  const metier = tablesMetier();
+  const plafond = grist === 'viewers';
+  const lignes = etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => {
+    if (metier.has(t.tableId)) return [t.tableId, '⚙️ Règles métier : à vérifier avec le lien « Ouvrir en tant que »'];
+    const code = (m.niveaux[t.tableId] || {})[u.Role] || '';
+    const n = NIVEAUX.find((x) => x.code === code);
+    if (plafond && ['ajout', 'modif', 'tout'].includes(code)) return [t.tableId, '👁️ Lecture <span class="discret">(' + esc(n.libelle) + ' selon son rôle, mais partagée en lecture seule dans Grist)</span>'];
+    return [t.tableId, code ? esc(n.libelle) : '— Règle par défaut du document'];
+  });
+  return `${plafond ? encadre('alerte', '⚠️ Partagée en <b>lecture seule</b> dans Grist : elle ne peut rien modifier, quel que soit son rôle.') : ''}
+    <div class="defile" style="margin-top:12px"><table class="tableau"><tr><th>Table</th><th>${esc(u.Role)} : ce qu'elle peut faire</th></tr>
+    ${lignes.map(([t, d]) => `<tr><td class="table">${esc(t)}</td><td>${d}</td></tr>`).join('')}</table></div>`;
 }
 
 /** Réécrit l'aperçu des règles qui seraient écrites (rien n'est écrit dans le document). */
