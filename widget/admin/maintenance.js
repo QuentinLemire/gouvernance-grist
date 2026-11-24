@@ -465,14 +465,16 @@ async function creerPages(bouton, seulement = null) {
     await rangerMenu();
     if (creees.length) await tracer('Pages standard créées', creees.join(', '));
     message(creees.length ? '✅ Pages créées : ' + esc(creees.join(', ')) : '✅ Menu remis dans l\'ordre de la norme.');
+    // En dernier : ajouter une mise en forme change la structure de la table, ce qui recharge cette page
+    if (aTable('Gouv_Utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
     etat.pages = null; await actualiser();
   });
 }
 
 /**
  * Page Utilisateurs en Grist classique : l'annuaire (liste triée par nom, colonnes utiles) et la fiche
- * de la personne choisie, côte à côte. Les courriels invalides (rouge) ou en double (orange) ressortent
- * par une mise en forme conditionnelle sur la colonne, posée une seule fois.
+ * de la personne choisie, côte à côte. La mise en forme des courriels est posée à part (marquerCourriels),
+ * à la fin de creerPages.
  * @param {object} page      entrée de PAGES
  * @param {number} tableRef  identifiant interne de la table
  */
@@ -491,7 +493,6 @@ async function creerPageNative(page, tableRef) {
     ['UpdateRecord', '_grist_Views_section', r1.sectionRef, { title: 'Annuaire', sortColRefs: JSON.stringify([colonne(page.table, 'Nom')?.id].filter(Boolean)) }],
     ['UpdateRecord', '_grist_Views_section', r2.sectionRef, { title: 'Fiche', linkSrcSectionRef: r1.sectionRef, linkSrcColRef: 0, linkTargetColRef: 0 }],
   ]);
-  await marquerCourriels(page.table);
 }
 
 /** Mise en forme conditionnelle de la colonne Courriel : rouge si invalide, orange si en double (une seule fois). */

@@ -91,3 +91,5 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - Une sauvegarde s'ouvre à `…/o/<espace>/doc/<docId de la version>` ; sans `/doc/`, Grist ajoute « undefined » à la version
   et refuse de l'ouvrir (« Invalid version is specified »).
 - Le mode « Voir en tant que » s'ouvre par l'adresse du document suivie de `?aclAsUser_=<courriel>` (propriétaires seulement).
+- Ajouter une mise en forme conditionnelle (`AddEmptyRule`) change la structure de la table : le widget qui l'a demandée est
+  **rechargé** et ce qu'il devait faire ensuite n'est jamais exécuté. La placer en dernier.
