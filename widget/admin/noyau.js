@@ -95,8 +95,8 @@ window.Console = (() => {
     if (m.aVenir) return avis('« ' + m.titre.replace(/^\S+\s/, '') + ' » arrive bientôt dans la console.', 'info');
     courant = m.cle;
     dessinerMenu();
-    document.querySelectorAll('#modules > .module').forEach((z) => { z.hidden = z.id !== 'module-' + m.cle; });
-    const z = zone(m.cle);
+    const z = zone(m.cle);   // créée d'abord, pour être prise en compte ci-dessous
+    document.querySelectorAll('#modules > .module').forEach((x) => { x.hidden = x !== z; });
     if (!charges.has(m.cle)) z.innerHTML = '<p class="discret" style="padding:24px">Chargement…</p>';
     try {
       await charger(m.cle);
