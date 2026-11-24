@@ -1,7 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "2.0",
+  "version": "2.1",
   "sujet": "JOURNAL",
+  "description": "Trace des actions des outils d'administration (droits appliqués, tables créées, demandes traitées…), pour une application qui a besoin d'un audit.",
   "tables": [
     {
       "tableId": "Gouv_Journal",
