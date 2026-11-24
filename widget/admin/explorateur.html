@@ -20,6 +20,9 @@
 -->
 <style>
   #module-explorateur, #module-explorateur #app-explorer { height: 100%; }
+  /* dans la console : la barre d'outils passe à la ligne plutôt que de déborder */
+  #module-explorateur #app-explorer { min-width: 0; }
+  #module-explorateur .toolbar, #module-explorateur .top-bars-container { flex-wrap: wrap; }
   :root {
     --bg: #ffffff;
     --fg: #1f2430;
