@@ -2047,11 +2047,19 @@ async function buildWidgetsList(sections, sectionFields, columns, tables, views,
     }
 
     // Liste complète des options telles que stockées, pour affichage brut.
+    // Options résumées : le code d'un widget « builder » (_js, _html) est remplacé par sa taille,
+    // sinon il s'affiche en un seul bloc illisible ; customView est déjà déplié dans options.
+    const resume = (val) => {
+      if (typeof val === 'string') return val.length > 300 ? val.slice(0, 300) + '… (' + val.length + ' caractères)' : val;
+      if (val && typeof val === 'object') {
+        return Object.entries(val).map(([k, v]) => /^_(js|html|css)$/.test(k) && typeof v === 'string'
+          ? k + ' : code de ' + v.split('\n').length + ' lignes'
+          : k + ' : ' + resume(typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v))).join(' · ');
+      }
+      return String(val);
+    };
     const optionsList = options && typeof options === 'object'
-      ? Object.entries(options).map(([key, val]) => ({
-          key,
-          value: (typeof val === 'object' && val !== null) ? JSON.stringify(val) : String(val),
-        }))
+      ? Object.entries(options).filter(([key]) => key !== 'customView').map(([key, val]) => ({ key, value: resume(val) }))
       : [];
 
     done++;
@@ -3630,12 +3638,13 @@ function toggleHelpUsage() {
                 const label = row.querySelector('.col-label').value.trim();
                 if (!label) row.remove();
             });
-            addColumnRow('Courriel', 'Text', '', false, false);
+            // Courriel et Commentaires : seulement s'ils ne sont pas déjà dans la table
+            if (!idsDuFormulaire().includes('courriel')) addColumnRow('Courriel', 'Text', '', false, false);
             pollSlots.forEach(s => {
                 const label = formatPollSlotLabel(s.date, s.timeStart, s.timeEnd);
                 addColumnRow(label, 'Choice', '', false, false, '', '', false, widgetOptions);
             });
-            addColumnRow('Commentaires', 'Text', '', false, false);
+            if (!idsDuFormulaire().includes('commentaires')) addColumnRow('Commentaires', 'Text', '', false, false);
 
             updateHistoryColumnVisibility();
             closeDatePollModal();
@@ -3840,8 +3849,8 @@ function createUserManagement() {
             "        return ''",
             "    try:",
             "        months = {",
-            "            1:'Jan', 2:'Feb', 3:'Mar', 4:'Apr', 5:'May', 6:'Jun',",
-            "            7:'Jul', 8:'Aug', 9:'Sep', 10:'Oct', 11:'Nov', 12:'Dec'",
+            "            1:'janv.', 2:'févr.', 3:'mars', 4:'avr.', 5:'mai', 6:'juin',",
+            "            7:'juil.', 8:'août', 9:'sept.', 10:'oct.', 11:'nov.', 12:'déc.'",
             "        }",
             "        day = str(date_obj.day).zfill(2)",
             "        month_str = months.get(date_obj.month, str(date_obj.month))",
@@ -3947,8 +3956,8 @@ function createUserManagement() {
             "def timestamp():",
             "    t = NOW()",
             "    months = {",
-            "        1:'Jan', 2:'Feb', 3:'Mar', 4:'Apr', 5:'May', 6:'Jun',",
-            "        7:'Jul', 8:'Aug', 9:'Sep', 10:'Oct', 11:'Nov', 12:'Dec'",
+            "        1:'janv.', 2:'févr.', 3:'mars', 4:'avr.', 5:'mai', 6:'juin',",
+            "        7:'juil.', 8:'août', 9:'sept.', 10:'oct.', 11:'nov.', 12:'déc.'",
             "    }",
             "    day = str(t.day).zfill(2)",
             "    month_str = months[t.month]",
@@ -4005,7 +4014,7 @@ function createUserManagement() {
             "    snap = create_snapshot()",
             "    ts = timestamp()",
             "    usr = get_username()",
-            "    lines = [f\"\u{1F4C5} Créé le {ts} (by {usr})\"]",
+            "    lines = [f\"\u{1F4C5} Créé le {ts} (par {usr})\"]",
             "    for col in sorted(snap.keys()):",
             "        val = snap[col]",
             "        if val:",
@@ -4226,7 +4235,8 @@ function createUserManagement() {
 
         /** Actions Grist pour ajouter une colonne : création, puis formule ou déclencheur. */
         function actionsAjout(tableId, c) {
-            const info = { label: c.label, type: c.type, untieColIdFromLabel: true };
+            // isFormula: false, sinon Grist crée une « colonne formule vide » au lieu d'une colonne de données
+            const info = { label: c.label, type: c.type, isFormula: false, untieColIdFromLabel: true };
             if (c.widgetOptions) info.widgetOptions = c.widgetOptions;
             const actions = [['AddColumn', tableId, c.id, info]];
             if (c.formula) {
