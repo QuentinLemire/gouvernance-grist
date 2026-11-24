@@ -76,6 +76,14 @@ Restent à trancher plus tard : `Bureaux.Rattachement` (sous-direction du bureau
 ## Tables de la gouvernance (2026-11-24)
 Renommées `Gouv_…` (🧱 socle, 🧩 modules) ; les tables métier et le référentiel gardent leur nom. ⚠️ Les flux n8n qui lisaient `Utilisateurs` lisent désormais `Gouv_Utilisateurs`.
 
+## Deux tables de fiche : `Arrivee` et `Depart` (2026-11-24)
+- Les huit tables de section (`Arrivee_Poste`, `_Telephonie`, `_Informatique`, `_Listes`, `_Signature`, `Depart_Materiel`, `_Comptes`, `_Signature`) sont fusionnées en **`Arrivee`** (56 colonnes) et **`Depart`** (37 colonnes), une ligne par agent reliée par `Agent`. Colonnes rangées dans l'ordre du formulaire papier.
+- Deux verrous par table : `Verrou` (contenu de la fiche, figé à la signature) et `Verrou_signature` (case de signature, reste modifiable pour retirer la signature).
+- Règles d'accès reprises à l'identique (groupes de colonnes) ; la règle de création interdit toujours de pré-remplir la fiche. La ligne `Depart` n'est créable qu'une fois l'arrivée signée.
+- Formules adaptées : `Personnel.Telephone`, `Personnel.Maj_sections`, `Listes.Utilise`, `Boites.Utilise`.
+- Testé rôle par rôle (lecture, saisie, signature, création de départ, refus hors entité/bureau) : conforme.
+- ⚠️ Flux n8n : lire `Arrivee` / `Depart` au lieu des anciennes tables de section.
+
 ## Campagne de tests des droits (2026-11-23, données vidées)
 Comptes fictifs : admin.test, rh.dgom, rh.sma, chef.bcl, adjoint.bcl, chef.baei, bssiom, lecteur.bcl, contributeur.dgom, inactif, sansrole (+ un inconnu).
 Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conformes après correction d'une faille (changement d'entité d'une fiche par une RH, corrigé sur 20 règles).
