@@ -140,15 +140,22 @@
 
   // --- 3. Outils de comparaison ------------------------------------------------------------------
 
-  /** Décrit une colonne au format des fichiers de la norme, pour comparer les deux à l'identique. */
+  /**
+   * Décrit une colonne au format des fichiers de la norme : pour comparer le document à la norme, et pour
+   * publier la norme (Maintenance). La mise en forme conditionnelle (rulesOptions) n'en fait pas partie :
+   * c'est de la présentation, portée par des colonnes techniques propres à chaque document.
+   * @param {object} c  ligne de _grist_Tables_column
+   * @param {Map|object} colParId  colonnes par identifiant interne (pour nommer la colonne affichée d'une référence)
+   */
   function decrire(c, colParId) {
     const o = { id: c.colId, label: c.label, type: c.type };
     if (c.isFormula) o.isFormula = true;
     if (c.formula) o.formula = c.formula;
     if (!c.isFormula && c.formula) o.recalcWhen = c.recalcWhen || 0;
     let wo = null; try { wo = JSON.parse(c.widgetOptions || 'null'); } catch (e) { /* options illisibles */ }
+    if (wo) delete wo.rulesOptions;
     if (wo && Object.keys(wo).length) o.widgetOptions = wo;
-    const vis = c.visibleCol && colParId.get(c.visibleCol);
+    const vis = c.visibleCol && (colParId instanceof Map ? colParId.get(c.visibleCol) : colParId[c.visibleCol]);
     if (vis) o.visibleCol = vis.colId;
     return o;
   }
@@ -480,7 +487,7 @@
 
   const Norme = {
     DEPOT, SUJETS, TRACABILITE, ROLES_GENERIQUES, WIDGETS_GENERIQUES, OK, PARTIEL, ABSENT,
-    preparer, controler, formules, colonnesInutilisees, analyseWidgets, genreSortie, synthese, enMarkdown, lireNorme,
+    preparer, decrire, controler, formules, colonnesInutilisees, analyseWidgets, genreSortie, synthese, enMarkdown, lireNorme,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Norme;
   else racine.Norme = Norme;

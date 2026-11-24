@@ -5,21 +5,8 @@
 // --- 9. Onglet « Structure » : sujets transverses du dépôt Git -----------------------------------
 
 
-/**
- * Décrit une colonne du document au format des fichiers de la norme, pour la publier.
- * Pour une colonne de référence, la colonne affichée est notée par son nom (visibleCol).
- * @param {object} c  ligne de _grist_Tables_column
- * @returns {object}
- */
-function decrireColonne(c) {
-  const o = { id: c.colId, label: c.label, type: c.type };
-  if (c.isFormula) o.isFormula = true;
-  if (c.formula) o.formula = c.formula;
-  if (!c.isFormula && c.formula) o.recalcWhen = c.recalcWhen || 0;
-  const wo = json(c.widgetOptions, null); if (wo && Object.keys(wo).length) o.widgetOptions = wo;
-  const vis = c.visibleCol && etat.meta.colonnesParId[c.visibleCol]; if (vis) o.visibleCol = vis.colId;
-  return o;
-}
+/** Décrit une colonne du document au format des fichiers de la norme, pour la publier (règle commune : commun/norme.js). */
+const decrireColonne = (c) => Norme.decrire(c, etat.meta.colonnesParId);
 
 /**
  * Publie la norme depuis ce document : chaque sujet est réécrit à partir des tables
