@@ -237,6 +237,30 @@ async function creerStructure(tables) {
   return rapport;
 }
 
+/** Sujets du socle (les autres sont des modules à installer au besoin). */
+const SOCLE = ['utilisateurs', 'parametres', 'accueil_public', 'journal'];
+
+/**
+ * Repère les tables de la norme dans « Données source » : 🧱 devant une table du socle, 🧩 devant
+ * une table de module ; les tables propres à l'application ne sont pas touchées.
+ * Le titre reprend le nom exact de la table : Grist recalcule l'identifiant d'après le titre, et
+ * « 🧱 Utilisateurs » redonne bien Utilisateurs (un autre titre renommerait la table et casserait
+ * formules, règles et widgets).
+ * @param {Map<string, Object>} sujets  sujets installés (nom du fichier → contenu)
+ */
+async function etiqueterTables(sujets) {
+  const tables = await sql('select t.tableId, s.id as section, s.title from _grist_Tables t join _grist_Views_section s on s.id = t.rawViewSectionRef');
+  const actions = [];
+  for (const [nom, def] of sujets) {
+    for (const t of def.tables.filter((u) => !u.extension)) {
+      const ici = tables.find((x) => x.tableId === t.tableId);
+      const titre = (SOCLE.includes(nom) ? '🧱 ' : '🧩 ') + t.tableId;
+      if (ici && ici.title !== titre) actions.push(['UpdateRecord', '_grist_Views_section', ici.section, { title: titre }]);
+    }
+  }
+  if (actions.length) await appliquer(actions);
+}
+
 /**
  * Range les colonnes dans l'ordre de la norme (celui des fichiers structure/*.json).
  *
@@ -440,6 +464,9 @@ async function installerGouvernance(sujets, { docId = null, depot = DEPOT_PAR_DE
   for (const sujet of lus.keys()) {
     if (DONNEES_DE_REFERENCE[sujet]) rapport.donnees.push(await chargerDonnees(depot, DONNEES_DE_REFERENCE[sujet]));
   }
+
+  // 3 bis. Repérage des tables de la norme dans « Données source » : 🧱 socle, 🧩 module.
+  await etiqueterTables(lus);
 
   // 4. Règles d'accès : elles n'ont de sens que si l'annuaire (Utilisateurs, qui
   //    fournit le Profil) et la page d'accueil (seule table visible des non-inscrits)

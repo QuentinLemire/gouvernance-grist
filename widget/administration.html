@@ -178,7 +178,7 @@ const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
  * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-23.11';
+const VERSION_WIDGET = '2026-11-24.1';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -1518,6 +1518,29 @@ function installerModule(bouton, fichier) {
  * Installe les tables d'un sujet de la norme et de ses dépendances, puis leurs données de référence
  * (si la table est vide). Ne supprime rien. Rend la liste des sujets installés.
  */
+/**
+ * Repère les tables de la norme dans « Données source » : 🧱 devant une table du socle, 🧩 devant
+ * une table de module ; les tables propres à l'application ne sont pas touchées.
+ * Le titre reprend le nom exact de la table : Grist recalcule l'identifiant d'après le titre, et
+ * « 🧱 Utilisateurs » redonne bien Utilisateurs (un autre titre renommerait la table).
+ * @param {Iterable<string>} fichiers  sujets installés
+ */
+async function etiqueterTables(fichiers) {
+  const [tables, sections] = await Promise.all([lire('_grist_Tables'), lire('_grist_Views_section')]);
+  const actions = [];
+  for (const f of fichiers) {
+    const sujet = SUJETS.find((x) => x.fichier === f);
+    const def = etat.sujets?.[f]?.def || await lireDepot('structure/' + f + '.json');
+    for (const t of def.tables.filter((u) => !u.extension)) {
+      const tab = (tables || []).find((x) => x.tableId === t.tableId);
+      const sec = tab && (sections || []).find((x) => x.id === tab.rawViewSectionRef);
+      const titre = (sujet && sujet.obligatoire ? '🧱 ' : '🧩 ') + t.tableId;
+      if (sec && sec.title !== titre) actions.push(['UpdateRecord', '_grist_Views_section', sec.id, { title: titre }]);
+    }
+  }
+  if (actions.length) await agir(actions);
+}
+
 async function installerTablesSujet(fichier) {
   {
     // On installe aussi les sujets dont celui-ci dépend.
@@ -1529,6 +1552,7 @@ async function installerTablesSujet(fichier) {
       (def.dependances || []).forEach((d) => aFaire.push(d.toLowerCase()));
     }
     await creerStructure(tables);
+    await etiqueterTables(vus);
     // Données de référence publiques (territoires) si la table est encore vide.
     for (const f of vus) {
       if (!DONNEES[f]) continue;

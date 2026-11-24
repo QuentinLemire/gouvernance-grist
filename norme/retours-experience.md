@@ -40,6 +40,10 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - **Parade** : dans chaque « +U » de colonnes, `rec.Entite in user.Profil.Entites_vues and newRec.Entite in user.Profil.Entites_vues`.
 - Tester avec des comptes fictifs, un par rôle **et par cas limite** (autre entité, autre bureau, inactif, sans rôle), en écriture comme en lecture.
 
+### Le titre qui renomme la table
+- Dans « Données source », le titre d'une table est lié à son identifiant : le changer **renomme la table** (« 📋 Métier · Personnel » → `Metier_Personnel`) ; le vider la renomme en `Table1`, `Table2`… Grist met à jour formules et règles, mais pas le code des widgets.
+- **Parade** : titre = emoji + nom exact (« 🧱 Utilisateurs ») ; en cas d'erreur, `RenameTable` rend le nom sans toucher au titre.
+
 ### Le libellé qui renomme la colonne
 - Par défaut, l'identifiant d'une colonne Grist **suit son libellé** : corriger « Courriel pro » en « Courriel professionnel » a renommé `Courriel_pro` en `Courriel_professionnel` et cassé l'annuaire et la fiche.
 - **Parade** : identifiant détaché du libellé (`untieColIdFromLabel`) sur toutes les colonnes ; l'installateur et le widget Administration créent désormais les colonnes ainsi.
