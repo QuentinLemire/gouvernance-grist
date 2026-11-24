@@ -11,6 +11,15 @@
     - Gestionnaire des tables & colonnes (création en masse, colonnes de
       traçabilité, historique des modifications).
   L'administration (utilisateurs, droits, support) est dans administration.html.
+
+  Fiabilisation du 24/11/2026 (Quentin Lemire) :
+    - libellés et formules du document affichés comme du texte, jamais comme du HTML ;
+    - enregistrement en une seule opération Grist (annulable d'un coup), contrôlé avant
+      d'écrire : nom de table libre, colonnes sans doublon, Courriel plutôt qu'Email ;
+    - identifiants selon la norme (majuscule initiale, sans accents) et libellés qui ne
+      renomment plus les colonnes (untieColIdFromLabel) ;
+    - messages dans la page au lieu des fenêtres du navigateur, qui bloquaient Grist ;
+    - tables Utilisateurs et Entités : installées depuis Administration › Structure.
   =====================================================================
 -->
 <html lang="fr">
@@ -470,12 +479,8 @@
                 <p>Si la proposition vous sied, il suffit de cliquer sur <b>Appliquer les modifications</b></p>
             </div>
             <div>
-                <h3 class="font-semibold text-gray-700 mb-2">👯 Ajout des tables Entites & Utilisateurs</h3>
-                <p class="mb-2">Le bouton <strong>👯 Gestion Utilisateurs</strong> déploie instantanément un écosystème complet et interconnecté basé sur deux tables :</p>
-                <ul class="space-y-1 list-disc list-inside">
-                    <li><strong>Table <code>Entites</code> :</strong> Gère une structure hiérarchique arborescente (organisations, services, etc.) grâce à un champ <code>Parent</code>. Elle calcule de manière dynamique le <code>Nom complet</code> (chemin complet), génère un lien <code>mailto:</code> groupé de tous ses membres, et décompte via des fonctions récursives le nombre d'utilisateurs actifs directs (<code>Nbre</code>) et globaux (<code>NbreTotal</code>, incluant les sous-entités). Elle embarque nativement une traçabilité complète à la création/modification.</li>
-                    <li><strong>Table <code>Utilisateurs</code> :</strong> Liste les membres avec leur courriel, rôle et statut (<code>Actif</code>). Elle embarque nativement une traçabilité complète à la création/modification et une liaison vers l'entité parente.</li>
-                </ul>
+                <h3 class="font-semibold text-gray-700 mb-2">👯 Tables Utilisateurs et Entités</h3>
+                <p>Elles s'installent depuis la page <strong>🛡️ Administration</strong>, onglet « Structure » : c'est la version tenue à jour avec la norme (rôles, périmètre, courriel valide, doublons, traçabilité).</p>
             </div>
             <div>
                 <h3 class="font-semibold text-gray-700 mb-2">📅 Sondage de dates</h3>
@@ -547,9 +552,6 @@
 
         <div class="mt-6 flex justify-between items-center border-t border-gray-100 pt-4">
           <div class="flex gap-2">
-              <button type="button" onclick="createUserManagement()" class="bg-purple-100 hover:bg-purple-200 text-purple-700 font-medium py-1 px-3 rounded text-sm transition" title="Créer automatiquement l'écosystème de gestion des utilisateurs">
-                  👯 Ajout des tables Entites & Utilisateurs
-              </button>
               <button type="button" onclick="openDatePollModal()" class="bg-sky-100 hover:bg-sky-200 text-sky-700 font-medium py-1 px-3 rounded text-sm transition" title="Ouvre un agenda pour choisir des créneaux, puis génère les colonnes Courriel / un créneau par colonne / Commentaires">
                   📅 Sondage de dates
               </button>
@@ -636,6 +638,73 @@
 
 
 <script>
+// =====================================================================
+// Messages dans la page
+// =====================================================================
+// Les fenêtres alert / confirm / prompt du navigateur bloquent l'iframe de Grist : on affiche à la
+// place un bandeau en haut de la page, ou une petite fenêtre de question (Quentin, 24/11/2026).
+
+/** Bandeau d'information ; genre : 'info', 'ok' ou 'erreur'. Disparaît seul, sauf les erreurs. */
+function avis(texte, genre = 'info') {
+  let b = document.getElementById('avis');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'avis';
+    b.setAttribute('role', 'status');
+    b.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;max-width:min(720px,92vw);' +
+      'padding:10px 38px 10px 14px;border-radius:8px;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.15);cursor:pointer';
+    b.title = 'Cliquer pour fermer';
+    b.addEventListener('click', () => { b.style.display = 'none'; });
+    document.body.appendChild(b);
+  }
+  const couleurs = { info: ['#eef4ff', '#1e3a8a'], ok: ['#e8f7ee', '#14532d'], erreur: ['#fdecec', '#7f1d1d'] };
+  const [fond, texteC] = couleurs[genre] || couleurs.info;
+  b.style.background = fond; b.style.color = texteC; b.style.display = '';
+  b.textContent = texte + '  ✕';
+  clearTimeout(avis.minuteur);
+  if (genre !== 'erreur') avis.minuteur = setTimeout(() => { b.style.display = 'none'; }, 7000);
+}
+
+/**
+ * Petite fenêtre de question dans la page.
+ * Sans « saisie » : renvoie vrai ou faux (comme confirm). Avec « saisie » (texte proposé) :
+ * renvoie le texte tapé, ou null si on annule (comme prompt).
+ */
+function demander(question, { ok = 'Confirmer', annuler = 'Annuler', saisie = null } = {}) {
+  return new Promise((resoudre) => {
+    const fond = document.createElement('div');
+    fond.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:10000;display:flex;align-items:center;justify-content:center';
+    const boite = document.createElement('div');
+    boite.setAttribute('role', 'dialog');
+    boite.style.cssText = 'background:#fff;border-radius:10px;padding:18px;width:min(460px,92vw);box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:14px';
+    const p = document.createElement('p'); p.textContent = question; p.style.marginBottom = '12px';
+    boite.appendChild(p);
+    let champ = null;
+    if (saisie !== null) {
+      champ = document.createElement('input');
+      champ.value = saisie;
+      champ.style.cssText = 'width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;margin-bottom:12px';
+      boite.appendChild(champ);
+    }
+    const ligne = document.createElement('div'); ligne.style.cssText = 'display:flex;justify-content:flex-end;gap:8px';
+    const bouton = (texte, principal) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = texte;
+      b.style.cssText = 'padding:6px 14px;border-radius:6px;border:1px solid ' + (principal ? '#4f46e5;background:#4f46e5;color:#fff' : '#cbd5e1;background:#fff');
+      return b;
+    };
+    const non = bouton(annuler, false), oui = bouton(ok, true);
+    ligne.append(non, oui); boite.appendChild(ligne); fond.appendChild(boite); document.body.appendChild(fond);
+    const fermer = (v) => { fond.remove(); resoudre(v); };
+    non.onclick = () => fermer(saisie !== null ? null : false);
+    oui.onclick = () => fermer(saisie !== null ? champ.value : true);
+    fond.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') non.click();
+      if (e.key === 'Enter') oui.click();
+    });
+    (champ || oui).focus();
+  });
+}
+
 // =====================================================================
 // Navigation entre l'écran d'accueil et les deux outils fusionnés
 // =====================================================================
@@ -1953,6 +2022,10 @@ async function buildWidgetsList(sections, sectionFields, columns, tables, views,
       optionsError = 'Champ "options" illisible (JSON invalide)';
     }
 
+    // Grist range les réglages d'un widget dans options.customView, une chaîne JSON
+    if (options && typeof options.customView === 'string') {
+      try { options = Object.assign({}, options, JSON.parse(options.customView)); } catch (e) { /* réglages illisibles : on garde le reste */ }
+    }
     let widgetUrl = null, widgetId = null, columnsMapping = null;
     if (options && typeof options === 'object') {
       widgetUrl = options.url || (options.widgetDefinition && options.widgetDefinition.url) || null;
@@ -2056,7 +2129,7 @@ function renderWidgets(widgets) {
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ---------- Onglet "Custom widgets" (widgets de type "Custom widget builder") ----------
@@ -2781,7 +2854,7 @@ document.getElementById('btnCopy').addEventListener('click', async () => {
     btn.textContent = '✅ Copié !';
     setTimeout(() => { btn.textContent = old; }, 1500);
   } catch (e) {
-    alert('Copie impossible dans ce contexte, sélectionnez le texte manuellement.');
+    avis('Copie impossible dans ce contexte : sélectionnez le texte à la main.', 'erreur');
   }
 });
 
@@ -2913,12 +2986,12 @@ document.getElementById('diagramVersionSelect').addEventListener('change', (e) =
   if (window.__diagramFit) requestAnimationFrame(() => window.__diagramFit());
 });
 
-document.getElementById('btnDiagramSaveVersion').addEventListener('click', () => {
+document.getElementById('btnDiagramSaveVersion').addEventListener('click', async () => {
   const suggested = diagramActiveVersionName || '';
-  const name = (window.prompt(
-    'Nom de la vue (ex. "Métier", "Support", "Administration"). Un nom existant sera écrasé.',
-    suggested
-  ) || '').trim();
+  const name = ((await demander(
+    'Nom de la vue (ex. « Métier », « Support », « Administration »). Un nom existant sera remplacé.',
+    { saisie: suggested, ok: 'Enregistrer' }
+  )) || '').trim();
   if (!name) return;
   diagramVersions[name] = currentDiagramSnapshot();
   diagramActiveVersionName = name;
@@ -2926,10 +2999,10 @@ document.getElementById('btnDiagramSaveVersion').addEventListener('click', () =>
   populateDiagramVersionSelect();
 });
 
-document.getElementById('btnDiagramDeleteVersion').addEventListener('click', () => {
+document.getElementById('btnDiagramDeleteVersion').addEventListener('click', async () => {
   const name = document.getElementById('diagramVersionSelect').value;
   if (!name || !diagramVersions[name]) return;
-  if (!window.confirm('Supprimer la vue « ' + name + ' » ? Cette action est irréversible.')) return;
+  if (!(await demander('Supprimer la vue « ' + name + ' » ? Elle ne pourra pas être récupérée.', { ok: 'Supprimer' }))) return;
   delete diagramVersions[name];
   if (diagramActiveVersionName === name) diagramActiveVersionName = null;
   saveDiagramState();
@@ -3039,12 +3112,12 @@ document.getElementById('usageVersionSelect').addEventListener('change', (e) => 
   if (window.__usageFit) requestAnimationFrame(() => window.__usageFit());
 });
 
-document.getElementById('btnUsageSaveVersion').addEventListener('click', () => {
+document.getElementById('btnUsageSaveVersion').addEventListener('click', async () => {
   const suggested = usageActiveVersionName || '';
-  const name = (window.prompt(
-    'Nom de la vue (ex. "Métier", "Support", "Administration"). Un nom existant sera écrasé.',
-    suggested
-  ) || '').trim();
+  const name = ((await demander(
+    'Nom de la vue (ex. « Métier », « Support », « Administration »). Un nom existant sera remplacé.',
+    { saisie: suggested, ok: 'Enregistrer' }
+  )) || '').trim();
   if (!name) return;
   usageVersions[name] = currentUsageSnapshot();
   usageActiveVersionName = name;
@@ -3052,10 +3125,10 @@ document.getElementById('btnUsageSaveVersion').addEventListener('click', () => {
   populateUsageVersionSelect();
 });
 
-document.getElementById('btnUsageDeleteVersion').addEventListener('click', () => {
+document.getElementById('btnUsageDeleteVersion').addEventListener('click', async () => {
   const name = document.getElementById('usageVersionSelect').value;
   if (!name || !usageVersions[name]) return;
-  if (!window.confirm('Supprimer la vue « ' + name + ' » ? Cette action est irréversible.')) return;
+  if (!(await demander('Supprimer la vue « ' + name + ' » ? Elle ne pourra pas être récupérée.', { ok: 'Supprimer' }))) return;
   delete usageVersions[name];
   if (usageActiveVersionName === name) usageActiveVersionName = null;
   saveUsageState();
@@ -3112,13 +3185,14 @@ function toggleHelpUsage() {
             chevron.style.transform = el.classList.contains('hidden') ? '' : 'rotate(180deg)';
         }
 
-        grist.onRecords(records => { init(); });
-
+        // Chargement unique au démarrage. (Avant : à chaque modification de la table liée au widget,
+        // ce qui vidait le formulaire en cours de saisie.)
         async function init() {
             await loadTables();
         }
 
-        async function loadTables() {
+        /** Remplit la liste des tables ; « garder » : table à resélectionner (après un enregistrement). */
+        async function loadTables(garder) {
             try {
                 const tablesData = await grist.docApi.fetchTable('_grist_Tables');
                 const select = document.getElementById('tableSelect');
@@ -3132,10 +3206,11 @@ function toggleHelpUsage() {
                         select.appendChild(option);
                     }
                 });
+                if (garder && tablesData.tableId.includes(garder)) select.value = garder;
                 handleTableChange();
             } catch (err) {
                 console.error(err);
-                alert("Erreur lors du chargement des tables : " + err.message);
+                avis("Erreur lors du chargement des tables : " + err.message, 'erreur');
             }
         }
 
@@ -3197,7 +3272,7 @@ function toggleHelpUsage() {
                     }
                     updateHistoryColumnVisibility();
                 } catch (err) {
-                    alert("Erreur lors de la récupération des colonnes : " + err.message);
+                    avis("Erreur lors de la lecture des colonnes : " + err.message, 'erreur');
                 }
             }
         }
@@ -3232,7 +3307,8 @@ function toggleHelpUsage() {
             return false;
         }
 
-        function addColumnRow(label = '', type = 'Text', formula = '', triggerCreate = false, triggerUpdate = false, originalId = '', internalId = '', trackHistory = false, widgetOptions = '') {
+        // idPropose : identifiant imposé pour une nouvelle colonne (ex. CreeLe pour « Créé le »)
+        function addColumnRow(label = '', type = 'Text', formula = '', triggerCreate = false, triggerUpdate = false, originalId = '', internalId = '', trackHistory = false, widgetOptions = '', idPropose = '') {
             const container = document.getElementById('columnsContainer');
             const tr = document.createElement('tr');
             tr.className = "border-b border-gray-100 hover:bg-gray-50 transition";
@@ -3240,11 +3316,16 @@ function toggleHelpUsage() {
             tr.dataset.internalId = internalId;
             tr.dataset.originalType = type;
             tr.dataset.widgetOptions = widgetOptions || '';
+            tr.dataset.idPropose = idPropose || '';
+            // cases de déclenchement d'origine : sans changement, la colonne garde son réglage exact
+            tr.dataset.triggerCreate = triggerCreate ? '1' : '';
+            tr.dataset.triggerUpdate = triggerUpdate ? '1' : '';
 
             const types = ['Text', 'Numeric', 'Int', 'Bool', 'Date', 'DateTime', 'Choice', 'Ref'];
-            let typeOptions = types.map(t => `<option value="${t}" ${type.startsWith(t) ? 'selected' : ''}>${t}</option>`).join('');
-            if (type && !types.some(t => t === type)) {
-                typeOptions += `<option value="${type}" selected>${type}</option>`;
+            const exact = types.includes(type);
+            let typeOptions = types.map(t => `<option value="${t}" ${exact && t === type ? 'selected' : ''}>${t}</option>`).join('');
+            if (type && !exact) {
+                typeOptions += `<option value="${escapeHtml(type)}" selected>${escapeHtml(type)}</option>`;
             }
 
             const isHistoryCol = (label === 'HISTORY_RAW' || label === 'HISTORY');
@@ -3255,7 +3336,7 @@ function toggleHelpUsage() {
 
             tr.innerHTML = `
                 <td class="p-2">
-                    <input type="text" value="${label}" placeholder="Ex: Nom de famille" ${readonlyAttr}
+                    <input type="text" placeholder="Ex: Nom de famille" ${readonlyAttr}
                         class="col-label border border-gray-300 rounded px-2 py-1 w-full focus:outline-indigo-500 text-sm${readonlyClass}">
                 </td>
                 <td class="p-2">
@@ -3265,7 +3346,7 @@ function toggleHelpUsage() {
                 </td>
                 <td class="p-2">
                     <textarea placeholder="Ex: $Prenom + ' ' + $Nom" ${readonlyAttr}
-                        class="col-formula border border-gray-300 rounded px-2 py-1 w-full focus:outline-indigo-500 font-mono text-sm h-12 resize-y${readonlyClass}">${formula}</textarea>
+                        class="col-formula border border-gray-300 rounded px-2 py-1 w-full focus:outline-indigo-500 font-mono text-sm h-12 resize-y${readonlyClass}"></textarea>
                 </td>
                 <td class="p-2 text-center">
                     <input type="checkbox" class="col-trigger-create h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
@@ -3285,6 +3366,9 @@ function toggleHelpUsage() {
                     <button type="button" onclick="this.closest('tr').remove(); regenerateHistoryFormula();" class="text-red-400 hover:text-red-600 font-bold">✕</button>
                 </td>
             `;
+            // libellé et formule viennent du document : posés comme valeurs, jamais comme HTML
+            tr.querySelector('.col-label').value = label;
+            tr.querySelector('.col-formula').value = formula;
             container.appendChild(tr);
         }
 
@@ -3299,14 +3383,27 @@ function toggleHelpUsage() {
         ].join('\n');
 
         function addEmailValidationColumn() {
-            addColumnRow('Courriel valide', 'Bool', EMAIL_VALID_FORMULA, false, false);
+            if (idsDuFormulaire().includes('courriel_valide')) return avis('La colonne « Courriel valide » est déjà là.', 'info');
+            addColumnRow('Courriel valide', 'Bool', EMAIL_VALID_FORMULA, false, false, '', '', false, '', 'Courriel_valide');
+        }
+
+        // Identifiants présents dans le formulaire (colonnes existantes et lignes déjà ajoutées)
+        function idsDuFormulaire() {
+            return Array.from(document.querySelectorAll('#columnsContainer tr')).map(row =>
+                (row.dataset.originalId || row.dataset.idPropose || identifiant(row.querySelector('.col-label').value)).toLowerCase());
         }
 
         function addTraceabilityColumns() {
-            addColumnRow('CrééLe', 'DateTime', 'NOW()', true, false);
-            addColumnRow('CrééPar', 'Text', 'user.Email', true, false);
-            addColumnRow('ModifiéLe', 'DateTime', 'NOW()', false, true);
-            addColumnRow('ModifiéPar', 'Text', 'user.Email', false, true);
+            const deja = idsDuFormulaire();
+            const traces = [
+                ['Créé le', 'DateTime:Europe/Paris', 'NOW()', true, false, 'CreeLe'],
+                ['Créé par', 'Text', 'user.Email', true, false, 'CreePar'],
+                ['Modifié le', 'DateTime:Europe/Paris', 'NOW()', false, true, 'ModifieLe'],
+                ['Modifié par', 'Text', 'user.Email', false, true, 'ModifiePar'],
+            ].filter(t => !deja.includes(t[5].toLowerCase()));
+            if (!traces.length) return avis('La traçabilité est déjà là (CreeLe, CreePar, ModifieLe, ModifiePar).', 'info');
+            traces.forEach(([label, type, formule, creation, modif, id]) =>
+                addColumnRow(label, type, formule, creation, modif, '', '', false, '', id));
         }
 
         // =====================================================================
@@ -3359,7 +3456,7 @@ function toggleHelpUsage() {
                         oninput="pollChoices[${i}].textColor = this.value; updatePollChoicePreview(${i})"
                         class="w-8 h-8 border border-gray-300 rounded cursor-pointer p-0.5">
                     <span id="pollChoicePreview${i}" class="text-xs font-medium px-2 py-1 rounded whitespace-nowrap min-w-[70px] text-center"
-                        style="background-color:${c.fillColor}; color:${c.textColor}">${c.value || '…'}</span>
+                        style="background-color:${c.fillColor}; color:${c.textColor}">${escapeHtml(c.value || '…')}</span>
                     <button type="button" onclick="removePollChoice(${i})" class="text-red-400 hover:text-red-600 font-bold px-1">✕</button>
                 </div>
             `).join('');
@@ -3384,7 +3481,7 @@ function toggleHelpUsage() {
 
         function removePollChoice(index) {
             if (pollChoices.length <= 1) {
-                alert("Il faut conserver au moins une valeur possible.");
+                avis("Il faut conserver au moins une valeur possible.", 'erreur');
                 return;
             }
             pollChoices.splice(index, 1);
@@ -3474,7 +3571,7 @@ function toggleHelpUsage() {
             const duplicate = pollSlots.some(s =>
                 s.date === pollSelectedDay && s.timeStart === timeStart && s.timeEnd === timeEnd);
             if (duplicate) {
-                alert("Ce créneau a déjà été ajouté.");
+                avis("Ce créneau a déjà été ajouté.", 'erreur');
                 return;
             }
 
@@ -3517,7 +3614,7 @@ function toggleHelpUsage() {
                 .map(c => ({ value: (c.value || '').trim(), fillColor: c.fillColor, textColor: c.textColor }))
                 .filter(c => c.value);
             if (cleanChoices.length === 0) {
-                alert("Veuillez indiquer au moins une valeur possible (ex : Disponible).");
+                avis("Indiquez au moins une valeur possible (ex : Disponible).", 'erreur');
                 return;
             }
             const choiceOptions = {};
@@ -3638,19 +3735,19 @@ function parsePythonTableCode(code) {
 function parseAndLoadPythonCode() {
     const code = document.getElementById('pythonCodeInput').value;
     if (!code.trim()) {
-        alert("Veuillez coller du code Python valide.");
+        avis("Collez du code Python valide.", 'erreur');
         return;
     }
 
     if (!code.includes('\n')) {
-        alert("Le code collé tient sur une seule ligne : les retours à la ligne et l'indentation ont été perdus. " +
-              "Copiez-le directement depuis la </> Vue du code de Grist (Ctrl+C) pour conserver la mise en forme.");
+        avis("Le code collé tient sur une seule ligne : les retours à la ligne et l'indentation ont été perdus. " +
+              "Copiez-le directement depuis la </> Vue du code de Grist (Ctrl+C) pour conserver la mise en forme.", 'erreur');
         return;
     }
 
     const parsed = parsePythonTableCode(code);
     if (!parsed) {
-        alert("Impossible de trouver le nom de la table (déclaration 'class NomTable:').");
+        avis("Impossible de trouver le nom de la table (déclaration 'class NomTable:').", 'erreur');
         return;
     }
 
@@ -3665,7 +3762,7 @@ function parseAndLoadPythonCode() {
 
     const keys = [...parsed.columns.keys()];
     if (keys.length === 0) {
-        alert("Aucune colonne n'a pu être extraite. Vérifiez la syntaxe.");
+        avis("Aucune colonne n'a pu être extraite : vérifiez la syntaxe.", 'erreur');
         addColumnRow();
         return;
     }
@@ -3676,92 +3773,14 @@ function parseAndLoadPythonCode() {
     });
 
     updateHistoryColumnVisibility();
-    alert(`Schéma de la table "${parsed.tableName}" analysé avec succès (${keys.length} colonnes trouvées) !`);
+    avis(`Table « ${parsed.tableName} » lue : ${keys.length} colonnes trouvées. Vérifiez-les, puis « Appliquer les modifications ».`, 'ok');
 }
 
 
-async function createUserManagement() {
-    if (!confirm("Voulez-vous créer automatiquement les tables 'Gouv_Entites' et 'Gouv_Utilisateurs' avec leurs relations et formules complexes ?")) return;
-
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Génération de l'écosystème...";
-
-    try {
-        // =================================================================
-        // 1. CRÉATION DE LA TABLE 'ENTITES' (Structure initiale + Triggers)
-        // =================================================================
-        const entitesColumns = [
-            { id: 'Nom', label: 'Nom', type: 'Text', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Parent', label: 'Parent', type: 'Ref:Gouv_Entites', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Nom_complet', label: 'Nom complet', type: 'Text', formula: "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom +\"/\"+ nom\n    parent = parent.Parent\nreturn nom", isFormula: true, recalcWhen: 0, recalcDeps: null },
-            { id: 'Mail_groupe', label: 'Mail groupe', type: 'Text', formula: "from urllib.parse import quote\npeople = Gouv_Utilisateurs.lookupRecords(Entite=rec.id)\nreturn \"Courriel groupé (%s) mailto:%s\" % (len(people), quote(\", \".join(people.Courriel)))", isFormula: true, recalcWhen: 0, recalcDeps: null },
-            { id: 'Actif', label: 'Actif', type: 'Bool', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Nbre', label: 'Nbre', type: 'Numeric', formula: "return len(Gouv_Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))", isFormula: true, recalcWhen: 0, recalcDeps: null },
-            { id: 'NbreTotal', label: 'NbreTotal', type: 'Numeric', formula: "def somme_descendants(entite):\n    enfants = Gouv_Entites.lookupRecords(Parent=entite)\n    return sum(r.Nbre for r in enfants) + sum(somme_descendants(r) for r in enfants)\n\nreturn rec.Nbre + somme_descendants(rec)", isFormula: true, recalcWhen: 0, recalcDeps: null },
-            
-            // On intègre directement la structure brute des colonnes de traçabilité
-            { id: 'CreeLe', label: 'CrééLe', type: 'DateTime' },
-            { id: 'CreePar', label: 'CrééPar', type: 'Text' },
-            { id: 'ModifieLe', label: 'ModifiéLe', type: 'DateTime' },
-            { id: 'ModifiePar', label: 'ModifiéPar', type: 'Text' }
-        ];
-        document.getElementById('info').textContent = "Ajout de la table Entites";
-        // Création de la table Entites complète en un seul appel
-        await grist.docApi.applyUserActions([['AddTable', 'Gouv_Entites', entitesColumns]]);
-
-        // Configuration des formules de traçabilité pour 'Gouv_Entites' en un seul lot d'actions
-        const entitesFormulasActions = [
-            ['ModifyColumn', 'Gouv_Entites', 'Actif', { formula: 'True', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Gouv_Entites', 'CreeLe', { formula: 'NOW()', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Gouv_Entites', 'CreePar', { formula: 'user.Email', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Gouv_Entites', 'ModifieLe', { formula: 'NOW()', isFormula: false, recalcWhen: 2 }],
-            ['ModifyColumn', 'Gouv_Entites', 'ModifiePar', { formula: 'user.Email', isFormula: false, recalcWhen: 2 }]
-        ];
-        document.getElementById('info').textContent = "Ajout des formules sur la table Entites";
-        await grist.docApi.applyUserActions(entitesFormulasActions);
-
-
-        // =================================================================
-        // 2. CRÉATION DE LA TABLE 'UTILISATEURS' (Structure initiale + Triggers)
-        // =================================================================
-        const utilisateursColumns = [
-            { id: 'Courriel', label: 'Courriel', type: 'Text', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Role', label: 'Role', type: 'Choice', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Entite', label: 'Entite', type: 'Ref:Gouv_Entites', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Actif', label: 'Actif', type: 'Bool', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Moi', label: 'Moi', type: 'Bool', formula: 'return True', isFormula: true, recalcWhen: 0, recalcDeps: null },
-            
-            // Structure brute des colonnes de traçabilité
-            { id: 'CreeLe', label: 'CrééLe', type: 'DateTime' },
-            { id: 'CreePar', label: 'CrééPar', type: 'Text' },
-            { id: 'ModifieLe', label: 'ModifiéLe', type: 'DateTime' },
-            { id: 'ModifiePar', label: 'ModifiéPar', type: 'Text' }
-        ];
-        document.getElementById('info').textContent = "Ajout de la table Utilisateurs";
-        // Création de la table Utilisateurs en un seul appel
-        await grist.docApi.applyUserActions([['AddTable', 'Gouv_Utilisateurs', utilisateursColumns]]);
-
-        // Configuration des formules de traçabilité pour 'Gouv_Utilisateurs' en un seul lot d'actions
-        const utilisateursFormulasActions = [
-            ['ModifyColumn', 'Gouv_Utilisateurs', 'Actif', { formula: 'True', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Gouv_Utilisateurs', 'CreeLe', { formula: 'NOW()', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Gouv_Utilisateurs', 'CreePar', { formula: 'user.Email', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Gouv_Utilisateurs', 'ModifieLe', { formula: 'NOW()', isFormula: false, recalcWhen: 2 }],
-            ['ModifyColumn', 'Gouv_Utilisateurs', 'ModifiePar', { formula: 'user.Email', isFormula: false, recalcWhen: 2 }]
-        ];
-        document.getElementById('info').textContent = "Ajout des formules sur la table Utilisateurs";
-        await grist.docApi.applyUserActions(utilisateursFormulasActions);
-
-        alert("Succès ! L'écosystème complet de gestion des utilisateurs a été généré avec succès et sans latence.");
-        await loadTables();
-
-    } catch (err) {
-        alert("Erreur lors de l'initialisation de la gestion utilisateurs : " + err.message);
-    } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = "Appliquer les modifications";
-    }
+// Les tables Gouv_Entites et Gouv_Utilisateurs s'installent depuis la page Administration (onglet
+// Structure), qui suit la norme à jour : l'ancien générateur créait des tables qui n'y étaient plus conformes.
+function createUserManagement() {
+    avis("Les tables Gouv_Utilisateurs et Gouv_Entites s'installent depuis la page 🛡️ Administration, onglet « Structure » (version conforme à la norme).", 'info');
 }
         // =====================================================================
         // HISTORY FEATURE
@@ -4050,6 +4069,8 @@ async function createUserManagement() {
         function buildModifyPayload(c) {
             const payload = {
                 label: c.label,
+                // norme : changer le libellé ne renomme jamais l'identifiant (les widgets et règles l'utilisent)
+                untieColIdFromLabel: true,
                 type: c.type,
                 formula: c.formula,
                 isFormula: c.isFormula,
@@ -4123,47 +4144,28 @@ async function createUserManagement() {
         }
 
         // =====================================================================
-        // HELPERS pour AddColumn + ModifyColumn séquentiels
+        // ENREGISTREMENT
         // =====================================================================
 
-        async function addNewColumn(tableName, col) {
-            document.getElementById('info').textContent = "Ajout colonne " + col.label;
-            // Étape 1 : créer la colonne (sans formule ni trigger)
-            const colInfo = { label: col.label, type: col.type };
-            if (col.widgetOptions) colInfo.widgetOptions = col.widgetOptions;
-            await grist.docApi.applyUserActions([
-                ['AddColumn', tableName, col.id, colInfo]
-            ]);
-            await new Promise(r => setTimeout(r, 500));
-
-            // Étape 2 : appliquer formule/trigger séparément si nécessaire
-            if (col.formula) {
-                document.getElementById('info').textContent = "Ajout formule sur " + col.label;
-                const payload = col.recalcWhen === 2
-                    ? buildTriggerPayload(col)   // payload réduit pour recalcWhen=2
-                    : buildModifyPayload(col);   // payload complet pour les autres cas
-                await grist.docApi.applyUserActions([
-                    ['ModifyColumn', tableName, col.id, payload]
-                ]);
-                await new Promise(r => setTimeout(r, 300));
-            }
+        /**
+         * Identifiant Grist à partir d'un libellé, selon la norme : sans accents ni espaces, majuscule
+         * initiale (« date d'arrivée » → Date_d_arrivee). Un libellé qui commence par un chiffre est préfixé.
+         */
+        function identifiant(texte) {
+            let id = (texte || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+            if (/^[0-9]/.test(id)) id = 'C_' + id;
+            return id ? id.charAt(0).toUpperCase() + id.slice(1) : '';
         }
 
-        // =====================================================================
-        // SAVE
-        // =====================================================================
-
-        async function saveStructure() {
-            const select = document.getElementById('tableSelect');
-            const saveBtn = document.getElementById('saveBtn');
-            const rows = document.querySelectorAll('#columnsContainer tr');
-            const processedColumns = [];
-
-            rows.forEach(row => {
+        /** Les lignes du formulaire, traduites en colonnes Grist (identifiant, type, formule, déclencheur). */
+        function lireFormulaire(tableChoisie) {
+            const colonnes = [];
+            for (const row of document.querySelectorAll('#columnsContainer tr')) {
                 const label = row.querySelector('.col-label').value.trim();
                 const selectedType = row.querySelector('.col-type').value;
                 const originalType = row.dataset.originalType || '';
-                // Conserver le type complet si plus précis que le type sélectionné (ex: Ref:Clients)
+                // garder le type complet s'il est plus précis que celui de la liste (ex. Ref:Clients)
                 const type = (originalType && originalType.startsWith(selectedType) && originalType !== selectedType)
                     ? originalType : selectedType;
                 const formula = row.querySelector('.col-formula').value.trim();
@@ -4171,161 +4173,118 @@ async function createUserManagement() {
                 const checkUpdate = row.querySelector('.col-trigger-update').checked;
                 const originalId = row.dataset.originalId || '';
                 const internalId = row.dataset.internalId || '';
-                const widgetOptions = row.dataset.widgetOptions || '';
+                const id = originalId || row.dataset.idPropose || identifiant(label);
+                if (!id) continue;
 
-                let colId = originalId;
-                if (!colId && label) {
-                    colId = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, '_');
+                let isFormula = false, recalcWhen = 0;
+                if (formula) {
+                    if (checkUpdate) recalcWhen = 2;          // recalculée à chaque modification de la ligne
+                    else if (!checkCreate) isFormula = true;  // colonne formule
                 }
-
-                if (colId) {
-                    let recalcWhen = 0;
-                    let isFormula = false;
-                    if (formula) {
-                        if (checkUpdate) {
-                            recalcWhen = 2;
-                            isFormula = false;
-                        } else if (checkCreate) {
-                            recalcWhen = 0;
-                            isFormula = false;
-                        } else {
-                            recalcWhen = 0;
-                            isFormula = true;
-                        }
-                    }
-
-                    processedColumns.push({
-                        id: colId,
-                        label: label || colId,
-                        type,
-                        formula,
-                        isFormula,
-                        recalcWhen,
-                        originalId,
-                        internalId,
-                        widgetOptions,
-                    });
+                // Colonne existante dont ni la formule ni les cases n'ont bougé : on garde son réglage exact
+                // (colonne formule encore vide, déclencheur « jamais »…) au lieu de la convertir par erreur.
+                const original = internalId ? (tablesCache[tableChoisie] || []).find(c => c.id === originalId) : null;
+                if (original && formula === (original.formula || '').trim()
+                    && checkCreate === (row.dataset.triggerCreate === '1') && checkUpdate === (row.dataset.triggerUpdate === '1')) {
+                    isFormula = original.isFormula;
+                    recalcWhen = original.recalcWhen;
                 }
-            });
-
-            if (processedColumns.length === 0) {
-                alert("Veuillez spécifier au moins une colonne.");
-                return;
+                colonnes.push({ id, label: label || id, type, formula, isFormula, recalcWhen, originalId, internalId,
+                    widgetOptions: row.dataset.widgetOptions || '', original });
             }
+            return colonnes;
+        }
+
+        /** Contrôles avant toute écriture : renvoie la liste des problèmes (vide si tout va bien). */
+        function controler(colonnes, tableId, nouvelle, tablesExistantes) {
+            const erreurs = [];
+            if (nouvelle) {
+                if (!tableId) erreurs.push('donnez un nom à la nouvelle table');
+                else if (tablesExistantes.some(t => t.toLowerCase() === tableId.toLowerCase())) {
+                    erreurs.push(`la table ${tableId} existe déjà : choisissez-la dans la liste pour la modifier`);
+                }
+            }
+            const existantes = new Set(nouvelle ? [] : (tablesCache[tableId] || []).map(c => c.id.toLowerCase()));
+            const vus = new Set();
+            for (const c of colonnes) {
+                const cle = c.id.toLowerCase();
+                if (vus.has(cle)) erreurs.push(`la colonne ${c.id} apparaît deux fois`);
+                vus.add(cle);
+                if (c.internalId) continue;
+                if (existantes.has(cle)) erreurs.push(`la colonne ${c.id} existe déjà dans ${tableId}`);
+                if (/^(e_?mail|mail)/i.test(c.id)) erreurs.push(`« ${c.label} » : la norme demande « Courriel », pas Email ni Mail`);
+            }
+            return erreurs;
+        }
+
+        /** Une colonne a-t-elle changé par rapport au document ? */
+        function aChange(c) {
+            const o = c.original;
+            return !o || o.label !== c.label || o.type !== c.type || (o.formula || '').trim() !== c.formula
+                || o.isFormula !== c.isFormula || o.recalcWhen !== c.recalcWhen;
+        }
+
+        /** Actions Grist pour ajouter une colonne : création, puis formule ou déclencheur. */
+        function actionsAjout(tableId, c) {
+            const info = { label: c.label, type: c.type, untieColIdFromLabel: true };
+            if (c.widgetOptions) info.widgetOptions = c.widgetOptions;
+            const actions = [['AddColumn', tableId, c.id, info]];
+            if (c.formula) {
+                actions.push(['ModifyColumn', tableId, c.id, c.recalcWhen === 2 ? buildTriggerPayload(c) : buildModifyPayload(c)]);
+            }
+            return actions;
+        }
+
+        /**
+         * Applique le formulaire en UNE seule opération Grist : tout passe ou rien ne change, et le
+         * bouton ↶ de Grist annule l'ensemble d'un coup. Les contrôles sont faits avant d'écrire.
+         */
+        async function saveStructure() {
+            const select = document.getElementById('tableSelect');
+            const saveBtn = document.getElementById('saveBtn');
+            const nouvelle = select.value === '__NEW__';
+            const tableId = nouvelle ? identifiant(document.getElementById('newTableName').value) : select.value;
+
+            const colonnes = lireFormulaire(select.value);
+            if (!colonnes.length) return avis('Indiquez au moins une colonne.', 'erreur');
 
             saveBtn.disabled = true;
-            saveBtn.textContent = "Application...";
-
+            saveBtn.textContent = 'Application…';
             try {
-                const tableId = select.value;
+                const tablesExistantes = (await grist.docApi.fetchTable('_grist_Tables')).tableId;
+                const erreurs = controler(colonnes, tableId, nouvelle, tablesExistantes);
+                if (erreurs.length) return avis("Rien n'a été modifié : " + erreurs.join(' ; ') + '.', 'erreur');
 
-                // ── CAS 1 : NOUVELLE TABLE ────────────────────────────────────
-                if (tableId === '__NEW__') {
-                    let newTableName = document.getElementById('newTableName').value.trim();
-                    if (!newTableName) {
-                        alert("Veuillez donner un nom à la nouvelle table.");
-                        return;
-                    } 
-                    newTableName = newTableName.charAt(0).toUpperCase() + newTableName.slice(1);
+                // ordre : colonnes ordinaires, puis celles recalculées à chaque modification,
+                // puis HISTORY_RAW, et HISTORY en dernier (elle lit HISTORY_RAW)
+                const rang = c => c.id === 'HISTORY' ? 3 : c.id === 'HISTORY_RAW' ? 2 : c.recalcWhen === 2 ? 1 : 0;
+                const ajouts = colonnes.filter(c => !c.internalId).sort((a, b) => rang(a) - rang(b));
+                const modifs = colonnes.filter(c => c.internalId && aChange(c)).sort((a, b) => rang(a) - rang(b));
 
-                    // Colonnes à inclure dans AddTable : tout sauf recalcWhen=2, HISTORY_RAW, HISTORY
-                    const historyRawCol = processedColumns.find(c => c.id === 'HISTORY_RAW');
-                    const historyCol    = processedColumns.find(c => c.id === 'HISTORY');
-                    const triggerUpdateCols = processedColumns.filter(c => c.recalcWhen === 2 && c.id !== 'HISTORY_RAW');
-                    const normalCols = processedColumns.filter(c => c.recalcWhen !== 2 && c.id !== 'HISTORY' && c.id !== 'HISTORY_RAW');
+                const actions = [];
+                if (nouvelle) actions.push(['AddTable', tableId, []]);
+                for (const c of ajouts) actions.push(...actionsAjout(tableId, c));
+                for (const c of modifs) actions.push(['ModifyColumn', tableId, c.originalId, buildModifyPayload(c)]);
+                if (!nouvelle && !actions.length) return avis('Aucune modification à appliquer.', 'info');
 
-                    const cleanColumns = normalCols.map(c => {
-                        const colInfo = {
-                            id: c.id, label: c.label, type: c.type,
-                            formula: c.formula, isFormula: c.isFormula,
-                            recalcWhen: c.recalcWhen, recalcDeps: null,
-                        };
-                        if (c.widgetOptions) colInfo.widgetOptions = c.widgetOptions;
-                        return colInfo;
-                    });
+                document.getElementById('info').textContent = '';
+                await grist.docApi.applyUserActions(actions);
 
-                    await grist.docApi.applyUserActions([['AddTable', newTableName, cleanColumns]]);
-                    await new Promise(r => setTimeout(r, 500));
-
-                    // Colonnes "À la modif" ordinaires (hors historique)
-                    for (const col of triggerUpdateCols) {
-                        await addNewColumn(newTableName, col);
-                    }
-
-                    // HISTORY_RAW (trigger modif)
-                    if (historyRawCol) {
-                        await new Promise(r => setTimeout(r, 500));
-                        await addNewColumn(newTableName, historyRawCol);
-                    }
-
-                    // HISTORY en dernier (référence $HISTORY_RAW)
-                    if (historyCol) {
-                        await new Promise(r => setTimeout(r, 500));
-                        await addNewColumn(newTableName, historyCol);
-                    }
-
-                    alert(`La table "${newTableName}" a été créée !`);
-
-                // ── CAS 2 : TABLE EXISTANTE ───────────────────────────────────
-                } else {
-                    const historyCol   = processedColumns.find(c => c.id === 'HISTORY');
-                    const otherColumns = processedColumns.filter(c => c.id !== 'HISTORY');
-                    
-                    for (const col of otherColumns) {
-                        if (!col.internalId) {
-                            // Nouvelle colonne à ajouter
-                            await addNewColumn(tableId, col);
-                        } else {
-                            // Colonne existante : modifier seulement si changée
-                            const original = (tablesCache[tableId] || []).find(c => c.id === col.originalId);
-                            const hasChanged = !original
-                                || original.label !== col.label
-                                || original.type !== col.type
-                                || original.formula !== col.formula
-                                || original.isFormula !== col.isFormula
-                                || original.recalcWhen !== col.recalcWhen;
-                            if (hasChanged) {
-                                await grist.docApi.applyUserActions([
-                                    ['ModifyColumn', tableId, col.originalId, buildModifyPayload(col)]
-                                ]);
-                            }
-                        }
-                    }
-
-                    // HISTORY en dernier (après HISTORY_RAW bien indexée)
-                    if (historyCol) {
-                        await new Promise(r => setTimeout(r, 500));
-                        if (!historyCol.internalId) {
-                            await addNewColumn(tableId, historyCol);
-                        } else {
-                            const original = (tablesCache[tableId] || []).find(c => c.id === historyCol.originalId);
-                            const hasChanged = !original
-                                || original.label !== historyCol.label
-                                || original.type !== historyCol.type
-                                || original.formula !== historyCol.formula
-                                || original.isFormula !== historyCol.isFormula
-                                || original.recalcWhen !== historyCol.recalcWhen;
-
-                            if (hasChanged) {
-                                await grist.docApi.applyUserActions([
-                                    ['ModifyColumn', tableId, historyCol.originalId, buildModifyPayload(historyCol)]
-                                ]);
-                            }
-                        }
-                    }
-
-                    alert(`La table "${tableId}" a été mise à jour. Pensez à rendre visibles les colonnes créées dans vos vues !`);
-                }
-
-                await loadTables();
+                await loadTables(tableId);
+                avis(nouvelle
+                    ? `Table ${tableId} créée avec ${ajouts.length} colonne(s). Ajoutez-la à une page pour la voir.`
+                    : `${tableId} : ${ajouts.length} colonne(s) ajoutée(s), ${modifs.length} modifiée(s). Pensez à afficher les nouvelles colonnes dans vos vues.`,
+                    'ok');
             } catch (err) {
-                alert("Erreur lors de la modification : " + err.message);
+                avis("Rien n'a été modifié (Grist a refusé l'opération) : " + err.message, 'erreur');
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.textContent = "Appliquer les modifications";
+                saveBtn.textContent = 'Appliquer les modifications';
             }
         }
-    
+
+        // premier chargement de la liste des tables
+        init();
 </script>
 
 
