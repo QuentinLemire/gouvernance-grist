@@ -75,7 +75,7 @@ function ongletAccueil() {
       <div class="tuile ${ko ? 'rouge' : 'vert'}"><div class="valeur">${ko ? ko : '✓'}</div><div class="libelle">${ko ? 'point(s) à corriger' : 'document en bonne santé'}</div></div>
     </div>
     <div class="grille-2">
-      <section class="carte sante"><h2>🩺 Santé du document</h2>
+      <section class="carte sante"><h2>🔎 Points de vigilance</h2>
         <ul>${c.map((x) => `<li><span>${x.voir ? '🩺' : x.ok ? '✅' : '⚠️'}</span><span>${x.texte}</span>${(!x.ok || x.voir) && x.onglet ? `<button class="bouton petit" data-onglet-aller="${x.onglet}">${x.voir ? 'Ouvrir →' : 'Corriger →'}</button>` : ''}</li>`).join('')}</ul>
       </section>
       <section class="carte"><h2>📒 Dernières actions</h2>
