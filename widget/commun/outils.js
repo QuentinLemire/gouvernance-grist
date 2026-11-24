@@ -291,8 +291,7 @@ window.Outils = (() => {
    * @throws si Grist refuse ou répond une erreur
    */
   async function api(chemin, options = {}) {
-    const lecture = !options.method || options.method === 'GET';
-    const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: lecture });
+    const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: false });
     const r = await fetch(`${baseUrl}${chemin}${chemin.includes('?') ? '&' : '?'}auth=${token}`,
       { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
     if (!r.ok) throw new Error('Grist a refusé (' + r.status + ') : ' + ((await r.text()).slice(0, 200) || chemin));
