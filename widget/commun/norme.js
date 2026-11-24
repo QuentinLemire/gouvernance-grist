@@ -395,9 +395,10 @@
     lignes.push({ principe: 'Santé', objet: 'Widgets : sorties vers internet', etat: exterieures.length ? PARTIEL : OK,
       detail: exterieures.length ? `appels vers des sites extérieurs à la norme : ${liste(exterieures)}` : 'Aucun appel hors du dépôt, de Grist et des bibliothèques de la norme',
       elements: exterieures, outil: 'explorateur' });
-    const jetons = analyses.filter((a) => a.jeton).map((a) => a.page);
+    // les outils d'administration de la norme ont besoin du jeton : seuls les widgets métier sont signalés
+    const jetons = analyses.filter((a) => a.jeton && !widgetDeLaNorme(a)).map((a) => a.page);
     if (jetons.length) lignes.push({ principe: 'Santé', objet: 'Widgets : jeton d\'accès', etat: PARTIEL,
-      detail: `widgets qui demandent un jeton d'accès au document (à réserver aux outils d'administration) : ${liste(jetons)}`,
+      detail: `widgets métier qui demandent un jeton d'accès au document (à réserver aux outils d'administration) : ${liste(jetons)}`,
       elements: jetons, outil: 'explorateur' });
     const illisibles = analyses.filter((a) => a.illisible).map((a) => a.page);
     if (illisibles.length) lignes.push({ principe: 'Santé', objet: 'Widgets : code illisible', etat: '❔',
