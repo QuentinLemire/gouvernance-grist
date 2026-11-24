@@ -55,10 +55,10 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Administration | (aucune) | `administration.html` | Utilisateurs, droits, support (clore / rouvrir), mise à la norme, paramètres, journal, aide |
 | Boîte à outils | Parametres | `boite-a-outils.html` | Outil de Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)) : schéma, gestion des tables et colonnes |
 
-Adresse : `https://raw.githack.com/QuentinLemire/gouvernance-grist/<commit>/widget/<fichier>`, liée à un commit précis.
-Pour la première pose, `main` à la place du commit convient ; ensuite, Administration → **Structure** →
-« 🔄 Mettre les pages à la dernière version » fait pointer toutes les pages sur le dernier commit
-(par `main`, raw.githack sert l'ancienne version plusieurs minutes après chaque commit).
+Adresse (GitHub Pages) : `https://quentinlemire.github.io/gouvernance-grist/widget/<fichier>?v=<commit>`.
+Pour la première pose, l'adresse sans `?v=` convient ; ensuite, Administration → **Structure** →
+« 🔄 Mettre les pages à la dernière version » fait pointer toutes les pages sur le dernier commit.
+Les anciennes adresses raw.githack (service tombé en panne le 2026-11-24) sont reconnues et remplacées par ce bouton.
 
 Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une image publique).
 

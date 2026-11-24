@@ -70,3 +70,8 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 
 ### Sauvegardes
 - Grist garde des sauvegardes automatiques (Historique du document → Versions). Vérifier qu'il y en a une récente avant une modification lourde.
+
+### raw.githack en panne (2026-11-24)
+- Le service ne répondait plus : pages Accueil, Documentation, Support, Administration et Boîte à outils vides dans toutes les applications.
+- jsDelivr et Statically servent le HTML en texte brut : inutilisables pour un widget.
+- **Parade** : GitHub Pages activé sur le dépôt (branche `main`, racine, fichier `.nojekyll`) ; adresses `https://quentinlemire.github.io/gouvernance-grist/widget/<fichier>?v=<commit>`. Le service est celui de GitHub lui-même, plus de dépendance à un tiers.

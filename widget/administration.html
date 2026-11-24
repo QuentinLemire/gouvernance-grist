@@ -162,11 +162,13 @@ const GITHUB = { proprietaire: 'QuentinLemire', depot: 'gouvernance-grist', bran
 // Adresse de lecture directe des fichiers du dépôt, et page web du dépôt (pour y déposer des fichiers à la main).
 const DEPOT = `https://raw.githubusercontent.com/${GITHUB.proprietaire}/${GITHUB.depot}/${GITHUB.branche}/`;
 const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
-// Adresse des widgets pour une version donnée (branche ou commit). Liée à un commit, l'adresse est neuve
-// pour raw.githack : servie tout de suite et toujours identique (la branche, elle, reste en cache plusieurs minutes).
-const URL_WIDGETS = (version) => `https://raw.githack.com/${GITHUB.proprietaire}/${GITHUB.depot}/${version}/widget/`;
-// Reconnaît une adresse de widget de la norme : version (branche ou commit) et fichier.
-const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]+)/widget/([^?#]+)`);
+// Les widgets sont servis par GitHub Pages (raw.githack, utilisé jusqu'au 24/11/2026, est tombé en panne).
+// Le commit est noté dans l'adresse (?v=…) : nouvelle adresse à chaque version, donc jamais d'ancienne copie
+// gardée par le navigateur, et la version des pages reste lisible dans l'onglet Structure.
+const PAGES = `https://${GITHUB.proprietaire.toLowerCase()}.github.io/${GITHUB.depot}/widget/`;
+const URL_WIDGET = (version, fichier) => `${PAGES}${fichier}?v=${version}`;
+// Reconnaît une adresse de widget de la norme : GitHub Pages (fichier, version) ou ancienne adresse raw.githack (version, fichier).
+const ADRESSE_WIDGET = new RegExp(`(?:/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]+)|${GITHUB.proprietaire}\\.github\\.io/${GITHUB.depot})/widget/([^?#]+)(?:\\?v=([0-9a-f]+))?`, 'i');
 
 /**
  * Sujets transverses de la norme, dans l'ordre d'installation conseillé.
@@ -176,9 +178,9 @@ const ADRESSE_WIDGET = new RegExp(`/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]
 /**
  * Version de ce code. À changer à chaque modification du fichier : avant de publier, la page compare
  * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
- * (raw.githack garde l'ancienne copie en cache plusieurs minutes après un commit).
+ * (GitHub Pages peut servir l'ancienne copie une à deux minutes après un commit).
  */
-const VERSION_WIDGET = '2026-11-24.1';
+const VERSION_WIDGET = '2026-11-24.3';
 
 const SUJETS = [
   // Socle : présent dans toute application.
@@ -1138,7 +1140,8 @@ async function sectionsWidgets() {
   return ((await lire('_grist_Views_section')) || []).map((s) => {
     const options = json(s.options, {}), vue = json(options.customView, {});
     const m = (vue.url || '').match(ADRESSE_WIDGET);
-    return m ? { id: s.id, options, vue, version: m[1], fichier: m[2] } : null;
+    // ancienne : page encore servie par raw.githack, à faire passer sur GitHub Pages
+    return m ? { id: s.id, options, vue, version: m[1] || m[3] || GITHUB.branche, fichier: m[2], ancienne: !!m[1] } : null;
   }).filter(Boolean);
 }
 
@@ -1157,12 +1160,12 @@ async function chargerVersions() {
 async function mettreAJourPages(bouton) {
   await occupe(bouton, async () => {
     const version = await derniereVersion(), sections = await sectionsWidgets();
-    const aFaire = sections.filter((s) => s.version !== version);
+    const aFaire = sections.filter((s) => s.version !== version || s.ancienne);
     if (!aFaire.length) return message('✅ Les pages sont déjà à la dernière version (' + version.slice(0, 7) + ').');
     await tracer('Pages mises à jour', 'version ' + version.slice(0, 7) + ' : ' + [...new Set(aFaire.map((s) => s.fichier))].join(', '));
     // En dernier : cette page-ci se recharge aussitôt sa propre adresse changée.
     await agir(aFaire.map((s) => ['UpdateRecord', '_grist_Views_section', s.id, { options: JSON.stringify({ ...s.options,
-      customView: JSON.stringify({ ...s.vue, url: URL_WIDGETS(version) + s.fichier }) }) }]));
+      customView: JSON.stringify({ ...s.vue, url: URL_WIDGET(version, s.fichier) }) }) }]));
     message('✅ ' + aFaire.length + ' page(s) mises à la version ' + version.slice(0, 7) + '.');
   });
 }
