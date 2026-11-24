@@ -62,9 +62,17 @@
   /** Pages génériques chargées par adresse depuis le dépôt (P7) ; les deux dernières : avant la console. */
   const WIDGETS_GENERIQUES = ['accueil.html', 'documentation.html', 'support.html', 'console.html', 'administration.html', 'boite-a-outils.html'];
 
-  /** Adresses de confiance : appeler ces sites n'est pas une « sortie » à surveiller. */
+  /** Sites de la norme et de Grist : les appeler n'est pas une sortie à surveiller. */
   const SITES_DE_CONFIANCE = ['quentinlemire.github.io', 'raw.githubusercontent.com', 'api.github.com', 'docs.getgrist.com',
-    'grist.numerique.gouv.fr', 'custom-widget-builder', 'getgrist.com'];
+    'grist.numerique.gouv.fr', 'custom-widget-builder', 'getgrist.com', 'Serveur Grist'];
+
+  /**
+   * Bibliothèques choisies par la norme, à leur adresse exacte (version figée) : le DSFR (police
+   * Marianne, logo), marked et DOMPurify (textes de l'accueil). Le même site appelé pour autre chose
+   * reste une sortie « extérieure ».
+   */
+  const BIBLIOTHEQUES_DE_LA_NORME = ['https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@', 'https://cdnjs.cloudflare.com/ajax/libs/marked/',
+    'https://cdnjs.cloudflare.com/ajax/libs/dompurify/'];
 
   const OK = '✅', PARTIEL = '⚠️', ABSENT = '❌';
 
@@ -356,19 +364,36 @@
   /** Un domaine internet est-il de confiance (dépôt de la norme, Grist) ? */
   const deConfiance = (domaine) => SITES_DE_CONFIANCE.some((s) => String(domaine).includes(s));
 
+  /** Adresse d'une bibliothèque choisie par la norme ? */
+  const bibliothequeDeLaNorme = (url) => BIBLIOTHEQUES_DE_LA_NORME.some((p) => String(url).startsWith(p));
+
+  /**
+   * Genre d'une sortie { domaine, adresses } : « grist » (norme ou Grist), « bibliotheque »
+   * (bibliothèque choisie par la norme) ou « exterieur » (à surveiller).
+   */
+  function genreSortie(s) {
+    if (deConfiance(s.domaine)) return 'grist';
+    return (s.adresses || []).length && s.adresses.every((a) => bibliothequeDeLaNorme(a.url)) ? 'bibliotheque' : 'exterieur';
+  }
+
+  /** Widget servi par le dépôt de la norme (accueil, console…) : relu, et prévu pour les modules facultatifs. */
+  const widgetDeLaNorme = (a) => /\/gouvernance-grist\//.test(a.url || '');
+
   /**
    * Widgets : tables citées mais absentes, sorties vers des sites extérieurs, jetons d'accès.
    * @param {object[]} analyses  résultats de Structure.analyserWidget, avec « page » (chemin de la page)
    */
   function analyseWidgets(analyses) {
     const lignes = [];
-    const absentes = analyses.filter((a) => a.absentes.length).map((a) => `${a.page} : ${a.absentes.join(', ')}`);
+    // Les widgets de la norme citent les tables des modules facultatifs (Support, Documentation) et
+    // vérifient leur présence avant de les lire : une absence n'y est pas une erreur.
+    const absentes = analyses.filter((a) => a.absentes.length && !widgetDeLaNorme(a)).map((a) => `${a.page} : ${a.absentes.join(', ')}`);
     lignes.push({ principe: 'Santé', objet: 'Widgets : tables introuvables', etat: absentes.length ? ABSENT : OK,
       detail: absentes.length ? `widgets qui lisent ou écrivent une table absente du document : ${liste(absentes)}` : 'Toutes les tables citées existent',
       elements: absentes, outil: 'explorateur' });
-    const exterieures = analyses.flatMap((a) => a.sorties.filter((s) => !deConfiance(s.domaine)).map((s) => `${a.page} → ${s.domaine}`));
+    const exterieures = analyses.flatMap((a) => a.sorties.filter((s) => genreSortie(s) === 'exterieur').map((s) => `${a.page} → ${s.domaine}`));
     lignes.push({ principe: 'Santé', objet: 'Widgets : sorties vers internet', etat: exterieures.length ? PARTIEL : OK,
-      detail: exterieures.length ? `appels vers des sites extérieurs à la norme : ${liste(exterieures)}` : 'Aucun appel hors du dépôt et de Grist',
+      detail: exterieures.length ? `appels vers des sites extérieurs à la norme : ${liste(exterieures)}` : 'Aucun appel hors du dépôt, de Grist et des bibliothèques de la norme',
       elements: exterieures, outil: 'explorateur' });
     const jetons = analyses.filter((a) => a.jeton).map((a) => a.page);
     if (jetons.length) lignes.push({ principe: 'Santé', objet: 'Widgets : jeton d\'accès', etat: PARTIEL,
@@ -418,7 +443,7 @@
 
   const Norme = {
     DEPOT, SUJETS, TRACABILITE, ROLES_GENERIQUES, WIDGETS_GENERIQUES, OK, PARTIEL, ABSENT,
-    preparer, controler, formules, colonnesInutilisees, analyseWidgets, deConfiance, synthese, enMarkdown, lireNorme,
+    preparer, controler, formules, colonnesInutilisees, analyseWidgets, genreSortie, synthese, enMarkdown, lireNorme,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Norme;
   else racine.Norme = Norme;

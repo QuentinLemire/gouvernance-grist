@@ -67,19 +67,29 @@ function pointSante(l) {
       <div class="detail">${esc(l.detail)}</div></span>${bouton}</summary>${elements}</details>`;
 }
 
-/** Sorties vers internet de tous les widgets, regroupées par site. */
+/** Sorties vers internet de tous les widgets, regroupées par site : pages qui l'appellent et adresses exactes. */
 function tableauSorties() {
   const esc = Outils.esc;
   const parDomaine = new Map();
   for (const a of etatSante.analyses) for (const s of a.sorties) {
-    if (!parDomaine.has(s.domaine)) parDomaine.set(s.domaine, new Set());
-    parDomaine.get(s.domaine).add(a.page);
+    if (!parDomaine.has(s.domaine)) parDomaine.set(s.domaine, { pages: new Set(), adresses: new Set(), genres: new Set() });
+    const x = parDomaine.get(s.domaine);
+    x.pages.add(a.page);
+    (s.adresses || []).forEach((u) => x.adresses.add(u.url));
+    x.genres.add(Norme.genreSortie(s));
   }
   if (!parDomaine.size) return '<p class="vide">Aucun widget n\'appelle internet.</p>';
-  const lignes = [...parDomaine].sort((a, b) => Norme.deConfiance(a[0]) - Norme.deConfiance(b[0]) || a[0].localeCompare(b[0]));
+  // un site est « extérieur » dès qu'un de ses appels l'est ; les extérieurs en tête
+  const genre = (x) => (x.genres.has('exterieur') ? 'exterieur' : x.genres.has('bibliotheque') ? 'bibliotheque' : 'grist');
+  const rang = { exterieur: 0, bibliotheque: 1, grist: 2 };
+  const badge = { exterieur: '<span class="badge orange">extérieur</span>', bibliotheque: '<span class="badge bleu">bibliothèque de la norme</span>', grist: '<span class="badge vert">norme ou Grist</span>' };
+  const lignes = [...parDomaine].sort((a, b) => rang[genre(a[1])] - rang[genre(b[1])] || a[0].localeCompare(b[0]));
   return `<table class="sorties"><thead><tr><th>Site appelé</th><th>Par les pages</th><th></th></tr></thead><tbody>
-    ${lignes.map(([dom, pages]) => `<tr><td><b>${esc(dom)}</b></td><td>${[...pages].map(esc).join('<br>')}</td>
-      <td>${Norme.deConfiance(dom) ? '<span class="badge vert">norme ou Grist</span>' : '<span class="badge orange">extérieur</span>'}</td></tr>`).join('')}
+    ${lignes.map(([dom, x]) => {
+      const adr = [...x.adresses];
+      return `<tr><td><b>${esc(dom)}</b>${adr.length ? `<div class="discret code-court">${adr.slice(0, 3).map(esc).join('<br>')}${adr.length > 3 ? '<br>… et ' + (adr.length - 3) + ' autre(s)' : ''}</div>` : ''}</td>
+        <td>${[...x.pages].map(esc).join('<br>')}</td><td>${badge[genre(x)]}</td></tr>`;
+    }).join('')}
   </tbody></table>`;
 }
 
