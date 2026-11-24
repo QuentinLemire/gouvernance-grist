@@ -21,6 +21,7 @@
  *      // a.absentes: ['Utilisateurs']                tables citées mais absentes du document
  *      // a.sorties : [{ domaine, adresses: [{ url, genre }] }]  appels vers internet
  *      // a.ecrit, a.jeton : le widget écrit-il dans le document ? demande-t-il un jeton d'accès ?
+ *      Structure.typeFrancais('Ref:Gouv_Entites')     // « Réf. → Gouv_Entites »
  *
  *  Lecture seule : rien n'est écrit dans le document.
  *
@@ -237,5 +238,17 @@ window.Structure = (() => {
     };
   }
 
-  return { lire, cheminPage, widget, analyserWidget, sorties };
+  // ===== 5. Types en français =====
+
+  /** Type Grist → libellé en français (« Réf. → Gouv_Entites », « Texte », « Date et heure »…). */
+  function typeFrancais(type) {
+    if (!type) return 'Texte';
+    if (type.startsWith('RefList:')) return 'Réf. multiple → ' + type.slice(8);
+    if (type.startsWith('Ref:')) return 'Réf. → ' + type.slice(4);
+    if (type.startsWith('DateTime')) return 'Date et heure';
+    return ({ Text: 'Texte', Numeric: 'Décimal', Int: 'Entier', Bool: 'Booléen', Date: 'Date', Choice: 'Choix',
+      ChoiceList: 'Choix multiple', Attachments: 'Pièces jointes', Any: 'Calcul' })[type] || type;
+  }
+
+  return { lire, cheminPage, widget, analyserWidget, sorties, typeFrancais };
 })();

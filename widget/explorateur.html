@@ -404,15 +404,8 @@ function setStatus(html, isError) {
 }
 
 // Mappe un type de colonne Grist vers une pseudo-syntaxe DBML
-/** Type Grist → type lisible en français, pour le MLD (« Réf. → Gouv_Entites », « Texte »…). */
-function typeFrancais(type) {
-  if (!type) return 'Texte';
-  if (type.startsWith('RefList:')) return 'Réf. multiple → ' + type.slice(8);
-  if (type.startsWith('Ref:')) return 'Réf. → ' + type.slice(4);
-  if (type.startsWith('DateTime')) return 'Date et heure';
-  return ({ Text: 'Texte', Numeric: 'Décimal', Int: 'Entier', Bool: 'Booléen', Date: 'Date', Choice: 'Choix',
-    ChoiceList: 'Choix multiple', Attachments: 'Pièces jointes', Any: 'Calcul' })[type] || type;
-}
+// Types en français (MLD) : fonction du socle commun
+const typeFrancais = Structure.typeFrancais;
 
 function mapGristType(type) {
   if (!type) return { dbmlType: 'text' };
