@@ -155,15 +155,8 @@ async function mettreAJourPages(bouton) {
   await occupe(bouton, async () => {
     const version = await derniereVersion();
     let sections = await sectionsWidgets();
-    // pages d'un outil de la console qui n'existe plus (ex. Utilisateurs, devenue une page Grist classique)
-    const retirees = sections.filter((s) => s.fichier === 'console.html' && MODULES_RETIRES[s.module]);
-    if (retirees.length) {
-      const vues = ((await lire('_grist_Views_section')) || []).filter((x) => retirees.some((s) => s.id === x.id)).map((x) => x.parentId);
-      await agir([...new Set(vues)].map((v) => ['RemoveView', v]));
-      await tracer('Pages remplacées', retirees.map((s) => 'outil ' + s.module + ' → page Grist classique').join(', '));
-    }
-    const anciennes = sections.filter((s) => remplacante(s.fichier));
-    if (anciennes.length || retirees.length) {
+    const anciennes = sections.filter((s) => remplacante(s.fichier) || estRetiree(s));
+    if (anciennes.length) {
       // les outils manquants d'abord : cette page-ci sera remplacée (et rechargée) en dernier
       await creerPages(null);
       sections = await sectionsWidgets();
@@ -392,6 +385,21 @@ const PAGES = [
  * (un widget, sans donnée) avant de créer la remplaçante.
  */
 const MODULES_RETIRES = { utilisateurs: 'utilisateurs' };
+const estRetiree = (s) => s.fichier === 'console.html' && !!MODULES_RETIRES[s.module];
+
+/**
+ * Retire les pages d'un outil de la console qui n'existe plus (ex. Utilisateurs, devenue une page Grist
+ * classique) : ce sont des widgets, sans donnée. La page qui les remplace est créée ensuite.
+ * @returns {Promise<string[]>} outils dont la page a été retirée
+ */
+async function retirerPagesRetirees() {
+  const retirees = (await sectionsWidgets()).filter(estRetiree);
+  if (!retirees.length) return [];
+  const vues = ((await lire('_grist_Views_section')) || []).filter((x) => retirees.some((s) => s.id === x.id)).map((x) => x.parentId);
+  await agir([...new Set(vues)].map((v) => ['RemoveView', v]));
+  await tracer('Pages remplacées', retirees.map((s) => 'outil ' + s.module + ' → page Grist classique').join(', '));
+  return retirees.map((s) => s.module);
+}
 
 /** La page standard affichée par une adresse de widget (fichier, et module pour la console), ou undefined. */
 function pageDeLAdresse(url) {
@@ -430,6 +438,7 @@ async function lirePages() {
  */
 async function creerPages(bouton, seulement = null) {
   await occupe(bouton, async () => {
+    if (!seulement) await retirerPagesRetirees();
     const presentes = new Set((await lirePages()).map((p) => p.cle));
     const tableRef = (t) => etat.meta.parId[t]?.id;
     const creees = [];
