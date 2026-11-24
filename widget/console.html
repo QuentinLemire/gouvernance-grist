@@ -41,6 +41,9 @@
   #menu button.a-venir { color: #9a9a9a; }
   #modules { overflow: auto; min-width: 0; background: var(--fond); }
   .module { min-height: 100%; }
+  /* Une page par outil (?module=…) : pas de menu, le module occupe toute la page */
+  body.page-unique .console { grid-template-columns: 1fr; }
+  body.page-unique #menu { display: none; }
   @media (max-width: 760px) { .console { grid-template-columns: 1fr; } #menu { border-right: none; border-bottom: 1px solid var(--bordure); } }
 </style>
 </head>

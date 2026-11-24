@@ -5,13 +5,16 @@
  *
  *  À quoi ça sert
  *  --------------
- *  La console (console.html) est une seule page Grist qui réunit tous les outils
- *  d'administration. Pour rester légère, elle ne charge un module que la première
- *  fois qu'on l'ouvre ; ensuite on passe d'un module à l'autre sans rien recharger.
+ *  console.html sert les outils d'administration de deux façons :
+ *    - une page par outil (recommandé) : console.html?module=atelier n'affiche que l'Atelier,
+ *      sans menu ; la page ne charge que le socle et ce module ;
+ *    - la console complète (console.html sans module) : un menu à gauche, chaque module chargé
+ *      la première fois qu'on l'ouvre.
+ *  Un lien d'un outil vers un autre (« Corriger → ») ouvre l'autre module sur place.
  *  Ce noyau :
  *    - déclare la liste des modules et dessine le menu ;
  *    - charge un module à la demande (son affichage admin/<cle>.html, puis son code admin/<cle>.js) ;
- *    - ouvre directement un module demandé dans l'adresse (console.html?module=atelier) ;
+ *    - charge d'abord les fichiers dont un module dépend (le moteur admin/gestion.js) ;
  *    - écrit dans le document en journalisant TOUJOURS l'action (Console.ecrire) ;
  *    - expose les raccourcis du socle aux modules (avis, demander, identifiant, escapeHtml).
  *
@@ -33,20 +36,21 @@ grist.ready({ requiredAccess: 'full' });
 
 window.Console = (() => {
   /**
-   * Modules de la console, dans l'ordre du menu.
+   * Modules, dans l'ordre du menu.
    * cle : nom des fichiers admin/<cle>.html et admin/<cle>.js ; rubrique : titre du groupe dans le menu ;
-   * aVenir : module annoncé, pas encore livré (grisé dans le menu).
+   * avec : fichiers à charger d'abord (le moteur de l'administration) ; aVenir : pas encore livré.
    */
+  const GESTION = ['admin/gestion.js'];
   const MODULES = [
-    { cle: 'tableau', titre: '🏠 Tableau de bord', rubrique: '', aVenir: true },
-    { cle: 'utilisateurs', titre: '👥 Utilisateurs', rubrique: 'Personnes', aVenir: true },
-    { cle: 'droits', titre: '🔐 Rôles et droits', rubrique: 'Personnes', aVenir: true },
+    { cle: 'tableau', titre: '🏠 Tableau de bord', rubrique: '', avec: GESTION },
+    { cle: 'utilisateurs', titre: '👥 Utilisateurs', rubrique: 'Personnes', avec: GESTION },
+    { cle: 'droits', titre: '🔐 Rôles et droits', rubrique: 'Personnes', avec: GESTION },
     { cle: 'explorateur', titre: '🔍 Explorateur', rubrique: 'Données' },
     { cle: 'atelier', titre: '🏗️ Atelier', rubrique: 'Données' },
     { cle: 'sante', titre: '🩺 Santé du document', rubrique: 'Qualité', aVenir: true },
-    { cle: 'support', titre: '🆘 Support', rubrique: 'Support', aVenir: true },
-    { cle: 'maintenance', titre: '🧱 Maintenance', rubrique: 'Maintenance', aVenir: true },
-    { cle: 'aide', titre: '❓ Aide', rubrique: '', aVenir: true },
+    { cle: 'support', titre: '🆘 Support', rubrique: 'Support', avec: GESTION },
+    { cle: 'maintenance', titre: '🧱 Maintenance', rubrique: 'Maintenance', avec: GESTION },
+    { cle: 'aide', titre: '❓ Aide', rubrique: '', avec: GESTION },
   ];
 
   // Version de la page (?v=…) : les fichiers des modules sont chargés avec la même, jamais une ancienne copie
@@ -70,20 +74,31 @@ window.Console = (() => {
     return z;
   }
 
-  /** Charge un module : son affichage, puis son code. Une seule fois, même si on clique deux fois. */
+  const scripts = new Map();      // fichier → promesse : chaque script n'est chargé qu'une fois
+  /** Charge un script (avec la version de la page), une seule fois. */
+  function script(chemin) {
+    if (!scripts.has(chemin)) {
+      scripts.set(chemin, new Promise((ok, ko) => {
+        const s = document.createElement('script');
+        s.src = adresse(chemin);
+        s.onload = ok;
+        s.onerror = () => { scripts.delete(chemin); ko(new Error('fichier introuvable : ' + chemin)); };
+        document.body.appendChild(s);
+      }));
+    }
+    return scripts.get(chemin);
+  }
+
+  /** Charge un module : ses dépendances, son affichage, puis son code. Une seule fois. */
   function charger(cle) {
     if (!charges.has(cle)) {
+      const m = MODULES.find((x) => x.cle === cle);
       charges.set(cle, (async () => {
         const r = await fetch(adresse('admin/' + cle + '.html'));
         if (!r.ok) throw new Error('affichage du module introuvable (' + r.status + ')');
         zone(cle).innerHTML = await r.text();
-        await new Promise((ok, ko) => {
-          const s = document.createElement('script');
-          s.src = adresse('admin/' + cle + '.js');
-          s.onload = ok;
-          s.onerror = () => ko(new Error('code du module introuvable'));
-          document.body.appendChild(s);
-        });
+        for (const d of m.avec || []) await script(d);
+        await script('admin/' + cle + '.js');
       })());
     }
     return charges.get(cle);
@@ -105,7 +120,7 @@ window.Console = (() => {
       charges.delete(m.cle);
       z.innerHTML = '<div class="encadre erreur" style="margin:24px">Le module n\'a pas pu être chargé : ' + escapeHtml(e.message) + '</div>';
     }
-    history.replaceState(null, '', '#' + m.cle);
+    if (!document.body.classList.contains('page-unique')) history.replaceState(null, '', '#' + m.cle);
   }
 
   /** Menu de gauche : les modules groupés par rubrique ; ceux à venir sont grisés. */
@@ -145,9 +160,11 @@ window.Console = (() => {
     const b = e.target.closest('[data-module]');
     if (b) ouvrir(b.dataset.module);
   });
-  const demande = new URLSearchParams(location.search).get('module') || location.hash.slice(1);
+  // Une page par outil : ?module=… n'affiche que ce module, sans menu.
+  const demande = new URLSearchParams(location.search).get('module');
+  if (demande) document.body.classList.add('page-unique');
   dessinerMenu();
-  ouvrir(demande);
+  ouvrir(demande || location.hash.slice(1));
 
   return { zone, ouvrir, quandAffiche, ecrire, modules: MODULES };
 })();
