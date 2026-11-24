@@ -525,6 +525,9 @@ const ressource = (id) => etat.acl.ressources.find((r) => r.id === id);
 /** Règles d'accès écrites par le panneau des droits (mention [Admin]) ; lues aussi par le tableau de bord. */
 const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.memo || '').startsWith(MARQUE));
 
+/** Ce document est-il la source de la norme (Grist Gouvernance) ? Oui si Parametres.Source_norme vaut « oui ». */
+const estSource = () => /^oui$/i.test(parametres().Source_norme || '');
+
 // --- Démarrage -------------------------------------------------------------------------------------
 
 // Style propre à l'administration (matrice des droits, fiches du support…), chargé avec la version de la page

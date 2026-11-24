@@ -4,8 +4,6 @@
  */
 // --- 9. Onglet « Structure » : sujets transverses du dépôt Git -----------------------------------
 
-/** Ce document est-il la source de la norme (Grist Gouvernance) ? Oui si Parametres.Source_norme vaut « oui ». */
-const estSource = () => /^oui$/i.test(parametres().Source_norme || '');
 
 /**
  * Décrit une colonne du document au format des fichiers de la norme, pour la publier.
