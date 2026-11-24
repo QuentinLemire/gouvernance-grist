@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<!--
+  =====================================================================
+  🔍 Explorateur du document — Boîte à outils Grist V2 (DGOM)
+  =====================================================================
+  Idée et première version : Florent Ballu (Boîte à outils, https://github.com/balludgom/TableManager).
+  Version 2 : Quentin Lemire, 24/11/2026.
+
+  Comprendre un document, sans rien modifier :
+    - 📊 Diagramme       les tables et leurs liens (références) ;
+    - 🗺️ Pages ↔ Données quelle page affiche quelle table, et ce que lisent les widgets ;
+    - 🔗 DBML            le schéma au format DBML (pour dbdiagram.io et autres outils) ;
+    - 🧩 Widgets         pour chaque widget : tables et colonnes utilisées, et toutes ses
+                          sorties vers internet (bibliothèques, adresses appelées).
+  Seules écritures : les dispositions enregistrées des schémas (options du widget, « Vue »).
+
+  Socle commun : commun/outils.js (messages), commun/structure.js (lecture de la structure,
+  analyse des widgets), commun/dsfr-grist.css (styles partagés).
+  Accès requis : « Accès complet au document ».
+  =====================================================================
+-->
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Explorateur du document</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<link rel="stylesheet" href="commun/dsfr-grist.css">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2430;
+    --muted: #6b7280;
+    --border: #e3e5e8;
+    --accent: #2f855a;
+    --accent-bg: #eaf7f0;
+    --code-bg: #0f172a;
+    --code-fg: #e2e8f0;
+    --warn-bg: #fff8e6;
+    --warn-fg: #92700a;
+  }
+  #app-explorer, #app-explorer * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  #app-explorer {
+    display: flex; flex-direction: column; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--fg); background: var(--bg);
+    font-size: 13px;
+  }
+  #app-explorer header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #app-explorer header h1 { font-size: 14px; margin: 0; font-weight: 600; flex: 1; }
+  #app-explorer button {
+    font: inherit; cursor: pointer; color: var(--fg);
+  }
+  #app-explorer button:hover { background: #f4f5f6; }
+  #app-explorer button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #app-explorer button.primary:hover { filter: brightness(1.05); }
+  .tabs { display: flex; gap: 4px; padding: 6px 14px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab {
+    padding: 6px 12px; cursor: pointer; border-bottom: 2px solid transparent;
+    color: var(--muted); font-weight: 500;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  #app-explorer main { flex: 1; overflow: auto; padding: 10px 14px; }
+  .status { padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); margin-bottom: 12px; }
+  .status.error { background: #fdecea; color: #b3261e; }
+  pre#dbml {
+    background: var(--code-bg); color: var(--code-fg); padding: 16px; border-radius: 8px;
+    overflow: auto; white-space: pre; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; line-height: 1.5; max-height: calc(100vh - 160px);
+  }
+  .top-bars-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap; /* Permet un retour à la ligne propre si l'écran est trop étroit */
+  }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .toolbar-check {
+    display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
+    font-size: 12px; cursor: pointer; margin-left: 4px; user-select: none;
+  }
+  .toolbar-check input { cursor: pointer; }
+  .version-bar {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    padding: 6px 10px; background: #f4f6fb; border: 1px solid var(--border); border-radius: 8px;
+  }
+  .version-bar-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .version-bar select {
+    font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 6px; background: #fff; color: var(--fg); max-width: 240px;
+  }
+  .version-bar button { font-size: 12.5px; padding: 4px 9px; }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+  .card {
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fff;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 13.5px; }
+  .card .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .badge {
+    display: inline-block; background: var(--accent-bg); color: var(--accent);
+    border-radius: 5px; padding: 1px 7px; font-size: 11.5px; font-weight: 600; margin-right: 4px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .chip {
+    background: #f1f2f4; border: 1px solid var(--border); border-radius: 12px;
+    padding: 2px 9px; font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .section-label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; margin: 8px 0 3px; }
+  .url { word-break: break-all; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  code.inline { background: #f1f2f4; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  footer.note { padding: 5px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11.5px; flex-shrink: 0; }
+
+  #diagramWrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    height: calc(100vh - 150px); min-height: 480px; position: relative;
+    background: #fbfbfc; cursor: grab;
+    background-image: radial-gradient(circle, #e3e5e8 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  #diagramWrap.grabbing { cursor: grabbing; }
+  #diagramSvg { display: block; }
+  .dg-table-box rect.dg-header { fill: var(--accent); }
+  .dg-table-box rect.dg-body { fill: #ffffff; stroke: var(--border); stroke-width: 1; }
+  .dg-table-box text.dg-title { fill: #ffffff; font-weight: 700; font-size: 12.5px; font-family: -apple-system, sans-serif; }
+  .dg-table-box text.dg-col { font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; fill: var(--fg); }
+  .dg-table-box text.dg-col-type { fill: var(--muted); }
+  .dg-table-box rect.dg-row-pk { fill: var(--accent-bg); }
+  .dg-rel-path { fill: none; stroke-width: 1.6; opacity: 0.85; }
+  .dg-rel-path:hover { opacity: 1; stroke-width: 2.4; }
+  .zoom-controls { display: flex; gap: 6px; }
+  .zoom-controls button { width: 30px; padding: 5px 0; }
+  #hiddenBar, #usageHiddenBar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    padding: 8px 10px; margin-bottom: 10px; background: var(--warn-bg); border-radius: 8px;
+  }
+  #hiddenBar .hb-label, #usageHiddenBar .hb-label,{ color: var(--warn-fg); font-size: 12px; font-weight: 600; margin-right: 2px; }
+  .hb-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    padding: 2px 4px 2px 10px; font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .hb-chip button {
+    border: none; background: transparent; border-radius: 50%; width: 18px; height: 18px;
+    padding: 0; line-height: 1; color: var(--muted);
+  }
+  .hb-chip button:hover { background: #f1f2f4; color: var(--fg); }
+  .dg-table-box { cursor: grab; }
+  .dg-table-box.dg-dragging { cursor: grabbing; }
+  .dg-hide-btn { cursor: pointer; }
+  .dg-hide-btn circle { transition: fill 0.1s; }
+  .dg-hide-btn:hover circle { fill: rgba(255,255,255,0.4); }
+
+  #usageWrap {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    height: calc(100vh - 150px); min-height: 480px; position: relative;
+    background: #fbfbfc; cursor: grab;
+    background-image: radial-gradient(circle, #e3e5e8 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  #usageWrap.grabbing { cursor: grabbing; }
+  #usageSvg { display: block; }
+  .ug-table-box rect.dg-header { fill: #2b6cb0; }
+  .ug-source-label { fill: var(--muted); }
+  .ug-tree-link { fill: none; stroke: #b7bfcc; stroke-width: 1.4; stroke-dasharray: 3 3; }
+  .ug-code-link { fill: none; stroke: #8a8fa3; stroke-width: 1.3; stroke-dasharray: 5 3; opacity: 0.8; }
+  .ug-code-link:hover { opacity: 1; stroke-width: 2; }
+  .dg-code-link { fill: none; stroke: #9f7aea; stroke-width: 1.4; stroke-dasharray: 5 3; opacity: 0.8; }
+  .dg-code-link:hover { opacity: 1; stroke-width: 2.2; }
+
+  .kind-badge {
+    display: inline-block; border-radius: 5px; padding: 1px 7px; font-size: 11px; font-weight: 600;
+    margin-right: 6px; vertical-align: middle;
+  }
+  .kind-badge.builder { background: var(--accent-bg); color: var(--accent); }
+  .kind-badge.url { background: #e8f0fe; color: #1a56db; }
+
+  /* ---------------------------------------------------------------- */
+  /* Écran d'accueil : choix entre les deux outils                    */
+  /* ---------------------------------------------------------------- */
+  #home {
+    min-height: 100%; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #f7f8fa, #eef1f5);
+    padding: 20px 20px; box-sizing: border-box;
+  }
+  #home .home-inner { width: 100%; text-align: center; }
+  #home h1 { font-size: 26px; margin: 0 0 30px;  color: #1f2430; }
+  #home p.home-subtitle { color: #6b7280; margin: 0 0 30px; font-size: 14px; }
+  #home .home-buttons { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  #home .home-btn {
+    flex: 1 1 340px; max-width: 600px; text-align: left; cursor: pointer;
+    background: #fff; border: 1px solid #e3e5e8; border-radius: 14px; padding: 26px;
+    display: flex; flex-direction: column; gap: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    font: inherit; color: #1f2430;
+  }
+  #home .home-btn:hover {
+    transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.09); border-color: #94a3b8;
+  }
+  #home .home-btn.explorer:hover { border-color: #2f855a; }
+  #home .home-btn.manager:hover { border-color: #4f46e5; }
+  #home .home-btn-icon { font-size: 36px; line-height: 1; }
+  #home .home-btn-title { font-size: 25px; font-weight: 700; }
+  #home .home-btn-desc { font-size: 12.5px; color: #6b7280; line-height: 1.55; margin-top:15px;}
+  #home .explain { font-size: 12px; color: #6b7280; margin-top: 30px }
+  
+
+  /* --- Explorateur V2 : en-tête, aides, onglet Widgets --- */
+  html, body { height: 100%; background: var(--bg); }
+  .hidden { display: none !important; }
+  .aide-onglet { position: relative; padding-right: 40px; }
+  .fermer-aide { position: absolute; top: 6px; right: 8px; border: none; background: none; cursor: pointer; color: var(--muted); }
+  .fiche-widget h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 14px; }
+  .kind-badge.ecrit { background: #fff1e6; color: #b34000; }
+  .kind-badge.jeton { background: #fdecec; color: #ce0500; }
+  .colonnes-fiche { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 10px; }
+  @media (max-width: 760px) { .colonnes-fiche { grid-template-columns: 1fr; } }
+  .ligne-table { margin-bottom: 6px; }
+  details.sortie { margin-bottom: 6px; }
+  details.sortie summary { cursor: pointer; }
+  details.sortie ul { margin: 6px 0 0 18px; padding: 0; }
+  details.sortie li { margin-bottom: 3px; word-break: break-all; }
+  .tableau-sorties { border-collapse: collapse; width: 100%; }
+  .tableau-sorties th, .tableau-sorties td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+</style>
+</head>
+<body>
+<div id="app-explorer">
+  <header>
+    <h1>🔍 Explorateur du document</h1>
+    <button id="btnRefresh">↻ Actualiser</button>
+  </header>
+  <div class="tabs">
+    <div class="tab active" data-tab="diagram">📊 Diagramme</div>
+    <div class="tab" data-tab="usage">🗺️ Pages ↔ Données</div>
+    <div class="tab" data-tab="dbml">🔗 DBML</div>
+    <div class="tab" data-tab="widgets">🧩 Widgets</div>
+  </div>
+  <main>
+    <div id="statusBox"></div>
+    <div id="panel-diagram">
+      <div id="help-diagram" class="status hidden aide-onglet" style="margin-bottom:12px;">
+        <button onclick="toggleHelpDiagram()" class="fermer-aide" title="Fermer l\'aide">
+          <span class="text-sm font-semibold">x</span>
+        </button> 
+        <p>📁 Vue » permet d'enregistrer plusieurs dispositions nommées (ex. « Métier », « Support », « Administration ») — chacune capture les éléments masqués, les positions déplacées et, pour le diagramme de schéma, l'affichage des colonnes non liées ; tout est stocké dans les options du widget. 
+        </p>
+      </div>
+      <div class="top-bars-container">
+        <div class="toolbar">
+          <button onclick="toggleHelpDiagram()" class="zoom-controls">
+                <span>❓</span>
+          </button>
+          <button id="btnFit">⤢ Ajuster à l'écran</button>
+          <div class="zoom-controls">
+            <button id="btnZoomOut">−</button>
+            <button id="btnZoomIn">+</button>
+          </div>
+          <button id="btnDownloadSvg">⬇ Télécharger .svg</button>
+          <button id="btnResetLayout">↺ Réinitialiser la disposition</button>
+          <button id="btnHideAll">🙈 Tout masquer</button>
+          <label class="toolbar-check">
+            <input type="checkbox" id="chkShowUnlinkedColumns" checked>
+            Afficher les colonnes sans lien avec une autre table
+          </label>
+          <label class="toolbar-check">
+            <input type="checkbox" id="chkHideSummaryTables">
+            Masquer les tables de regroupement (*_summary_*)
+          </label>
+        </div>
+        <div class="version-bar">
+          <span class="version-bar-label">📁 Vue :</span>
+          <select id="diagramVersionSelect"></select>
+          <button id="btnDiagramSaveVersion">💾 Enregistrer sous…</button>
+          <button id="btnDiagramDeleteVersion" disabled>🗑 Supprimer</button>
+        </div>
+      </div>
+      <div id="hiddenBar" class="hidden"></div>
+      <div id="diagramWrap">
+        <svg id="diagramSvg" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z"></path>
+            </marker>
+          </defs>
+          <g id="diagramRoot"></g>
+        </svg>
+      </div>
+    </div>
+    <div id="panel-usage" style="display:none;">
+      <div id="help-usage" class="status hidden aide-onglet" style="margin-bottom:12px;">
+        <button onclick="toggleHelpUsage()" class="fermer-aide" title="Fermer l\'aide">
+          <span class="text-sm font-semibold">x</span>
+        </button> 
+        <p>Colonne de gauche : les <strong>pages</strong> du document (organisées selon la même hiérarchie que le
+        panneau de pages de Grist, d'après <code class="inline">_grist_Pages</code>) et les widgets (vues)
+        qu'elles contiennent — les traits en pointillés gris relient une page à ses sous-pages.
+        Colonne de droite : les <strong>tables sources</strong> du document. Chaque trait coloré relie un
+        widget à la table qu'il affiche (<code class="inline">tableRef</code> de la section). Pour les
+        widgets personnalisés (Custom widget builder ou URL externe), des traits gris <strong>en
+        pointillés</strong> relient en plus le widget aux autres tables que son code utilise réellement
+        (détectées via <code class="inline">grist.docApi.fetchTable(...)</code> /
+        <code class="inline">grist.onRecords(...)</code>, comme dans l'onglet « 🧱 Custom widgets »).</p>
+
+        <p>📁 Vue » permet d'enregistrer plusieurs dispositions nommées (ex. « Métier », « Support », « Administration ») — chacune capture les éléments masqués, les positions déplacées et, pour le diagramme de schéma, l'affichage des colonnes non liées ; tout est stocké dans les options du widget. 
+        </p>
+      </div>
+      <div class="top-bars-container">
+        <div class="toolbar">
+          <button onclick="toggleHelpUsage()" class="zoom-controls">
+                <span>❓</span>
+          </button>
+          <button id="btnUsageFit">⤢ Ajuster à l'écran</button>
+          <div class="zoom-controls">
+            <button id="btnUsageZoomOut">−</button>
+            <button id="btnUsageZoomIn">+</button>
+          </div>
+          <button id="btnUsageDownloadSvg">⬇ Télécharger .svg</button>
+          <button id="btnUsageResetLayout">↺ Réinitialiser la disposition</button>
+          <button id="btnUsageHideAll">🙈 Tout masquer</button>
+          
+        </div>
+        <div class="version-bar">
+          <span class="version-bar-label">📁 Vue :</span>
+          <select id="usageVersionSelect"></select>
+          <button id="btnUsageSaveVersion">💾 Enregistrer sous…</button>
+          <button id="btnUsageDeleteVersion" disabled>🗑 Supprimer</button>
+        </div>
+      </div>
+      <div id="usageHiddenBar" class="hidden"></div>
+      <div id="usageWrap">
+        <svg id="usageSvg" xmlns="http://www.w3.org/2000/svg">
+          <defs></defs>
+          <g id="usageRoot"></g>
+        </svg>
+      </div>
+    </div>
+    <div id="panel-dbml" style="display:none;">
+      <div class="toolbar">
+        <button id="btnCopy">📋 Copier le DBML</button>
+        <button id="btnDownload">⬇ Télécharger .dbml</button>
+      </div>
+      <pre id="dbml">Chargement…</pre>
+    </div>
+    <div id="panel-widgets" style="display:none;">
+      <div class="status" style="margin-bottom:12px;">
+        Pour chaque widget du document : d'où il vient, les tables et colonnes qu'il utilise, et <b>toutes ses
+        sorties vers internet</b> (bibliothèques chargées, adresses appelées). Les widgets chargés par adresse sont
+        téléchargés pour être lus, avec les fichiers du même site qu'ils chargent.
+      </div>
+      <div class="toolbar">
+        <input id="filtreWidgets" type="search" placeholder="Filtrer : widget, page, table, colonne, domaine…" style="flex:1; min-width:220px; padding:6px 10px; border:1px solid var(--border);">
+      </div>
+      <div id="widgetsList"><div class="empty">Chargement…</div></div>
+    </div>
+  </main>
+</div>
+
+
+<script src="commun/outils.js"></script>
+<script src="commun/structure.js"></script>
+<script>
+grist.ready({ requiredAccess: 'full' });
+// Socle commun : messages dans la page et échappement
+const { avis, demander } = Outils;
+const escapeHtml = Outils.esc;
+
+function toRecords(table) {
+  const keys = Object.keys(table || {});
+  if (!keys.length || !table.id) return [];
+  const n = table.id.length;
+  const records = [];
+  for (let i = 0; i < n; i++) {
+    const rec = {};
+    for (const k of keys) rec[k] = table[k][i];
+    records.push(rec);
+  }
+  return records;
+}
+
+function setStatus(html, isError) {
+  const box = document.getElementById('statusBox');
+  if (!html) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="status' + (isError ? ' error' : '') + '">' + html + '</div>';
+}
+
+// Mappe un type de colonne Grist vers une pseudo-syntaxe DBML
+function mapGristType(type) {
+  if (!type) return { dbmlType: 'text' };
+  if (type.startsWith('Ref:')) {
+    return { dbmlType: 'integer', refTable: type.slice(4), isList: false };
+  }
+  if (type.startsWith('RefList:')) {
+    return { dbmlType: 'integer[]', refTable: type.slice(8), isList: true };
+  }
+  if (type.startsWith('DateTime')) return { dbmlType: 'timestamp' };
+  const map = {
+    Text: 'varchar',
+    Numeric: 'decimal',
+    Int: 'integer',
+    Bool: 'boolean',
+    Date: 'date',
+    Choice: 'varchar',
+    ChoiceList: 'varchar[]',
+    Attachments: 'attachment[]',
+    Any: 'any',
+  };
+  return { dbmlType: map[type] || type.toLowerCase() };
+}
+
+function sanitizeDbmlId(id) {
+  // Entoure d'accents graves si l'identifiant contient des caractères non standards
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(id) ? id : '`' + id + '`';
+}
+
+// ---------- Construction du DBML ----------
+
+function buildDbml(tables, columns) {
+  const colsByTable = {};
+  for (const c of columns) {
+    if (c.colId === 'manualSort' || String(c.colId).startsWith('gristHelper_')) continue;
+    (colsByTable[c.parentId] = colsByTable[c.parentId] || []).push(c);
+  }
+  for (const arr of Object.values(colsByTable)) {
+    arr.sort((a, b) => a.parentPos - b.parentPos);
+  }
+
+  const sortedTables = tables.slice().sort((a, b) => a.tableId.localeCompare(b.tableId));
+  const refs = [];
+  let out = '';
+
+  if (!sortedTables.length) {
+    return '// Aucune table trouvée dans ce document.';
+  }
+
+  for (const t of sortedTables) {
+    out += 'Table ' + sanitizeDbmlId(t.tableId) + ' {\n';
+    out += '  id integer [pk]\n';
+    for (const c of (colsByTable[t.id] || [])) {
+      const { dbmlType, refTable, isList } = mapGristType(c.type);
+      const noteParts = [];
+      if (c.isFormula) noteParts.push('formule');
+      if (isList) noteParts.push('RefList');
+      const note = noteParts.length ? '  // ' + noteParts.join(', ') : '';
+      out += '  ' + sanitizeDbmlId(c.colId) + ' ' + dbmlType + note + '\n';
+      if (refTable) {
+        refs.push({ from: t.tableId, col: c.colId, to: refTable, isList });
+      }
+    }
+    out += '}\n\n';
+  }
+
+  if (refs.length) {
+    out += '// Relations (colonnes de type Ref: / RefList:)\n';
+    for (const r of refs) {
+      const comment = r.isList ? '  // liste de références (RefList)' : '';
+      out += 'Ref: ' + sanitizeDbmlId(r.from) + '.' + sanitizeDbmlId(r.col) +
+             ' > ' + sanitizeDbmlId(r.to) + '.id' + comment + '\n';
+    }
+  } else {
+    out += '// Aucune relation (colonne Ref: / RefList:) détectée entre les tables.\n';
+  }
+
+  return out;
+}
+
+// ---------- Diagramme graphique (SVG) ----------
+
+const REL_COLORS = ['#2f855a', '#2b6cb0', '#b7791f', '#9f2b68', '#c05621', '#276749', '#5a67d8', '#b83280'];
+
+// État interactif du diagramme : tables masquées et tables déplacées manuellement.
+// Persisté dans les options du widget (grist.setOption) pour survivre aux rechargements.
+let hiddenTableIds = new Set();
+let manualPositions = {}; // { tableId: {x, y} }
+let diagramTables = [];   // dernières données chargées, pour pouvoir re-rendre sans refetch
+let diagramColumns = [];
+let saveStateTimer = null;
+let showUnlinkedColumns = true; // false = ne montrer que la clé primaire et les colonnes Ref/RefList
+let hideSummaryTables = false; // true = masquer les tables de regroupement (*_summary_*)
+const viewState = { scale: 1 }; // échelle courante du canevas, lue par le glisser-déposer des tables
+
+// Vues nommées ("métier", "support", "administration"...) : chacune capture un instantané de
+// (tables masquées, positions, affichage des colonnes non liées). Le "brouillon" courant ci-dessus
+// est toujours auto-sauvegardé ; les vues nommées ne changent que quand on clique "Enregistrer sous…".
+let diagramVersions = {};          // { nomDeLaVue: { hidden, positions, showUnlinkedColumns } }
+let diagramActiveVersionName = null; // dernière vue nommée chargée/enregistrée (ou null = brouillon)
+
+// Même principe pour le diagramme "Pages ↔ Données" : items masqués (préfixés "page:"/"table:") et
+// positions déplacées manuellement, persistés séparément.
+let usageHiddenIds = new Set();
+let usageManualPositions = {}; // { itemId: {x, y} }
+let usageSections = [];
+let usageViews = [];
+let usageTables = [];
+let usagePages = [];
+let usageSaveStateTimer = null;
+let usageVersions = {};          // { nomDeLaVue: { hidden, positions } }
+let usageActiveVersionName = null;
+
+// Tables utilisées par le code des widgets personnalisés (builder ou URL), détectées pour l'onglet
+// "🧱 Custom widgets" (grist.docApi.fetchTable / grist.onRecords). Réutilisé ici pour tracer des liens
+// supplémentaires sur le diagramme "Pages ↔ Données" : { sectionId: [tableId, ...] }.
+let usageCodeUsageBySectionId = {};
+
+// Détecte les tables de regroupement Grist (summary tables), typiquement nommées "*_summary_*".
+function isSummaryTableId(tableId) {
+  return /_summary_/i.test(String(tableId || ''));
+}
+
+async function loadDiagramState() {
+  try {
+    const saved = await grist.getOption('diagramState');
+    if (saved && typeof saved === 'object') {
+      hiddenTableIds = new Set(Array.isArray(saved.hidden) ? saved.hidden : []);
+      manualPositions = (saved.positions && typeof saved.positions === 'object') ? saved.positions : {};
+      showUnlinkedColumns = saved.showUnlinkedColumns !== false;
+      hideSummaryTables = saved.hideSummaryTables === true;
+      diagramVersions = (saved.versions && typeof saved.versions === 'object') ? saved.versions : {};
+      diagramActiveVersionName = typeof saved.activeVersion === 'string' ? saved.activeVersion : null;
+    }
+  } catch (e) {
+    console.warn('Impossible de charger l\'état du diagramme :', e);
+  }
+}
+
+function saveDiagramState() {
+  clearTimeout(saveStateTimer);
+  saveStateTimer = setTimeout(async () => {
+    try {
+      await grist.setOption('diagramState', {
+        hidden: [...hiddenTableIds],
+        positions: manualPositions,
+        showUnlinkedColumns,
+        hideSummaryTables,
+        versions: diagramVersions,
+        activeVersion: diagramActiveVersionName,
+      });
+    } catch (e) {
+      console.warn('Impossible d\'enregistrer l\'état du diagramme :', e);
+    }
+  }, 300);
+}
+
+// Capture l'état courant du diagramme de schéma sous forme d'instantané réutilisable.
+function currentDiagramSnapshot() {
+  return {
+    hidden: [...hiddenTableIds],
+    positions: JSON.parse(JSON.stringify(manualPositions)),
+    showUnlinkedColumns,
+    hideSummaryTables,
+  };
+}
+
+// Remplace le brouillon courant par un instantané précédemment enregistré.
+function applyDiagramSnapshot(snap) {
+  hiddenTableIds = new Set(Array.isArray(snap.hidden) ? snap.hidden : []);
+  manualPositions = (snap.positions && typeof snap.positions === 'object')
+    ? JSON.parse(JSON.stringify(snap.positions)) : {};
+  showUnlinkedColumns = snap.showUnlinkedColumns !== false;
+  hideSummaryTables = snap.hideSummaryTables === true;
+}
+
+function populateDiagramVersionSelect() {
+  const sel = document.getElementById('diagramVersionSelect');
+  const names = Object.keys(diagramVersions).sort((a, b) => a.localeCompare(b));
+  sel.innerHTML = '<option value="">— Brouillon (non enregistré) —</option>' +
+    names.map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('');
+  sel.value = (diagramActiveVersionName && names.includes(diagramActiveVersionName)) ? diagramActiveVersionName : '';
+  document.getElementById('btnDiagramDeleteVersion').disabled = !sel.value;
+}
+
+async function loadUsageState() {
+  try {
+    const saved = await grist.getOption('usageDiagramState');
+    if (saved && typeof saved === 'object') {
+      usageHiddenIds = new Set(Array.isArray(saved.hidden) ? saved.hidden : []);
+      usageManualPositions = (saved.positions && typeof saved.positions === 'object') ? saved.positions : {};
+      usageVersions = (saved.versions && typeof saved.versions === 'object') ? saved.versions : {};
+      usageActiveVersionName = typeof saved.activeVersion === 'string' ? saved.activeVersion : null;
+    }
+  } catch (e) {
+    console.warn('Impossible de charger l\'état du diagramme "Pages ↔ Données" :', e);
+  }
+}
+
+function saveUsageState() {
+  clearTimeout(usageSaveStateTimer);
+  usageSaveStateTimer = setTimeout(async () => {
+    try {
+      await grist.setOption('usageDiagramState', {
+        hidden: [...usageHiddenIds],
+        positions: usageManualPositions,
+        versions: usageVersions,
+        activeVersion: usageActiveVersionName,
+      });
+    } catch (e) {
+      console.warn('Impossible d\'enregistrer l\'état du diagramme "Pages ↔ Données" :', e);
+    }
+  }, 300);
+}
+
+// Capture l'état courant du diagramme "Pages ↔ Données" sous forme d'instantané réutilisable.
+function currentUsageSnapshot() {
+  return {
+    hidden: [...usageHiddenIds],
+    positions: JSON.parse(JSON.stringify(usageManualPositions)),
+  };
+}
+
+// Remplace le brouillon courant par un instantané précédemment enregistré.
+function applyUsageSnapshot(snap) {
+  usageHiddenIds = new Set(Array.isArray(snap.hidden) ? snap.hidden : []);
+  usageManualPositions = (snap.positions && typeof snap.positions === 'object')
+    ? JSON.parse(JSON.stringify(snap.positions)) : {};
+}
+
+function populateUsageVersionSelect() {
+  const sel = document.getElementById('usageVersionSelect');
+  const names = Object.keys(usageVersions).sort((a, b) => a.localeCompare(b));
+  sel.innerHTML = '<option value="">— Brouillon (non enregistré) —</option>' +
+    names.map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('');
+  sel.value = (usageActiveVersionName && names.includes(usageActiveVersionName)) ? usageActiveVersionName : '';
+  document.getElementById('btnUsageDeleteVersion').disabled = !sel.value;
+}
+
+function measureTextWidth(text, fontSize) {
+  // Approximation monospace : suffisant pour dimensionner les boîtes sans devoir mesurer le DOM.
+  return text.length * fontSize * 0.62;
+}
+
+// Découpe un texte en lignes d'au plus maxChars caractères, en coupant de préférence sur les espaces
+// (retombe sur une coupure brute si un mot seul dépasse déjà maxChars).
+function wrapTextAtChars(text, maxChars) {
+  const str = String(text || '');
+  if (!str) return [''];
+  const words = str.split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+  const lines = [];
+  let current = '';
+  words.forEach(w => {
+    if (!current.length) {
+      current = w;
+    } else if ((current + ' ' + w).length <= maxChars) {
+      current += ' ' + w;
+    } else {
+      lines.push(current);
+      current = w;
+    }
+    while (current.length > maxChars) {
+      lines.push(current.slice(0, maxChars));
+      current = current.slice(maxChars);
+    }
+  });
+  if (current) lines.push(current);
+  return lines.length ? lines : [''];
+}
+
+function buildDiagramModel(tables, columns) {
+  const colsByTable = {};
+  for (const c of columns) {
+    if (c.colId === 'manualSort' || String(c.colId).startsWith('gristHelper_')) continue;
+    (colsByTable[c.parentId] = colsByTable[c.parentId] || []).push(c);
+  }
+  for (const arr of Object.values(colsByTable)) {
+    arr.sort((a, b) => a.parentPos - b.parentPos);
+  }
+
+  const HEADER_H = 28, ROW_H = 19, PAD_X = 10, MIN_W = 170, MAX_W = 280;
+  const sortedTables = tables.slice().sort((a, b) => a.tableId.localeCompare(b.tableId));
+
+  const boxes = sortedTables.map(t => {
+    const cols = colsByTable[t.id] || [];
+    const rows = [{ colId: 'id', typeLabel: 'integer', isPk: true, isRef: false }].concat(
+      cols
+        .map(c => {
+          const { dbmlType, refTable } = mapGristType(c.type);
+          return { colId: c.colId, typeLabel: dbmlType, isPk: false, isRef: !!refTable };
+        })
+        .filter(r => showUnlinkedColumns || r.isRef)
+    );
+    let width = MIN_W;
+    for (const r of rows) {
+      width = Math.max(width, measureTextWidth(r.colId + '  ' + r.typeLabel, 11.5) + PAD_X * 2 + 10);
+    }
+    width = Math.min(width, MAX_W);
+    const height = HEADER_H + rows.length * ROW_H + 6;
+    return { tableId: t.tableId, tableRef: t.id, rows, width, height };
+  });
+
+  // Disposition en grille (nombre de colonnes proche de la racine carrée, pondéré pour un rendu plus large que haut)
+  const n = boxes.length || 1;
+  const colsPerRow = Math.max(1, Math.ceil(Math.sqrt(n * 1.4)));
+  const GAP_X = 70, GAP_Y = 60, MARGIN = 30;
+  const maxW = Math.max(...boxes.map(b => b.width), MIN_W);
+  const maxH = Math.max(...boxes.map(b => b.height), HEADER_H + ROW_H);
+
+  boxes.forEach((b, i) => {
+    const col = i % colsPerRow;
+    const row = Math.floor(i / colsPerRow);
+    b.x = MARGIN + col * (maxW + GAP_X);
+    b.y = MARGIN + row * (maxH + GAP_Y);
+    const manual = manualPositions[b.tableId];
+    if (manual && Number.isFinite(manual.x) && Number.isFinite(manual.y)) {
+      b.x = manual.x;
+      b.y = manual.y;
+    }
+  });
+
+  const boxByTableId = {};
+  boxes.forEach(b => { boxByTableId[b.tableId] = b; });
+
+  // Relations (calculées sur toutes les tables, filtrées ensuite selon la visibilité)
+  const relations = [];
+  let colorIdx = 0;
+  for (const b of boxes) {
+    b.rows.forEach((r, rowIndex) => {
+      if (!r.isRef) return;
+      const col = columns.find(c => c.parentId === b.tableRef && c.colId === r.colId);
+      if (!col) return;
+      const { refTable } = mapGristType(col.type);
+      const targetBox = boxByTableId[refTable];
+      if (!targetBox) return;
+      relations.push({
+        fromBox: b, fromRowIndex: rowIndex, colId: r.colId,
+        toBox: targetBox, color: REL_COLORS[colorIdx % REL_COLORS.length],
+      });
+      colorIdx++;
+    });
+  }
+
+  const visibleBoxes = boxes.filter(
+    b => !hiddenTableIds.has(b.tableId) && !(hideSummaryTables && isSummaryTableId(b.tableId))
+  );
+  const visibleRelations = relations.filter(
+    r => !hiddenTableIds.has(r.fromBox.tableId) && !hiddenTableIds.has(r.toBox.tableId)
+      && !(hideSummaryTables && (isSummaryTableId(r.fromBox.tableId) || isSummaryTableId(r.toBox.tableId)))
+  );
+
+  const hiddenCount = boxes.length - visibleBoxes.length;
+
+  const totalWidth = visibleBoxes.length
+    ? Math.max(400, Math.max(...visibleBoxes.map(b => b.x + b.width)) + MARGIN)
+    : 400;
+  const totalHeight = visibleBoxes.length
+    ? Math.max(300, Math.max(...visibleBoxes.map(b => b.y + b.height)) + MARGIN)
+    : 300;
+
+  return {
+    boxes: visibleBoxes, relations: visibleRelations, HEADER_H, ROW_H, PAD_X,
+    totalWidth, totalHeight, hiddenCount,
+  };
+}
+
+function svgEl(tag, attrs, parent) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+
+function renderDiagramSvg(model) {
+  const root = document.getElementById('diagramRoot');
+  root.innerHTML = '';
+  const svg = document.getElementById('diagramSvg');
+  const w = Math.max(model.totalWidth, 400);
+  const h = Math.max(model.totalHeight, 300);
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.dataset.contentWidth = w;
+  svg.dataset.contentHeight = h;
+
+  if (!model.boxes.length) {
+    svgEl('text', { x: 20, y: 30, fill: '#6b7280', 'font-size': 13 }, root).textContent =
+      'Aucune table trouvée dans ce document.';
+    return;
+  }
+
+  // Un marqueur de flèche par couleur utilisée, pour que chaque relation ait une flèche assortie
+  const defs = svg.querySelector('defs');
+  defs.querySelectorAll('marker.dg-arrow').forEach(m => m.remove());
+  const usedColors = [...new Set(model.relations.map(r => r.color))];
+  usedColors.forEach((color, i) => {
+    const marker = svgEl('marker', {
+      id: 'arrowhead-' + i, class: 'dg-arrow', viewBox: '0 0 10 10',
+      refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse',
+    }, defs);
+    svgEl('path', { d: 'M0,0 L10,5 L0,10 z', fill: color }, marker);
+  });
+  const markerIdByColor = {};
+  usedColors.forEach((c, i) => { markerIdByColor[c] = 'arrowhead-' + i; });
+
+  // Relations d'abord (sous les boîtes)
+  const relsGroup = svgEl('g', {}, root);
+  model.relations.forEach(rel => {
+    const path = svgEl('path', {
+      d: computeRelPathD(rel, model), class: 'dg-rel-path', stroke: rel.color,
+      'marker-end': 'url(#' + markerIdByColor[rel.color] + ')',
+    }, relsGroup);
+    rel.pathEl = path;
+    const title = svgEl('title', {}, path);
+    title.textContent = rel.fromBox.tableId + '.' + rel.colId + ' → ' + rel.toBox.tableId + '.id';
+  });
+
+  // Boîtes de tables
+  model.boxes.forEach(b => {
+    const g = svgEl('g', { class: 'dg-table-box', transform: `translate(${b.x},${b.y})` }, root);
+    svgEl('rect', { class: 'dg-body', x: 0, y: 0, width: b.width, height: b.height, rx: 6 }, g);
+    svgEl('rect', { class: 'dg-header', x: 0, y: 0, width: b.width, height: model.HEADER_H, rx: 6 }, g);
+    svgEl('rect', { x: 0, y: model.HEADER_H - 6, width: b.width, height: 6, fill: 'var(--accent)' }, g);
+    const title = svgEl('text', { class: 'dg-title', x: model.PAD_X, y: model.HEADER_H / 2 + 4 }, g);
+    title.textContent = b.tableId;
+
+    // Bouton de masquage (en haut à droite de l'en-tête)
+    const hideBtn = svgEl('g', { class: 'dg-hide-btn', transform: `translate(${b.width - 16},${model.HEADER_H / 2})` }, g);
+    svgEl('circle', { r: 9, fill: 'rgba(255,255,255,0.18)' }, hideBtn);
+    const hideLabel = svgEl('text', {
+      x: 0, y: 4, 'text-anchor': 'middle', fill: '#ffffff', 'font-size': 12, 'font-weight': 700,
+    }, hideBtn);
+    hideLabel.textContent = '✕';
+    svgEl('title', {}, hideBtn).textContent = 'Masquer la table ' + b.tableId;
+    hideBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    hideBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hiddenTableIds.add(b.tableId);
+      saveDiagramState();
+      renderDiagram(diagramTables, diagramColumns);
+      updateHiddenBar();
+    });
+
+    b.rows.forEach((r, i) => {
+      const y = model.HEADER_H + i * model.ROW_H;
+      if (r.isPk) {
+        svgEl('rect', { class: 'dg-row-pk', x: 0, y, width: b.width, height: model.ROW_H }, g);
+      }
+      const colText = svgEl('text', {
+        class: 'dg-col', x: model.PAD_X, y: y + model.ROW_H / 2 + 4,
+      }, g);
+      const keyMark = r.isPk ? '🔑 ' : (r.isRef ? '↗ ' : '');
+      colText.textContent = keyMark + r.colId;
+      const typeText = svgEl('text', {
+        class: 'dg-col dg-col-type', x: b.width - model.PAD_X, y: y + model.ROW_H / 2 + 4,
+        'text-anchor': 'end',
+      }, g);
+      typeText.textContent = r.typeLabel;
+    });
+
+    attachBoxDrag(g, b, model);
+  });
+}
+
+// Calcule le tracé (attribut "d") d'une relation entre deux boîtes, à partir de leur position courante.
+function computeRelPathD(rel, model) {
+  const y1 = rel.fromBox.y + model.HEADER_H + rel.fromRowIndex * model.ROW_H + model.ROW_H / 2;
+  const fromRight = rel.fromBox.x + rel.fromBox.width < rel.toBox.x + rel.toBox.width / 2;
+  const x1 = fromRight ? rel.fromBox.x + rel.fromBox.width : rel.fromBox.x;
+
+  const isSelf = rel.toBox === rel.fromBox;
+  if (isSelf) {
+    const x2 = rel.fromBox.x + rel.fromBox.width;
+    const y2 = rel.fromBox.y + model.HEADER_H / 2;
+    const bulge = 46;
+    return `M ${x1} ${y1} C ${x1 + bulge} ${y1}, ${x2 + bulge} ${y2}, ${x2} ${y2}`;
+  }
+  const toLeftSide = x1 < rel.toBox.x + rel.toBox.width / 2;
+  const x2 = toLeftSide ? rel.toBox.x : rel.toBox.x + rel.toBox.width;
+  const y2 = rel.toBox.y + model.HEADER_H / 2;
+  const dx = Math.max(Math.abs(x2 - x1) / 2, 40);
+  const c1x = x1 + (fromRight ? dx : -dx);
+  const c2x = x2 + (toLeftSide ? -dx : dx);
+  return `M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
+}
+
+// Recalcule et applique en direct le tracé des relations connectées à une boîte (pendant son déplacement).
+function updateConnectedRelations(box, model) {
+  model.relations.forEach(rel => {
+    if ((rel.fromBox === box || rel.toBox === box) && rel.pathEl) {
+      rel.pathEl.setAttribute('d', computeRelPathD(rel, model));
+    }
+  });
+}
+
+// Rend une table déplaçable à la souris / au doigt (glisser-déposer d'une table par rapport aux autres).
+function attachBoxDrag(g, box, model) {
+  let dragging = false;
+  let startClientX = 0, startClientY = 0, startBoxX = 0, startBoxY = 0;
+
+  g.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.dg-hide-btn')) return;
+    e.stopPropagation();
+    dragging = true;
+    g.setPointerCapture(e.pointerId);
+    g.classList.add('dg-dragging');
+    startClientX = e.clientX;
+    startClientY = e.clientY;
+    startBoxX = box.x;
+    startBoxY = box.y;
+  });
+
+  g.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const scale = viewState.scale || 1;
+    box.x = startBoxX + (e.clientX - startClientX) / scale;
+    box.y = startBoxY + (e.clientY - startClientY) / scale;
+    g.setAttribute('transform', `translate(${box.x},${box.y})`);
+    updateConnectedRelations(box, model);
+  });
+
+  function endDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    g.classList.remove('dg-dragging');
+    manualPositions[box.tableId] = { x: box.x, y: box.y };
+    saveDiagramState();
+  }
+  g.addEventListener('pointerup', endDrag);
+  g.addEventListener('pointercancel', endDrag);
+}
+
+// Pan & zoom générique sur un conteneur SVG donné (utilisé par le diagramme de schéma
+// et par le diagramme "Pages ↔ Données").
+function createPanZoom(wrapId, svgId, viewStateObj) {
+  const wrap = document.getElementById(wrapId);
+  const svg = document.getElementById(svgId);
+  let tx = 0, ty = 0;
+  let dragging = false, startX = 0, startY = 0;
+
+  function apply() {
+    svg.style.transform = `translate(${tx}px,${ty}px) scale(${viewStateObj.scale})`;
+    svg.style.transformOrigin = '0 0';
+  }
+
+  function fit() {
+    const cw = wrap.clientWidth, ch = wrap.clientHeight;
+    const contentW = Number(svg.dataset.contentWidth || svg.getAttribute('width')) || 1;
+    const contentH = Number(svg.dataset.contentHeight || svg.getAttribute('height')) || 1;
+    viewStateObj.scale = Math.max(0.15, Math.min(2, Math.min(cw / contentW, ch / contentH) * 0.92));
+    tx = (cw - contentW * viewStateObj.scale) / 2;
+    ty = (ch - contentH * viewStateObj.scale) / 2;
+    apply();
+  }
+
+  // Le pan démarre uniquement sur le fond (pas sur une boîte déplaçable, qui gère son propre
+  // pointerdown avec stopPropagation), donc pas de conflit entre déplacer le canevas et déplacer une boîte.
+  wrap.addEventListener('pointerdown', (e) => {
+    dragging = true; wrap.classList.add('grabbing');
+    startX = e.clientX - tx; startY = e.clientY - ty;
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    tx = e.clientX - startX; ty = e.clientY - startY;
+    apply();
+  });
+  window.addEventListener('pointerup', () => { dragging = false; wrap.classList.remove('grabbing'); });
+
+  wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = wrap.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const prevScale = viewStateObj.scale;
+    viewStateObj.scale = Math.max(0.15, Math.min(2.5, prevScale * (e.deltaY < 0 ? 1.1 : 0.9)));
+    tx = mx - ((mx - tx) / prevScale) * viewStateObj.scale;
+    ty = my - ((my - ty) / prevScale) * viewStateObj.scale;
+    apply();
+  }, { passive: false });
+
+  apply();
+  return { fit, apply };
+}
+
+function setupPanZoom() {
+  const pz = createPanZoom('diagramWrap', 'diagramSvg', viewState);
+  document.getElementById('btnZoomIn').addEventListener('click', () => {
+    viewState.scale = Math.min(2.5, viewState.scale * 1.2); pz.apply();
+  });
+  document.getElementById('btnZoomOut').addEventListener('click', () => {
+    viewState.scale = Math.max(0.15, viewState.scale / 1.2); pz.apply();
+  });
+  document.getElementById('btnFit').addEventListener('click', pz.fit);
+  window.__diagramFit = pz.fit;
+}
+
+// État interactif du diagramme "Pages ↔ Données"
+const usageViewState = { scale: 1 };
+let usagePanZoom = null;
+
+function setupUsagePanZoom() {
+  usagePanZoom = createPanZoom('usageWrap', 'usageSvg', usageViewState);
+  document.getElementById('btnUsageZoomIn').addEventListener('click', () => {
+    usageViewState.scale = Math.min(2.5, usageViewState.scale * 1.2); usagePanZoom.apply();
+  });
+  document.getElementById('btnUsageZoomOut').addEventListener('click', () => {
+    usageViewState.scale = Math.max(0.15, usageViewState.scale / 1.2); usagePanZoom.apply();
+  });
+  document.getElementById('btnUsageFit').addEventListener('click', usagePanZoom.fit);
+  window.__usageFit = usagePanZoom.fit;
+}
+
+function renderDiagram(tables, columns) {
+  diagramTables = tables;
+  diagramColumns = columns;
+  const model = buildDiagramModel(tables, columns);
+  renderDiagramSvg(model);
+  updateHiddenBar();
+}
+
+function updateHiddenBar() {
+  const bar = document.getElementById('hiddenBar');
+  const hiddenList = diagramTables
+    .filter(t => hiddenTableIds.has(t.tableId))
+    .map(t => t.tableId)
+    .sort((a, b) => a.localeCompare(b));
+
+  if (!hiddenList.length) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<button onclick="toggleHiddenBar()" class="top-2 right-2 text-gray-500 hover:text-gray-700"><span class="hb-label inline-flex">🙈 Tables masquées :<svg id="hiddenbar-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></span></button> <span id="hiddenbar-content">' +
+    hiddenList.map(id =>
+      '<span class="hb-chip">' + escapeHtml(id) + '<button data-restore="' + escapeHtml(id) + '" title="Réafficher">✕</button></span>'
+    ).join('') +
+    '<button id="btnShowAll" style="margin-left:6px;">Tout réafficher</button></span>';
+
+  bar.querySelectorAll('[data-restore]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      hiddenTableIds.delete(btn.getAttribute('data-restore'));
+      saveDiagramState();
+      renderDiagram(diagramTables, diagramColumns);
+    });
+  });
+  const showAllBtn = document.getElementById('btnShowAll');
+  if (showAllBtn) {
+    showAllBtn.addEventListener('click', () => {
+      hiddenTableIds.clear();
+      saveDiagramState();
+      renderDiagram(diagramTables, diagramColumns);
+    });
+  }
+}
+
+// ---------- Diagramme "Pages ↔ Données" ----------
+// Colonne de gauche : une boîte par page, avec une ligne par widget (section de vue) qu'elle contient.
+// Colonne de droite : une boîte par table source. Un trait relie chaque widget à sa table (tableRef).
+// Comme pour le diagramme de schéma : boîtes déplaçables (glisser-déposer) et masquables, état persisté.
+
+const TYPE_LABELS = {
+  record: '📋 Grille', single: '🗂 Fiche', detail: '🗂 Fiche', list: '📃 Liste',
+  chart: '📈 Graphique', custom: '🧩 Widget perso', form: '📝 Formulaire',
+};
+
+function buildUsageModel(sections, views, tables, pages) {
+  const HEADER_H = 28, ROW_H = 19, PAD_X = 10, PAGE_MIN_W = 240, PAGE_MAX_W = 480;
+  const TABLE_MIN_W = 200, TABLE_MAX_W = 420;
+  const INDENT_STEP = 22;
+  const TITLE_WRAP_CHARS = 75; // largeur de retour à la ligne des titres (en caractères)
+  const TITLE_LINE_H = 15;     // hauteur ajoutée par ligne de titre supplémentaire
+
+  const viewById = {};
+  views.forEach(v => { viewById[v.id] = v; });
+
+  const sectionsByPage = {};
+  sections.forEach(s => {
+    if (!s.parentId || !viewById[s.parentId]) return;
+    (sectionsByPage[s.parentId] = sectionsByPage[s.parentId] || []).push(s);
+  });
+
+  // --- Hiérarchie des pages, reconstituée depuis _grist_Pages : c'est la même table que celle qui
+  // pilote le panneau de gauche de Grist. Chaque ligne y référence une vue (viewRef), porte un niveau
+  // d'indentation, et l'ordre d'affichage est donné par pagePos. On en déduit un arbre parent → enfants
+  // (algorithme classique "liste plate + indentation" → arbre, via une pile).
+  const pageRows = (Array.isArray(pages) ? pages : [])
+    .filter(p => p && viewById[p.viewRef])
+    .slice()
+    .sort((a, b) => (Number(a.pagePos) || 0) - (Number(b.pagePos) || 0));
+
+  const orderedMeta = [];
+  const stack = [];
+  pageRows.forEach(p => {
+    const depth = Math.max(0, Math.round(Number(p.indentation) || 0));
+    while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+    const parentViewId = stack.length ? stack[stack.length - 1].viewId : null;
+    orderedMeta.push({ viewId: p.viewRef, depth, parentViewId });
+    stack.push({ viewId: p.viewRef, depth });
+  });
+
+  // Filet de sécurité : une vue qui n'apparaîtrait pas dans _grist_Pages (cas rare) est quand même
+  // affichée, à la racine, après les pages "officielles".
+  const seenViewIds = new Set(orderedMeta.map(m => String(m.viewId)));
+  Object.keys(viewById)
+    .filter(vid => !seenViewIds.has(String(vid)))
+    .sort((a, b) => (viewById[a].name || '').localeCompare(viewById[b].name || ''))
+    .forEach(vid => orderedMeta.push({ viewId: Number(vid), depth: 0, parentViewId: null }));
+
+  const allPageBoxes = orderedMeta.map(meta => {
+    const pid = meta.viewId;
+    const view = viewById[pid];
+    const secs = (sectionsByPage[pid] || []).slice().sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    const rows = secs.map(s => ({
+      sectionId: s.id,
+      label: (TYPE_LABELS[s.parentKey] || ('▫ ' + (s.parentKey || '?'))) + '  ' + (s.title || '(sans titre)'),
+      tableRef: s.tableRef || null,
+    }));
+    const titleText = (view && view.name) || '(page sans nom)';
+    const titleLines = wrapTextAtChars(titleText, TITLE_WRAP_CHARS);
+    let width = PAGE_MIN_W;
+    rows.forEach(r => { width = Math.max(width, measureTextWidth(r.label, 11.5) + PAD_X * 2 + 10); });
+    titleLines.forEach(line => { width = Math.max(width, measureTextWidth('📄 ' + line, 12.5) + PAD_X * 2 + 40); });
+    width = Math.min(width, PAGE_MAX_W);
+    const headerH = HEADER_H + (titleLines.length - 1) * TITLE_LINE_H;
+    const rowCount = Math.max(rows.length, 1);
+    const height = headerH + rowCount * ROW_H + 6;
+    const itemId = 'page:' + pid;
+    const parentItemId = meta.parentViewId != null ? 'page:' + meta.parentViewId : null;
+    return {
+      itemId, pageId: pid, parentItemId, depth: meta.depth,
+      title: titleText, titleLines, headerH, rows, width, height,
+    };
+  });
+
+  const allTableBoxes = tables.slice().sort((a, b) => a.tableId.localeCompare(b.tableId)).map(t => {
+    const titleLines = wrapTextAtChars(t.tableId, TITLE_WRAP_CHARS);
+    let width = TABLE_MIN_W;
+    titleLines.forEach(line => { width = Math.max(width, measureTextWidth('🗄 ' + line, 12.5) + PAD_X * 2 + 40); });
+    width = Math.min(width, TABLE_MAX_W);
+    const headerH = HEADER_H + (titleLines.length - 1) * TITLE_LINE_H;
+    const height = headerH + ROW_H + 6;
+    const itemId = 'table:' + t.tableId;
+    return { itemId, tableId: t.tableId, tableRef: t.id, titleLines, headerH, width, height };
+  });
+
+  const GAP_Y = 24, MARGIN = 30, COL_GAP = 220, TABLE_GAP_Y = 16;
+
+  let y = MARGIN;
+  allPageBoxes.forEach(b => {
+    b.x = MARGIN + b.depth * INDENT_STEP; b.y = y; y += b.height + GAP_Y;
+    const manual = usageManualPositions[b.itemId];
+    if (manual && Number.isFinite(manual.x) && Number.isFinite(manual.y)) { b.x = manual.x; b.y = manual.y; }
+  });
+  const leftColWidth = allPageBoxes.length
+    ? Math.max(...allPageBoxes.map(b => b.x + b.width)) - MARGIN
+    : PAGE_MIN_W;
+
+  let y2 = MARGIN;
+  allTableBoxes.forEach(b => {
+    b.x = MARGIN + leftColWidth + COL_GAP; b.y = y2; y2 += b.height + TABLE_GAP_Y;
+    const manual = usageManualPositions[b.itemId];
+    if (manual && Number.isFinite(manual.x) && Number.isFinite(manual.y)) { b.x = manual.x; b.y = manual.y; }
+  });
+  const rightColWidth = allTableBoxes.length ? Math.max(...allTableBoxes.map(b => b.width)) : TABLE_MIN_W;
+
+  const tableRefToBox = {};
+  tables.forEach(t => {
+    const box = allTableBoxes.find(b => b.tableRef === t.id);
+    if (box) tableRefToBox[t.id] = box;
+  });
+
+  const allLinks = [];
+  let colorIdx = 0;
+  allPageBoxes.forEach(pb => {
+    pb.rows.forEach((r, idx) => {
+      if (!r.tableRef) return;
+      const targetBox = tableRefToBox[r.tableRef];
+      if (!targetBox) return;
+      allLinks.push({ fromBox: pb, fromRowIndex: idx, toBox: targetBox, color: REL_COLORS[colorIdx % REL_COLORS.length] });
+      colorIdx++;
+    });
+  });
+
+  // Liens supplémentaires (pointillés) : tables utilisées par le code des widgets personnalisés
+  // (builder ou URL), en plus de leur table "principale" (tableRef) déjà reliée ci-dessus par un lien
+  // plein. Réutilise l'analyse de code déjà faite pour l'onglet "🧱 Custom widgets"
+  // (usageCodeUsageBySectionId : sectionId -> liste de tableId).
+  const tableIdToBox = {};
+  allTableBoxes.forEach(b => { tableIdToBox[b.tableId] = b; });
+  const tableIdByRef = {};
+  tables.forEach(t => { tableIdByRef[t.id] = t.tableId; });
+
+  const allCodeLinks = [];
+  allPageBoxes.forEach(pb => {
+    pb.rows.forEach((r, idx) => {
+      const usedTableIds = usageCodeUsageBySectionId[r.sectionId];
+      if (!usedTableIds || !usedTableIds.length) return;
+      const mainTableId = r.tableRef ? tableIdByRef[r.tableRef] : null;
+      usedTableIds.forEach(tableId => {
+        if (tableId === mainTableId) return; // déjà relié par le lien principal (plein)
+        const targetBox = tableIdToBox[tableId];
+        if (!targetBox) return;
+        allCodeLinks.push({ fromBox: pb, fromRowIndex: idx, toBox: targetBox });
+      });
+    });
+  });
+
+  // Traits fins parent → enfant qui matérialisent la hiérarchie des pages (arborescence du panneau
+  // de gauche de Grist), distincts des traits colorés qui relient un widget à sa table source.
+  const pageBoxByItemId = {};
+  allPageBoxes.forEach(b => { pageBoxByItemId[b.itemId] = b; });
+  const allTreeLinks = [];
+  allPageBoxes.forEach(b => {
+    if (!b.parentItemId) return;
+    const parent = pageBoxByItemId[b.parentItemId];
+    if (!parent) return;
+    allTreeLinks.push({ parent, child: b });
+  });
+
+  const pageBoxes = allPageBoxes.filter(b => !usageHiddenIds.has(b.itemId));
+  const tableBoxes = allTableBoxes.filter(b => !usageHiddenIds.has(b.itemId));
+  const links = allLinks.filter(l => !usageHiddenIds.has(l.fromBox.itemId) && !usageHiddenIds.has(l.toBox.itemId));
+  const codeLinks = allCodeLinks.filter(l => !usageHiddenIds.has(l.fromBox.itemId) && !usageHiddenIds.has(l.toBox.itemId));
+  const treeLinks = allTreeLinks.filter(l => !usageHiddenIds.has(l.parent.itemId) && !usageHiddenIds.has(l.child.itemId));
+  const hiddenCount = (allPageBoxes.length + allTableBoxes.length) - (pageBoxes.length + tableBoxes.length);
+
+  const visibleBoxes = pageBoxes.concat(tableBoxes);
+  const totalWidth = visibleBoxes.length
+    ? Math.max(500, Math.max(...visibleBoxes.map(b => b.x + b.width)) + MARGIN)
+    : 500;
+  const totalHeight = visibleBoxes.length
+    ? Math.max(300, Math.max(...visibleBoxes.map(b => b.y + b.height)) + MARGIN)
+    : 300;
+
+  return {
+    pageBoxes, tableBoxes, links, codeLinks, treeLinks, HEADER_H, ROW_H, PAD_X, TITLE_LINE_H,
+    totalWidth, totalHeight, hiddenCount,
+  };
+}
+
+// Tracé en "coude" doux d'un connecteur hiérarchique page-parente → page-enfant.
+function computeTreeLinkPathD(link) {
+  const x1 = link.parent.x + 14;
+  const y1 = link.parent.y + link.parent.height;
+  const x2 = link.child.x;
+  const y2 = link.child.y + 14;
+  const midY = (y1 + y2) / 2;
+  return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+}
+
+function computeUsageLinkPathD(link, model) {
+  const y1 = link.fromBox.y + link.fromBox.headerH + link.fromRowIndex * model.ROW_H + model.ROW_H / 2;
+  const x1 = link.fromBox.x + link.fromBox.width;
+  const y2 = link.toBox.y + link.toBox.headerH / 2;
+  const x2 = link.toBox.x;
+  const dx = Math.max((x2 - x1) / 2, 40);
+  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+}
+
+// Recalcule en direct le tracé des liens connectés à une boîte pendant son déplacement.
+function updateConnectedUsageLinks(box, model) {
+  model.links.forEach(link => {
+    if ((link.fromBox === box || link.toBox === box) && link.pathEl) {
+      link.pathEl.setAttribute('d', computeUsageLinkPathD(link, model));
+    }
+  });
+  (model.codeLinks || []).forEach(link => {
+    if ((link.fromBox === box || link.toBox === box) && link.pathEl) {
+      link.pathEl.setAttribute('d', computeUsageLinkPathD(link, model));
+    }
+  });
+  (model.treeLinks || []).forEach(tl => {
+    if ((tl.parent === box || tl.child === box) && tl.pathEl) {
+      tl.pathEl.setAttribute('d', computeTreeLinkPathD(tl));
+    }
+  });
+}
+
+// Rend une boîte (page ou table) déplaçable à la souris / au doigt, comme dans le diagramme de schéma.
+function attachUsageBoxDrag(g, box, model) {
+  let dragging = false;
+  let startClientX = 0, startClientY = 0, startBoxX = 0, startBoxY = 0;
+
+  g.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.dg-hide-btn')) return;
+    e.stopPropagation();
+    dragging = true;
+    g.setPointerCapture(e.pointerId);
+    g.classList.add('dg-dragging');
+    startClientX = e.clientX;
+    startClientY = e.clientY;
+    startBoxX = box.x;
+    startBoxY = box.y;
+  });
+
+  g.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const scale = usageViewState.scale || 1;
+    box.x = startBoxX + (e.clientX - startClientX) / scale;
+    box.y = startBoxY + (e.clientY - startClientY) / scale;
+    g.setAttribute('transform', `translate(${box.x},${box.y})`);
+    updateConnectedUsageLinks(box, model);
+  });
+
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    g.classList.remove('dg-dragging');
+    usageManualPositions[box.itemId] = { x: box.x, y: box.y };
+    saveUsageState();
+  }
+  g.addEventListener('pointerup', endDrag);
+  g.addEventListener('pointercancel', endDrag);
+}
+
+// Masque tous les éléments visibles sauf l'item choisi et ceux qui lui sont directement reliés
+// (lien de données page ↔ table, ou lien hiérarchique page parente ↔ page enfant).
+function isolateUsageItem(itemId, model) {
+  const keepIds = new Set([itemId]);
+  model.links.forEach(l => {
+    if (l.fromBox.itemId === itemId) keepIds.add(l.toBox.itemId);
+    if (l.toBox.itemId === itemId) keepIds.add(l.fromBox.itemId);
+  });
+  (model.codeLinks || []).forEach(l => {
+    if (l.fromBox.itemId === itemId) keepIds.add(l.toBox.itemId);
+    if (l.toBox.itemId === itemId) keepIds.add(l.fromBox.itemId);
+  });
+  (model.treeLinks || []).forEach(tl => {
+    if (tl.parent.itemId === itemId) keepIds.add(tl.child.itemId);
+    if (tl.child.itemId === itemId) keepIds.add(tl.parent.itemId);
+  });
+  model.pageBoxes.concat(model.tableBoxes).forEach(b => {
+    if (!keepIds.has(b.itemId)) usageHiddenIds.add(b.itemId);
+  });
+  saveUsageState();
+  renderUsage(usageSections, usageViews, usageTables, usagePages);
+}
+
+function renderUsageSvg(model) {
+  const root = document.getElementById('usageRoot');
+  root.innerHTML = '';
+  const svg = document.getElementById('usageSvg');
+  const w = Math.max(model.totalWidth, 400);
+  const h = Math.max(model.totalHeight, 300);
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.dataset.contentWidth = w;
+  svg.dataset.contentHeight = h;
+
+  if (!model.pageBoxes.length && !model.tableBoxes.length) {
+    svgEl('text', { x: 20, y: 30, fill: '#6b7280', 'font-size': 13 }, root).textContent =
+      'Aucune page ni table visible (tout est peut-être masqué, ou le document est vide).';
+    return;
+  }
+
+  const defs = svg.querySelector('defs');
+  defs.querySelectorAll('marker.ug-arrow').forEach(m => m.remove());
+  const usedColors = [...new Set(model.links.map(l => l.color))];
+  usedColors.forEach((color, i) => {
+    const marker = svgEl('marker', {
+      id: 'ug-arrowhead-' + i, class: 'ug-arrow', viewBox: '0 0 10 10',
+      refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse',
+    }, defs);
+    svgEl('path', { d: 'M0,0 L10,5 L0,10 z', fill: color }, marker);
+  });
+  const markerIdByColor = {};
+  usedColors.forEach((c, i) => { markerIdByColor[c] = 'ug-arrowhead-' + i; });
+
+  // Connecteurs de hiérarchie (page parente → page enfant), dessinés en dessous des liens de données.
+  const treeLinksGroup = svgEl('g', {}, root);
+  (model.treeLinks || []).forEach(tl => {
+    const path = svgEl('path', { d: computeTreeLinkPathD(tl), class: 'ug-tree-link' }, treeLinksGroup);
+    tl.pathEl = path;
+    svgEl('title', {}, path).textContent = tl.parent.title + ' › ' + tl.child.title;
+  });
+
+  // Liens pointillés : tables utilisées par le code des widgets personnalisés (builder/URL), en plus
+  // de leur lien plein "principal" — mêmes données que l'onglet "🧱 Custom widgets".
+  defs.querySelectorAll('marker.ug-code-arrow').forEach(m => m.remove());
+  if (model.codeLinks && model.codeLinks.length) {
+    const codeMarker = svgEl('marker', {
+      id: 'ug-code-arrowhead', class: 'ug-code-arrow', viewBox: '0 0 10 10',
+      refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse',
+    }, defs);
+    svgEl('path', { d: 'M0,0 L10,5 L0,10 z', fill: '#8a8fa3' }, codeMarker);
+  }
+  const codeLinksGroup = svgEl('g', {}, root);
+  (model.codeLinks || []).forEach(link => {
+    const path = svgEl('path', {
+      d: computeUsageLinkPathD(link, model), class: 'ug-code-link',
+      'marker-end': 'url(#ug-code-arrowhead)',
+    }, codeLinksGroup);
+    link.pathEl = path;
+    svgEl('title', {}, path).textContent = link.fromBox.title + ' → ' + link.toBox.tableId +
+      ' (table utilisée dans le code du widget, détectée automatiquement — voir l\'onglet 🧱 Custom widgets)';
+  });
+
+  const linksGroup = svgEl('g', {}, root);
+  model.links.forEach(link => {
+    const path = svgEl('path', {
+      d: computeUsageLinkPathD(link, model), class: 'dg-rel-path', stroke: link.color,
+      'marker-end': 'url(#' + markerIdByColor[link.color] + ')',
+    }, linksGroup);
+    link.pathEl = path;
+    svgEl('title', {}, path).textContent = link.fromBox.title + ' → ' + link.toBox.tableId;
+  });
+
+  function addHideButton(g, box, width, headerH) {
+    const hideBtn = svgEl('g', { class: 'dg-hide-btn', transform: `translate(${width - 16},${headerH / 2})` }, g);
+    svgEl('circle', { r: 9, fill: 'rgba(255,255,255,0.18)' }, hideBtn);
+    svgEl('text', { x: 0, y: 4, 'text-anchor': 'middle', fill: '#ffffff', 'font-size': 12, 'font-weight': 700 }, hideBtn)
+      .textContent = '✕';
+    svgEl('title', {}, hideBtn).textContent = 'Masquer';
+    hideBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    hideBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      usageHiddenIds.add(box.itemId);
+      saveUsageState();
+      renderUsage(usageSections, usageViews, usageTables, usagePages);
+    });
+  }
+
+  // Bouton "Isoler" : ne conserve que cet item et les éléments qui lui sont directement reliés.
+  function addFocusButton(g, box, width, headerH) {
+    const focusBtn = svgEl('g', { class: 'dg-hide-btn', transform: `translate(${width - 34},${headerH / 2})` }, g);
+    svgEl('circle', { r: 9, fill: 'rgba(255,255,255,0.18)' }, focusBtn);
+    const focusLabel = svgEl('text', {
+      x: 0, y: 4, 'text-anchor': 'middle', fill: '#ffffff', 'font-size': 11, 'font-weight': 700,
+    }, focusBtn);
+    focusLabel.textContent = '⊙';
+    svgEl('title', {}, focusBtn).textContent = 'Isoler : ne garder que cet élément et ses liens directs';
+    focusBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    focusBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isolateUsageItem(box.itemId, model);
+    });
+  }
+
+  // Boîtes de pages (colonne de gauche)
+  model.pageBoxes.forEach(b => {
+    const g = svgEl('g', { class: 'dg-table-box', transform: `translate(${b.x},${b.y})` }, root);
+    svgEl('rect', { class: 'dg-body', x: 0, y: 0, width: b.width, height: b.height, rx: 6 }, g);
+    svgEl('rect', { class: 'dg-header', x: 0, y: 0, width: b.width, height: b.headerH, rx: 6 }, g);
+    svgEl('rect', { x: 0, y: b.headerH - 6, width: b.width, height: 6, fill: 'var(--accent)' }, g);
+    const titleEl = svgEl('text', { class: 'dg-title', x: model.PAD_X, y: 18 }, g);
+    (b.titleLines || [b.title]).forEach((line, i) => {
+      svgEl('tspan', { x: model.PAD_X, dy: i === 0 ? 0 : model.TITLE_LINE_H }, titleEl).textContent =
+        (i === 0 ? '📄 ' : '') + line;
+    });
+    if (b.rows.length) {
+      b.rows.forEach((r, i) => {
+        const y = b.headerH + i * model.ROW_H;
+        svgEl('text', { class: 'dg-col', x: model.PAD_X, y: y + model.ROW_H / 2 + 4 }, g).textContent = r.label;
+      });
+    } else {
+      svgEl('text', { class: 'dg-col dg-col-type', x: model.PAD_X, y: b.headerH + model.ROW_H / 2 + 4 }, g)
+        .textContent = '(aucun widget)';
+    }
+    addHideButton(g, b, b.width, b.headerH);
+    addFocusButton(g, b, b.width, b.headerH);
+    attachUsageBoxDrag(g, b, model);
+  });
+
+  // Boîtes de tables (colonne de droite)
+  model.tableBoxes.forEach(b => {
+    const g = svgEl('g', { class: 'dg-table-box ug-table-box', transform: `translate(${b.x},${b.y})` }, root);
+    svgEl('rect', { class: 'dg-body', x: 0, y: 0, width: b.width, height: b.height, rx: 6 }, g);
+    svgEl('rect', { class: 'dg-header', x: 0, y: 0, width: b.width, height: b.headerH, rx: 6 }, g);
+    const titleEl = svgEl('text', { class: 'dg-title', x: model.PAD_X, y: 18 }, g);
+    (b.titleLines || [b.tableId]).forEach((line, i) => {
+      svgEl('tspan', { x: model.PAD_X, dy: i === 0 ? 0 : model.TITLE_LINE_H }, titleEl).textContent =
+        (i === 0 ? '🗄 ' : '') + line;
+    });
+    svgEl('text', { class: 'dg-col ug-source-label', x: model.PAD_X, y: b.headerH + model.ROW_H / 2 + 4 }, g)
+      .textContent = 'table source';
+    addHideButton(g, b, b.width, b.headerH);
+    addFocusButton(g, b, b.width, b.headerH);
+    attachUsageBoxDrag(g, b, model);
+  });
+}
+
+function renderUsage(sections, views, tables, pages) {
+  usageSections = sections;
+  usageViews = views;
+  usageTables = tables;
+  usagePages = pages || [];
+  const model = buildUsageModel(sections, views, tables, usagePages);
+  renderUsageSvg(model);
+  updateUsageHiddenBar(model);
+}
+
+function updateUsageHiddenBar(model) {
+  const bar = document.getElementById('usageHiddenBar');
+  if (!model.hiddenCount) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+
+  // Reconstruit la liste des items masqués avec un libellé lisible (page ou table).
+  const pageTitleById = {};
+  usageViews.forEach(v => { pageTitleById['page:' + v.id] = '📄 ' + v.name; });
+  const tableTitleById = {};
+  usageTables.forEach(t => { tableTitleById['table:' + t.tableId] = '🗄 ' + t.tableId; });
+
+  const hiddenList = [...usageHiddenIds]
+    .map(id => ({ id, label: pageTitleById[id] || tableTitleById[id] || id }))
+    .filter(x => pageTitleById[x.id] || tableTitleById[x.id])
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  if (!hiddenList.length) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+
+  bar.style.display = 'flex';
+  bar.innerHTML = '<button onclick="toggleHiddenBarUsage()" class="top-2 right-2 text-gray-500 hover:text-gray-700"><span class="hb-label inline-flex">🙈 Éléments masqués :<svg id="hiddenbar-usage-chevron" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></span></button> <span id="hiddenbar-usage-content">'  +
+    hiddenList.map(x =>
+      '<span class="hb-chip">' + escapeHtml(x.label) + '<button data-restore="' + escapeHtml(x.id) + '" title="Réafficher">✕</button></span>'
+    ).join('') +
+    '<button id="btnUsageShowAll" style="margin-left:6px;">Tout réafficher</button></span>';
+
+  bar.querySelectorAll('[data-restore]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      usageHiddenIds.delete(btn.getAttribute('data-restore'));
+      saveUsageState();
+      renderUsage(usageSections, usageViews, usageTables, usagePages);
+    });
+  });
+  const showAllBtn = document.getElementById('btnUsageShowAll');
+  if (showAllBtn) {
+    showAllBtn.addEventListener('click', () => {
+      usageHiddenIds.clear();
+      saveUsageState();
+      renderUsage(usageSections, usageViews, usageTables, usagePages);
+    });
+  }
+}
+
+// ---------- Inventaire des custom widgets ----------
+
+// Récupère un texte distant en échouant proprement (URL bloquée par CORS, 404, offline, etc.)
+let lastDbml = '';
+
+async function loadAll() {
+  setStatus('Chargement des métadonnées du document…');
+  document.getElementById('dbml').textContent = 'Chargement…';
+  document.getElementById('widgetsList').innerHTML = '<div class="empty">Chargement…</div>';
+
+  try {
+    const [tablesRaw, columnsRaw, sectionsRaw, fieldsRaw, viewsRaw, pagesRaw] = await Promise.all([
+      grist.docApi.fetchTable('_grist_Tables'),
+      grist.docApi.fetchTable('_grist_Tables_column'),
+      grist.docApi.fetchTable('_grist_Views_section'),
+      grist.docApi.fetchTable('_grist_Views_section_field'),
+      grist.docApi.fetchTable('_grist_Views'),
+      grist.docApi.fetchTable('_grist_Pages'),
+    ]);
+
+    const tables = toRecords(tablesRaw);
+    const columns = toRecords(columnsRaw);
+    const sections = toRecords(sectionsRaw);
+    const fields = toRecords(fieldsRaw);
+    const views = toRecords(viewsRaw);
+    const pages = toRecords(pagesRaw);
+
+    /*console.log("tables", tables)
+    console.log("columns", columns)
+    console.log("sections", sections)
+    console.log("fields", fields)
+    console.log("views", views)
+    console.log("pages", pages)*/
+
+    lastDbml = buildDbml(tables, columns);
+    document.getElementById('dbml').textContent = lastDbml;
+
+    renderDiagram(tables, columns);
+    if (window.__diagramFit) {
+      requestAnimationFrame(() => window.__diagramFit());
+    }
+
+    // Analyse des widgets (socle commun : commun/structure.js) AVANT le premier rendu de l'onglet
+    // « Pages ↔ Données » : les tables lues par chaque widget y deviennent des liens pointillés.
+    // (La faire avant évite qu'un « Masquer » cliqué pendant l'analyse fige un état incomplet.)
+    setStatus('Analyse des widgets…');
+    const doc = await Structure.lire();
+    const vuesWidget = doc.sections.filter(s => s.genre === 'custom');
+    let fait = 0;
+    const analyses = await Promise.all(vuesWidget.map(async s => {
+      const a = await Structure.analyserWidget(s, doc);
+      setStatus('Analyse des widgets… (' + (++fait) + ' / ' + vuesWidget.length + ')');
+      return Object.assign(a, { section: s, page: Structure.cheminPage(doc, s.vue) });
+    }));
+    usageCodeUsageBySectionId = {};
+    analyses.forEach(a => { usageCodeUsageBySectionId[a.section.ref] = a.tables.map(t => t.id); });
+    dernieresAnalyses = analyses;
+    afficherWidgets();
+
+    renderUsage(sections, views, tables, pages);
+    if (window.__usageFit) {
+      requestAnimationFrame(() => window.__usageFit());
+    }
+
+    setStatus('');
+  } catch (err) {
+    console.error(err);
+    setStatus(
+      'Impossible de lire les métadonnées du document. Vérifiez que ce widget dispose bien de ' +
+      'l\'accès <strong>« Complet »</strong> (clic droit sur le widget → « Accès aux données »).<br>' +
+      'Détail : ' + escapeHtml(err && err.message ? err.message : String(err)),
+      true
+    );
+    document.getElementById('dbml').textContent = '// Erreur de chargement, voir le message ci-dessus.';
+    document.getElementById('widgetsList').innerHTML = '';
+  }
+}
+
+// ---------- Interactions UI ----------
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const target = tab.getAttribute('data-tab');
+    document.getElementById('panel-diagram').style.display = target === 'diagram' ? '' : 'none';
+    document.getElementById('panel-usage').style.display = target === 'usage' ? '' : 'none';
+    document.getElementById('panel-dbml').style.display = target === 'dbml' ? '' : 'none';
+    document.getElementById('panel-widgets').style.display = target === 'widgets' ? '' : 'none';
+    if (target === 'usage' && window.__usageFit) {
+      requestAnimationFrame(() => window.__usageFit());
+    }
+  });
+});
+
+document.getElementById('btnRefresh').addEventListener('click', loadAll);
+
+document.getElementById('btnCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(lastDbml);
+    const btn = document.getElementById('btnCopy');
+    const old = btn.textContent;
+    btn.textContent = '✅ Copié !';
+    setTimeout(() => { btn.textContent = old; }, 1500);
+  } catch (e) {
+    avis('Copie impossible dans ce contexte : sélectionnez le texte à la main.', 'erreur');
+  }
+});
+
+document.getElementById('btnDownload').addEventListener('click', () => {
+  const blob = new Blob([lastDbml], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'schema.dbml';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+
+/**
+ * Télécharge un schéma (diagramme ou Pages ↔ Données) en SVG autonome : sans les boutons de
+ * masquage, avec les styles recopiés dans le fichier pour qu'il s'affiche partout.
+ */
+function exporterSvg(idSvg, nomFichier) {
+  const clone = document.getElementById(idSvg).cloneNode(true);
+  clone.querySelectorAll('.dg-hide-btn, .ug-hide-btn, .ug-isolate-btn').forEach(b => b.remove());
+  const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  style.textContent = `
+    text { font-family: system-ui, -apple-system, sans-serif; }
+    .dg-table-box .dg-body { fill: #ffffff; stroke: #e5e7eb; stroke-width: 1px; }
+    .dg-table-box .dg-header { fill: #2f855a; }
+    .dg-title { fill: #ffffff; font-size: 13px; font-weight: 600; }
+    .dg-col { fill: #374151; font-size: 12px; }
+    .dg-col-type, .ug-source-label { fill: #9ca3af; font-style: italic; }
+    .dg-rel-path { fill: none; stroke-width: 2px; }
+    .ug-tree-link { fill: none; stroke: #9ca3af; stroke-width: 1.5px; stroke-dasharray: 4 4; }`;
+  clone.insertBefore(style, clone.firstChild);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  if (!clone.getAttribute('viewBox')) {
+    clone.setAttribute('viewBox', `0 0 ${clone.getAttribute('width') || 800} ${clone.getAttribute('height') || 600}`);
+  }
+  const source = '<?xml version="1.0" encoding="utf-8"?>\n' + new XMLSerializer().serializeToString(clone);
+  const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = nomFichier;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+document.getElementById('btnDownloadSvg').addEventListener('click', () => exporterSvg('diagramSvg', 'schema-des-tables.svg'));
+
+document.getElementById('btnResetLayout').addEventListener('click', () => {
+  manualPositions = {};
+  saveDiagramState();
+  renderDiagram(diagramTables, diagramColumns);
+  if (window.__diagramFit) requestAnimationFrame(() => window.__diagramFit());
+});
+
+document.getElementById('btnHideAll').addEventListener('click', () => {
+  diagramTables.forEach(t => hiddenTableIds.add(t.tableId));
+  saveDiagramState();
+  renderDiagram(diagramTables, diagramColumns);
+});
+
+document.getElementById('chkShowUnlinkedColumns').addEventListener('change', (e) => {
+  showUnlinkedColumns = e.target.checked;
+  saveDiagramState();
+  renderDiagram(diagramTables, diagramColumns);
+});
+
+document.getElementById('chkHideSummaryTables').addEventListener('change', (e) => {
+  hideSummaryTables = e.target.checked;
+  saveDiagramState();
+  renderDiagram(diagramTables, diagramColumns);
+});
+
+document.getElementById('diagramVersionSelect').addEventListener('change', (e) => {
+  const name = e.target.value;
+  if (!name) {
+    // "Brouillon" sélectionné : on ne touche pas à l'état courant, on le détache juste d'une vue nommée.
+    diagramActiveVersionName = null;
+    saveDiagramState();
+    document.getElementById('btnDiagramDeleteVersion').disabled = true;
+    return;
+  }
+  const snap = diagramVersions[name];
+  if (!snap) return;
+  applyDiagramSnapshot(snap);
+  diagramActiveVersionName = name;
+  saveDiagramState();
+  renderDiagram(diagramTables, diagramColumns);
+  document.getElementById('chkShowUnlinkedColumns').checked = showUnlinkedColumns;
+  document.getElementById('chkHideSummaryTables').checked = hideSummaryTables;
+  document.getElementById('btnDiagramDeleteVersion').disabled = false;
+  if (window.__diagramFit) requestAnimationFrame(() => window.__diagramFit());
+});
+
+document.getElementById('btnDiagramSaveVersion').addEventListener('click', async () => {
+  const suggested = diagramActiveVersionName || '';
+  const name = ((await demander(
+    'Nom de la vue (ex. « Métier », « Support », « Administration »). Un nom existant sera remplacé.',
+    { saisie: suggested, ok: 'Enregistrer' }
+  )) || '').trim();
+  if (!name) return;
+  diagramVersions[name] = currentDiagramSnapshot();
+  diagramActiveVersionName = name;
+  saveDiagramState();
+  populateDiagramVersionSelect();
+});
+
+document.getElementById('btnDiagramDeleteVersion').addEventListener('click', async () => {
+  const name = document.getElementById('diagramVersionSelect').value;
+  if (!name || !diagramVersions[name]) return;
+  if (!(await demander('Supprimer la vue « ' + name + ' » ? Elle ne pourra pas être récupérée.', { ok: 'Supprimer' }))) return;
+  delete diagramVersions[name];
+  if (diagramActiveVersionName === name) diagramActiveVersionName = null;
+  saveDiagramState();
+  populateDiagramVersionSelect();
+});
+
+document.getElementById('btnUsageDownloadSvg').addEventListener('click', () => exporterSvg('usageSvg', 'pages-et-donnees.svg'));
+
+document.getElementById('btnUsageResetLayout').addEventListener('click', () => {
+  usageManualPositions = {};
+  saveUsageState();
+  renderUsage(usageSections, usageViews, usageTables, usagePages);
+  if (window.__usageFit) requestAnimationFrame(() => window.__usageFit());
+});
+
+document.getElementById('btnUsageHideAll').addEventListener('click', () => {
+  usageViews.forEach(v => usageHiddenIds.add('page:' + v.id));
+  usageTables.forEach(t => usageHiddenIds.add('table:' + t.tableId));
+  saveUsageState();
+  renderUsage(usageSections, usageViews, usageTables, usagePages);
+});
+
+document.getElementById('usageVersionSelect').addEventListener('change', (e) => {
+  const name = e.target.value;
+  if (!name) {
+    usageActiveVersionName = null;
+    saveUsageState();
+    document.getElementById('btnUsageDeleteVersion').disabled = true;
+    return;
+  }
+  const snap = usageVersions[name];
+  if (!snap) return;
+  applyUsageSnapshot(snap);
+  usageActiveVersionName = name;
+  saveUsageState();
+  renderUsage(usageSections, usageViews, usageTables, usagePages);
+  document.getElementById('btnUsageDeleteVersion').disabled = false;
+  if (window.__usageFit) requestAnimationFrame(() => window.__usageFit());
+});
+
+document.getElementById('btnUsageSaveVersion').addEventListener('click', async () => {
+  const suggested = usageActiveVersionName || '';
+  const name = ((await demander(
+    'Nom de la vue (ex. « Métier », « Support », « Administration »). Un nom existant sera remplacé.',
+    { saisie: suggested, ok: 'Enregistrer' }
+  )) || '').trim();
+  if (!name) return;
+  usageVersions[name] = currentUsageSnapshot();
+  usageActiveVersionName = name;
+  saveUsageState();
+  populateUsageVersionSelect();
+});
+
+document.getElementById('btnUsageDeleteVersion').addEventListener('click', async () => {
+  const name = document.getElementById('usageVersionSelect').value;
+  if (!name || !usageVersions[name]) return;
+  if (!(await demander('Supprimer la vue « ' + name + ' » ? Elle ne pourra pas être récupérée.', { ok: 'Supprimer' }))) return;
+  delete usageVersions[name];
+  if (usageActiveVersionName === name) usageActiveVersionName = null;
+  saveUsageState();
+  populateUsageVersionSelect();
+});
+
+setupPanZoom();
+setupUsagePanZoom();
+Promise.all([loadDiagramState(), loadUsageState()]).then(() => {
+  // Reflète l'état persisté (chargé de manière asynchrone) sur la case à cocher et les sélecteurs de vues
+  // avant le premier rendu.
+  document.getElementById('chkShowUnlinkedColumns').checked = showUnlinkedColumns;
+  document.getElementById('chkHideSummaryTables').checked = hideSummaryTables;
+  populateDiagramVersionSelect();
+  populateUsageVersionSelect();
+  loadAll();
+});
+
+function toggleHiddenBar() {
+            const el = document.getElementById('hiddenbar-content');
+            const chevron = document.getElementById('hiddenbar-chevron');
+            el.classList.toggle('hidden');
+            chevron.style.transform = el.classList.contains('hidden') ? '' : 'rotate(180deg)';
+        }
+function toggleHiddenBarUsage() {
+            const el = document.getElementById('hiddenbar-usage-content');
+            const chevron = document.getElementById('hiddenbar-usage-chevron');
+            el.classList.toggle('hidden');
+            chevron.style.transform = el.classList.contains('hidden') ? '' : 'rotate(180deg)';
+        }
+function toggleHelpDiagram() {
+            const el = document.getElementById('help-diagram');
+            el.classList.toggle('hidden');
+        }
+function toggleHelpUsage() {
+            const el = document.getElementById('help-usage');
+            el.classList.toggle('hidden');
+        }
+// ---------- Onglet « Widgets » ----------
+// Une fiche par widget (tables, colonnes, sorties vers internet), précédée du bilan de toutes les
+// sorties du document. Les analyses viennent du socle commun (commun/structure.js).
+
+let dernieresAnalyses = [];
+const GENRES = { script: 'script', style: 'style / police', cadre: 'cadre', appel: 'appel', image: 'image', 'média': 'média', adresse: 'adresse citée' };
+
+/** Texte dans lequel cherche le filtre : widget, page, tables, colonnes, domaines. */
+const texteRecherche = a => [a.section.titre, a.page, a.origine, ...a.tables.flatMap(t => [t.id, ...t.colonnes]),
+  ...a.absentes, ...a.sorties.map(s => s.domaine)].join(' ').toLowerCase();
+
+function afficherWidgets() {
+  const zone = document.getElementById('widgetsList');
+  const filtre = (document.getElementById('filtreWidgets').value || '').trim().toLowerCase();
+  const liste = dernieresAnalyses.filter(a => !filtre || texteRecherche(a).includes(filtre));
+  if (!dernieresAnalyses.length) { zone.innerHTML = '<div class="empty">Aucun widget personnalisé dans ce document.</div>'; return; }
+
+  // Bilan : chaque domaine contacté, et par quels widgets
+  const domaines = new Map();
+  for (const a of liste) for (const s of a.sorties) {
+    if (!domaines.has(s.domaine)) domaines.set(s.domaine, new Set());
+    domaines.get(s.domaine).add(a.section.titre || a.page);
+  }
+  const bilan = '<div class="card"><h3>🌐 Sorties vers internet' + (filtre ? ' (widgets filtrés)' : ' du document') + '</h3>' +
+    (domaines.size ? '<table class="tableau-sorties"><tr><th>Domaine</th><th>Utilisé par</th></tr>' +
+      [...domaines.entries()].sort((x, y) => x[0].localeCompare(y[0])).map(([d, ws]) =>
+        '<tr><td class="code">' + escapeHtml(d) + '</td><td>' + [...ws].map(escapeHtml).join(', ') + '</td></tr>').join('') + '</table>'
+      : '<div class="empty">Aucune sortie détectée.</div>') + '</div>';
+
+  const fiche = a => {
+    const badges = [
+      a.builder ? '<span class="kind-badge builder">🧱 Builder</span>' : '<span class="kind-badge url">🔗 Adresse</span>',
+      a.ecrit ? '<span class="kind-badge ecrit" title="Le widget modifie des données (applyUserActions…)">✏️ écrit</span>' : '<span class="kind-badge">👁 lecture</span>',
+      a.jeton ? '<span class="kind-badge jeton" title="Le widget obtient un jeton d\'accès au document (getAccessToken)">🔑 jeton</span>' : '',
+      a.acces ? '<span class="kind-badge">accès : ' + escapeHtml(a.acces) + '</span>' : '',
+    ].join(' ');
+    const tables = a.tables.length ? a.tables.map(t =>
+      '<div class="ligne-table"><b>' + escapeHtml(t.id) + '</b>' + (t.principale ? ' <span class="discret">(table de la vue)</span>' : '') +
+      '<div class="puces">' + (t.colonnes.length ? t.colonnes.map(c => '<span class="puce">' + escapeHtml(c) + '</span>').join('') : '<span class="discret">aucune colonne nommée dans le code</span>') + '</div></div>').join('')
+      : '<div class="discret">Aucune table repérée.</div>';
+    const absentes = a.absentes.length ? '<div class="ligne-table"><b>Tables citées mais absentes du document</b><div class="puces">' +
+      a.absentes.map(t => '<span class="puce manque">' + escapeHtml(t) + '</span>').join('') + '</div></div>' : '';
+    const sorties = a.sorties.length ? a.sorties.map(s =>
+      '<details class="sortie"><summary><span class="puce externe">' + escapeHtml(s.domaine) + '</span> ' + s.adresses.length + ' adresse(s) : ' +
+      [...new Set(s.adresses.map(x => GENRES[x.genre] || x.genre))].join(', ') + '</summary><ul>' +
+      s.adresses.map(x => '<li><span class="discret">' + escapeHtml(GENRES[x.genre] || x.genre) + '</span> <span class="code">' + escapeHtml(x.url) + '</span></li>').join('') +
+      '</ul></details>').join('') : '<div class="discret">Aucune sortie vers internet.</div>';
+    return '<div class="card fiche-widget"><h3>' + escapeHtml(a.section.titre || '(sans titre)') + ' ' + badges + '</h3>' +
+      '<div class="discret">Page : ' + escapeHtml(a.page) + (a.origine ? ' · chargé depuis <span class="code">' + escapeHtml(a.origine) + '</span>' : '') + '</div>' +
+      (a.illisible ? '<div class="status error" style="margin-top:8px;">Code illisible : le site qui héberge ce widget refuse qu\'on le télécharge, ou ne répond pas.</div>' : '') +
+      '<div class="colonnes-fiche"><div><div class="section-label">Tables et colonnes utilisées</div>' + tables + absentes + '</div>' +
+      '<div><div class="section-label">Sorties vers internet</div>' + sorties + '</div></div></div>';
+  };
+  zone.innerHTML = bilan + (liste.length ? liste.map(fiche).join('') : '<div class="empty">Aucun widget ne correspond au filtre.</div>');
+}
+document.getElementById('filtreWidgets').addEventListener('input', afficherWidgets);
+
+</script>
+</body>
+</html>
