@@ -732,9 +732,18 @@ function buildDiagramModel(tables, columns) {
   // MLD : des liens sobres, d'une seule couleur (le survol les met en valeur en bleu)
   relations.forEach(r => { r.color = '#4a4a4a'; });
 
+  // Références croisées (A → B et B → A, ex. Utilisateurs.Entite et Entites.Membres) : la table la
+  // plus référencée passe à gauche, et seul le lien « à rebours » est mis de côté pour la disposition.
+  // Score = liens reçus − liens émis (une table très référencée est une table « de base »).
+  const score = new Map(boxes.map(b => [b, relations.filter(r => r.toBox === b && r.fromBox !== b).length
+    - relations.filter(r => r.fromBox === b && r.toBox !== b).length]));
+  const aRebours = r => r.toBox !== r.fromBox && relations.some(q => q.fromBox === r.toBox && q.toBox === r.fromBox)
+    && (score.get(r.toBox) < score.get(r.fromBox) || (score.get(r.toBox) === score.get(r.fromBox) && r.toBox.tableId > r.fromBox.tableId));
+  relations.forEach(r => { r.rebours = aRebours(r); });
+
   // Colonne de chaque table : 0 si elle ne référence rien, sinon 1 + la colonne la plus à droite
-  // de ses cibles (les boucles éventuelles A → B → A sont coupées)
-  const cibleDe = new Map(boxes.map(b => [b, [...new Set(relations.filter(r => r.fromBox === b && r.toBox !== b).map(r => r.toBox))]]));
+  // de ses cibles (liens à rebours exclus ; une boucle plus longue est coupée)
+  const cibleDe = new Map(boxes.map(b => [b, [...new Set(relations.filter(r => r.fromBox === b && r.toBox !== b && !r.rebours).map(r => r.toBox))]]));
   const niveau = new Map();
   const calculer = (b, pile) => {
     if (niveau.has(b)) return niveau.get(b);
@@ -777,14 +786,21 @@ function buildDiagramModel(tables, columns) {
     basColonnes = Math.max(basColonnes, y);
     x += largeur + couloir(c);
   });
-  // Tables sans lien : rangées en ligne sous le schéma, avec retour à la ligne
-  const largeurUtile = Math.max(x, 900);
-  let xi = MARGIN, yi = basColonnes + (colonnes.length ? 40 : 0), hauteurLigne = 0;
-  isolees.forEach(b => {
-    if (xi + b.width > largeurUtile && xi > MARGIN) { xi = MARGIN; yi += hauteurLigne + GAP_Y; hauteurLigne = 0; }
-    b.x = xi; b.y = yi; b.colonne = -1;
-    xi += b.width + 30; hauteurLigne = Math.max(hauteurLigne, b.height);
-  });
+  // Tables sans lien : une colonne de plus à droite si elles y tiennent, sinon des lignes en dessous
+  const hauteurIsolees = isolees.reduce((h, b) => h + b.height + GAP_Y, 0);
+  if (isolees.length && hauteurIsolees <= Math.max(basColonnes, 360)) {
+    let y = MARGIN;
+    const xCol = colonnes.length ? x + 20 : MARGIN;
+    isolees.forEach(b => { b.x = xCol; b.y = y; b.colonne = -1; y += b.height + GAP_Y; });
+  } else {
+    const largeurUtile = Math.max(x, 900);
+    let xi = MARGIN, yi = basColonnes + (colonnes.length ? 40 : 0), hauteurLigne = 0;
+    isolees.forEach(b => {
+      if (xi + b.width > largeurUtile && xi > MARGIN) { xi = MARGIN; yi += hauteurLigne + GAP_Y; hauteurLigne = 0; }
+      b.x = xi; b.y = yi; b.colonne = -1;
+      xi += b.width + 30; hauteurLigne = Math.max(hauteurLigne, b.height);
+    });
+  }
   boxes.forEach(b => {
     const m = manualPositions[b.tableId];
     if (m && Number.isFinite(m.x) && Number.isFinite(m.y)) { b.x = m.x; b.y = m.y; }
@@ -951,6 +967,13 @@ function computeRelPathD(rel, model) {
   if (x2 + 30 < src.x) {
     const xc = x2 + 22 + 12 * (rel.couloir || 0);
     return cheminArrondi([[src.x, y1], [xc, y1], [xc, y2], [x2, y2]]);
+  }
+  if (dst.x > src.x + src.width) {
+    // lien à rebours (la cible est à droite) : il sort par la droite de la source et entre dans la
+    // cible par sa droite, en passant par un couloir au-delà de la cible
+    const xs = src.x + src.width, xc = x2 + 22 + 12 * (rel.couloir || 0);
+    return cheminArrondi([[xs, y1], [xs + 14, y1], [xs + 14, Math.max(src.y + src.height, dst.y + dst.height) + 16],
+      [xc, Math.max(src.y + src.height, dst.y + dst.height) + 16], [xc, y2], [x2, y2]]);
   }
   // cas déplacé à la main : courbe douce du bord le plus proche
   const versDroite = src.x + src.width / 2 < dst.x + dst.width / 2;
