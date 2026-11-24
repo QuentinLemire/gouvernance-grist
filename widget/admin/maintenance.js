@@ -573,7 +573,8 @@ function carteSauvegardes() {
     const min = Math.round((Date.now() - new Date(d)) / 60000);
     return min < 60 ? `il y a ${min} min` : min < 1440 ? `il y a ${Math.round(min / 60)} h` : `il y a ${Math.round(min / 1440)} j`;
   };
-  const base = S.adresse.replace(/\/[^/]+$/, '/');   // adresse du document sans son identifiant
+  // une sauvegarde s'ouvre à …/doc/<identifiant de la version> (sans « /doc/ », Grist ne la retrouve pas)
+  const base = S.adresse.replace(/\/[^/]+$/, '/doc/');
   return entete + `
     <div class="barre-outils">${copie}<span class="aide" style="margin:0">${S.liste.length} sauvegarde(s) disponibles.</span></div>
     <div class="defile"><table class="tableau"><tr><th>Version du</th><th></th><th></th></tr>
