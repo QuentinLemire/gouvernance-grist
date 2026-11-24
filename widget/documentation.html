@@ -167,12 +167,12 @@ async function lireRubriques() {
  * Effet sur le document Grist : aucun (lecture seule).
  */
 // La documentation n'est modifiable que par les propriétaires du document (règle d'accès de la norme).
-// Seuls eux peuvent lire les règles d'accès : c'est ainsi qu'on les reconnaît, pour n'afficher
-// « Nouvelle page » et « Modifier » qu'à eux (Quentin, 24/11/2026).
+// Seuls eux voient les règles d'accès (pour les autres, Grist renvoie une liste vide) : c'est ainsi
+// qu'on les reconnaît, pour n'afficher « Nouvelle page » et « Modifier » qu'à eux (Quentin, 24/11/2026).
 let proprietaire = null;
 async function estProprietaire() {
   if (proprietaire === null) {
-    try { await grist.docApi.fetchTable('_grist_ACLRules'); proprietaire = true; } catch (e) { proprietaire = false; }
+    try { const r = await grist.docApi.fetchTable('_grist_ACLRules'); proprietaire = !!(r && r.id && r.id.length); } catch (e) { proprietaire = false; }
   }
   return proprietaire;
 }
