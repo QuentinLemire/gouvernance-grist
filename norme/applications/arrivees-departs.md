@@ -69,7 +69,9 @@ Restent à trancher plus tard : `Bureaux.Rattachement` (sous-direction du bureau
 - `Personnel.Identifiant` : le RIO (sans espaces, en majuscules), sinon « NOM Prénom ». Repris dans l'annuaire (`Personnel_summary_Cle.Identifiant`, utile pour n8n).
 - `Personnel.Doublon_identifiant` : vrai si un autre agent **présent** est la même personne — même RIO quand les deux en ont un, sinon même nom et prénom (accents et majuscules ignorés). Les agents partis ne comptent pas : un agent qui revient a une nouvelle fiche, l'ancienne reste dans l'historique.
 - Tant qu'il y a doublon, la fiche affiche une alerte et ne peut être ni transmise au bureau ni signée (règles d'accès ; administrateurs et propriétaires exemptés pour corriger).
-- Le lien technique entre l'agent et ses sections reste la clé `Cle` (UUID tirée à la création, invisible) : le RIO arrive souvent après la création et peut être corrigé, il ne peut pas servir de lien.
+- Clé `Cle` supprimée le 2026-11-24 : chaque section pointe directement vers sa ligne de Personnel (colonne `Agent`, référence saisie). La fiche crée l'agent, puis ses sections. `Doublon` (sections) se calcule désormais sur `Agent` et empêche une 2e ligne de section pour le même agent ; `Cle_ok` a disparu.
+- Annuaire : vue de Personnel filtrée sur `Present` (colonnes `Telephone`, `Situation`, `Present` calculées dans Personnel) ; l'ancienne table de résumé `Personnel_summary_Cle` est supprimée — **les flux n8n lisent désormais la table `Personnel` (filtre `Present`)**.
+- Grade : saisie libre, avec en suggestion les grades déjà renseignés (plus de liste figée dans le code).
 
 ## Campagne de tests des droits (2026-11-23, données vidées)
 Comptes fictifs : admin.test, rh.dgom, rh.sma, chef.bcl, adjoint.bcl, chef.baei, bssiom, lecteur.bcl, contributeur.dgom, inactif, sansrole (+ un inconnu).
