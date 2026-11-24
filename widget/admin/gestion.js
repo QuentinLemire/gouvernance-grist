@@ -44,7 +44,8 @@ const PAGE_DEPOT = `https://github.com/${GITHUB.proprietaire}/${GITHUB.depot}`;
 // Le commit est noté dans l'adresse (?v=…) : nouvelle adresse à chaque version, donc jamais d'ancienne copie
 // gardée par le navigateur, et la version des pages reste lisible dans l'onglet Structure.
 const SITE_WIDGETS = `https://${GITHUB.proprietaire.toLowerCase()}.github.io/${GITHUB.depot}/widget/`;
-const URL_WIDGET = (version, fichier) => `${SITE_WIDGETS}${fichier}?v=${version}`;
+// module : outil affiché par console.html (page par outil, ?module=…) ; gardé quand la version change
+const URL_WIDGET = (version, fichier, module) => `${SITE_WIDGETS}${fichier}?${module ? 'module=' + module + '&' : ''}v=${version}`;
 // Reconnaît une adresse de widget de la norme : GitHub Pages (fichier, version) ou ancienne adresse raw.githack (version, fichier).
 const ADRESSE_WIDGET = new RegExp(`(?:/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]+)|${GITHUB.proprietaire}\\.github\\.io/${GITHUB.depot})/widget/([^?#]+)(?:\\?v=([0-9a-f]+))?`, 'i');
 

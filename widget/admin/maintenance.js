@@ -124,8 +124,13 @@ async function sectionsWidgets() {
   return ((await lire('_grist_Views_section')) || []).map((s) => {
     const options = json(s.options, {}), vue = json(options.customView, {});
     const m = (vue.url || '').match(ADRESSE_WIDGET);
-    // ancienne : page encore servie par raw.githack, à faire passer sur GitHub Pages
-    return m ? { id: s.id, options, vue, version: m[1] || m[3] || GITHUB.branche, fichier: m[2], ancienne: !!m[1] } : null;
+    if (!m) return null;
+    // ancienne : page encore servie par raw.githack, à faire passer sur GitHub Pages ;
+    // version (?v=…) et module (?module=…, outil de la console) lus dans l'adresse, où qu'ils soient
+    let parametres = new URLSearchParams();
+    try { parametres = new URL(vue.url).searchParams; } catch (e) { /* adresse illisible */ }
+    return { id: s.id, options, vue, version: m[1] || parametres.get('v') || GITHUB.branche, fichier: m[2],
+      module: parametres.get('module') || '', ancienne: !!m[1] };
   }).filter(Boolean);
 }
 
@@ -149,7 +154,7 @@ async function mettreAJourPages(bouton) {
     await tracer('Pages mises à jour', 'version ' + version.slice(0, 7) + ' : ' + [...new Set(aFaire.map((s) => s.fichier))].join(', '));
     // En dernier : cette page-ci se recharge aussitôt sa propre adresse changée.
     await agir(aFaire.map((s) => ['UpdateRecord', '_grist_Views_section', s.id, { options: JSON.stringify({ ...s.options,
-      customView: JSON.stringify({ ...s.vue, url: URL_WIDGET(version, s.fichier) }) }) }]));
+      customView: JSON.stringify({ ...s.vue, url: URL_WIDGET(version, s.fichier, s.module) }) }) }]));
     message('✅ ' + aFaire.length + ' page(s) mises à la version ' + version.slice(0, 7) + '.');
   });
 }
