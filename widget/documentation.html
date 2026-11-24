@@ -179,7 +179,8 @@ async function estProprietaire() {
 
 async function charger() {
   const [docs, p, r] = await Promise.all([lire('Gouv_Documentation'), parametres(), lireRubriques()]);
-  document.getElementById('nouvelle').hidden = !(await estProprietaire());
+  // masqué par le style même, sans dépendre de la feuille commune (qui peut être gardée en cache)
+  document.getElementById('nouvelle').style.display = (await estProprietaire()) ? '' : 'none';
   entete(p, 'Documentation');
   rubriques = r;
   pages = (docs || []).sort((a, b) => String(a.Rubrique || '').localeCompare(String(b.Rubrique || '')) || (a.Ordre || 0) - (b.Ordre || 0) || String(a.Titre).localeCompare(String(b.Titre)));
