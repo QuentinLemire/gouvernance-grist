@@ -14,7 +14,11 @@ Les règles de conformité sont écrites **une seule fois** (`widget/commun/norm
 - la Santé du document signale aussi les formules en erreur, les colonnes qui ne servent nulle part et les appels des widgets vers internet ;
   les bibliothèques choisies par la norme (DSFR, marked, DOMPurify, à version figée) y sont distinguées des sorties extérieures ;
 - le tableau de bord ne contrôle plus la traçabilité (doublon de P2) : il renvoie vers la Santé ;
-- la Maintenance reconnaît encore `administration.html`, `explorateur.html`, `atelier.html` et `boite-a-outils.html`, pour ranger le menu des documents pas encore migrés.
+- la Maintenance reconnaît encore `administration.html`, `explorateur.html`, `atelier.html` et `boite-a-outils.html` ;
+  « Mettre les pages à la dernière version » fait passer un tel document aux outils séparés (outils manquants créés, ancien panneau → tableau de bord,
+  Boîte à outils → Explorateur) ;
+- `explorateur.html` et `atelier.html` autonomes sont supprimés (doublons des modules de la console) ; `administration.html` et `boite-a-outils.html`
+  restent tant qu'une application s'en sert (Arrivées-Départs), puis seront supprimés.
 
 ### 2026-11-23 — Nouveau socle : Utilisateurs, Accueil, Journal (+ Boîte à outils)
 **Décision** : le **socle** comprend Utilisateurs & Entités, la page d'accueil (avec Paramètres, qu'elle lit), le Journal d'administration, et les pages Accueil, Administration, Utilisateurs, Boîte à outils. **Hors socle**, à installer en un clic : Support, Documentation, Territoires.

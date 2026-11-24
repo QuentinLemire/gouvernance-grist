@@ -139,19 +139,37 @@ async function chargerVersions() {
 }
 
 /**
+ * Page d'un ancien fichier, d'avant les outils séparés (administration.html, boite-a-outils.html…) :
+ * l'outil de la console qui la remplace, ou undefined.
+ */
+const remplacante = (fichier) => PAGES.find((x) => (x.anciens || []).includes(fichier));
+
+/**
  * Fait pointer toutes les pages de la norme (Accueil, Documentation, Support, Administration et ses outils)
  * sur le dernier commit du dépôt. Les pages se rechargent d'elles-mêmes, sans attendre aucun cache.
+ * Document pas encore passé aux outils séparés : les outils qui manquent sont d'abord créés, puis
+ * l'ancien panneau devient le tableau de bord et la Boîte à outils l'Explorateur (même page, même place).
  * @param {HTMLElement} bouton
  */
 async function mettreAJourPages(bouton) {
   await occupe(bouton, async () => {
-    const version = await derniereVersion(), sections = await sectionsWidgets();
-    const aFaire = sections.filter((s) => s.version !== version || s.ancienne);
+    const version = await derniereVersion();
+    let sections = await sectionsWidgets();
+    const anciennes = sections.filter((s) => remplacante(s.fichier));
+    if (anciennes.length) {
+      // les outils manquants d'abord : cette page-ci sera remplacée (et rechargée) en dernier
+      await creerPages(null);
+      sections = await sectionsWidgets();
+    }
+    const cible = (s) => { const r = remplacante(s.fichier); return r ? { fichier: r.fichier, module: r.module } : { fichier: s.fichier, module: s.module }; };
+    const aFaire = sections.filter((s) => s.version !== version || s.ancienne || remplacante(s.fichier));
     if (!aFaire.length) return message('✅ Les pages sont déjà à la dernière version (' + version.slice(0, 7) + ').');
-    await tracer('Pages mises à jour', 'version ' + version.slice(0, 7) + ' : ' + [...new Set(aFaire.map((s) => s.fichier))].join(', '));
+    await tracer(anciennes.length ? 'Passage aux outils d\'administration' : 'Pages mises à jour', 'version ' + version.slice(0, 7) + ' : '
+      + [...new Set(aFaire.map((s) => s.fichier + (remplacante(s.fichier) ? ' → ' + cible(s).module : '')))].join(', '));
     // En dernier : cette page-ci se recharge aussitôt sa propre adresse changée.
-    await agir(aFaire.map((s) => ['UpdateRecord', '_grist_Views_section', s.id, { options: JSON.stringify({ ...s.options,
-      customView: JSON.stringify({ ...s.vue, url: URL_WIDGET(version, s.fichier, s.module) }) }) }]));
+    const moi = (s) => location.href.includes('/widget/' + s.fichier);
+    await agir([...aFaire.filter((s) => !moi(s)), ...aFaire.filter(moi)].map((s) => ['UpdateRecord', '_grist_Views_section', s.id, { options: JSON.stringify({ ...s.options,
+      customView: JSON.stringify({ ...s.vue, url: URL_WIDGET(version, cible(s).fichier, cible(s).module) }) }) }]));
     message('✅ ' + aFaire.length + ' page(s) mises à la version ' + version.slice(0, 7) + '.');
   });
 }

@@ -46,8 +46,13 @@
   <!-- Styles : logo Marianne officiel (DSFR), charte commune à tous les
        widgets, puis outils JavaScript communs (window.Outils). -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.12.1/dist/component/logo/logo.min.css">
-  <link rel="stylesheet" href="commun/dsfr-grist.css">
-  <script src="commun/outils.js"></script>
+  <script>
+    // Fichiers communs chargés avec la version de la page (?v=…) : jamais d'ancienne copie en cache.
+    const VERSION_PAGE = new URLSearchParams(location.search).get('v') || '';
+    const commun = (fichier) => 'commun/' + fichier + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '');
+    document.write('<link rel="stylesheet" href="' + commun('dsfr-grist.css') + '">');
+    document.write('<script src="' + commun('outils.js') + '"><\/script>');
+  </script>
   <style>
     /* Bandeau bleu « Vous avez accès » affiché aux personnes inscrites. */
     .bandeau { background: var(--bleu); color: #fff; padding: 36px 24px; }
