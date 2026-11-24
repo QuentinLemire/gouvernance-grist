@@ -20,7 +20,7 @@
  *      // a.tables  : [{ id, colonnes: ['Nom', …] }]  tables et colonnes utilisées
  *      // a.absentes: ['Utilisateurs']                tables citées mais absentes du document
  *      // a.sorties : [{ domaine, adresses: [{ url, genre }] }]  appels vers internet
- *      // a.ecrit, a.jeton : le widget écrit-il dans le document ? demande-t-il un jeton d'accès ?
+ *      // a.ecrit : le widget écrit-il dans le document ? a.jeton : false, 'lecture' ou 'ecriture' (jeton d'accès à l'API)
  *      Structure.typeFrancais('Ref:Gouv_Entites')     // « Réf. → Gouv_Entites »
  *
  *  Lecture seule : rien n'est écrit dans le document.
@@ -151,6 +151,9 @@ window.Structure = (() => {
   /** Le nom apparaît-il comme un champ : .Nom, 'Nom', "Nom", `Nom` ou Nom: ? */
   const citeColonne = (code, id) => new RegExp('(?:\\.|[\'"`])' + motif(id) + '(?![\\w$])|(?<![\\w$.])' + motif(id) + '\\s*:').test(code);
 
+  /** Sites qui ne servent qu'à nommer des formats XML (espaces de noms) : jamais appelés. */
+  const ESPACES_DE_NOMS = ['schemas.openxmlformats.org', 'schemas.microsoft.com', 'purl.org', 'ns.adobe.com'];
+
   /** Domaine lisible d'une adresse (« cdn.jsdelivr.net »). */
   const domaine = (url) => { try { return new URL(url).hostname; } catch (e) { return url; } };
 
@@ -164,10 +167,12 @@ window.Structure = (() => {
       let absolue = url;
       try { absolue = new URL(url, base || undefined).href; } catch (e) { if (!/^https?:/i.test(url)) return; }
       if (!/^https?:/i.test(absolue)) return;
-      // pas une vraie sortie : texte d'exemple (« https://… »), ou nom d'un format XML (www.w3.org/2000/svg…)
+      // pas une vraie sortie : texte d'exemple (« https://… »), ou nom d'un format XML, qu'aucun navigateur
+      // n'appelle (www.w3.org/2000/svg, schemas.openxmlformats.org dans un export Excel…)
       let hote = '';
       try { hote = new URL(absolue).hostname; } catch (e) { return; }
-      if (!hote.includes('.') || /…/.test(absolue) || /^https?:\/\/www\.w3\.org\/(19|20)\d\d\//.test(absolue)) return;
+      if (!hote.includes('.') || /…/.test(absolue) || /^https?:\/\/www\.w3\.org\/(19|20)\d\d\//.test(absolue)
+        || ESPACES_DE_NOMS.includes(hote)) return;
       trouvees.push({ url: absolue, genre });
     };
     const balises = { script: 'script', link: 'style', img: 'image', iframe: 'cadre', source: 'média' };
@@ -237,7 +242,9 @@ window.Structure = (() => {
       origine: w.url ? domaine(w.url) + (w.builder ? ' (Custom widget builder)' : '') : '',
       sorties: [...sorties(code, base), ...apiDuDocument(code)],
       ecrit: /applyUserActions|sendActions|\.(?:addRecords|updateRecords|destroyRecords|upsert)\(/.test(code),
-      jeton: /getAccessToken/.test(code),
+      // jeton d'accès à l'API du document : 'lecture' si toutes les demandes sont en lecture seule, sinon 'ecriture'
+      jeton: !/getAccessToken/.test(code) ? false
+        : [...code.matchAll(/getAccessToken\(([^)]*)\)/g)].every((m) => /readOnly\s*:\s*true/.test(m[1])) ? 'lecture' : 'ecriture',
     };
   }
 

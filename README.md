@@ -80,6 +80,8 @@ Pour la première pose, l'adresse sans `?v=` convient ; ensuite, **Maintenance**
 Les anciennes adresses raw.githack (service tombé en panne le 2026-11-24) sont reconnues et remplacées par ce bouton.
 
 Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une image publique).
+Le rôle qui administre l'application (contrôlé par la santé du document) est « Administrateur » ; une application qui en a un autre
+le déclare dans **Parametres**, clé `Roles_administration` (plusieurs rôles séparés par des virgules ; ex. « BSSIOM » dans Arrivées-Départs).
 
 ## Créer ou mettre à la norme une application
 

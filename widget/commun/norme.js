@@ -94,12 +94,13 @@
         .filter((c) => c.parentId === t.id && c.colId !== 'manualSort' && !c.colId.startsWith('gristHelper'))
         .sort((a, b) => a.parentPos - b.parentPos));
     }
-    // Tables « métier » : hors tables internes, tables de regroupement et tables techniques d'une
-    // seule colonne (les « verrous » qui cachent des pages : VueAdmin, VuePilotage, VueBannette…).
+    // Tables « métier » : hors tables internes, tables de regroupement et tables techniques sans aucune
+    // donnée saisie (que des formules, ou une seule colonne) : les « verrous » qui cachent des pages
+    // (VueAdmin, VuePilotage, VueBannette…).
     const metier = tables
       .filter((t) => !t.tableId.startsWith('_grist') && !t.tableId.startsWith('GristHidden') && !t.summarySourceTable)
       .map((t) => t.tableId)
-      .filter((t) => colonnesDe.get(t).length > 1);
+      .filter((t) => colonnesDe.get(t).length > 1 && colonnesDe.get(t).some((c) => !c.isFormula));
     return { tables, colonnes, sections, vues, champs, regles, norme, colParId, colonnesDe, metier };
   }
 
@@ -379,8 +380,12 @@
     if (!d.colonnesDe.get('Gouv_Utilisateurs')) return [];
     const U = (await lireTable('Gouv_Utilisateurs')) || [];
     const page = '👥 Utilisateurs';
+    // rôle(s) qui administrent l'application : « Administrateur », ou ceux du paramètre Roles_administration
+    // (ex. « BSSIOM » dans Arrivées-Départs), séparés par des virgules
+    const reglage = ((await lireTable('Gouv_Parametres')) || []).find((p) => p.Cle === 'Roles_administration');
+    const rolesAdmin = String(reglage?.Valeur || 'Administrateur').split(',').map((r) => r.trim()).filter(Boolean);
     const actifs = U.filter((u) => u.Actif !== false);
-    const admins = actifs.filter((u) => u.Role === 'Administrateur');
+    const admins = actifs.filter((u) => rolesAdmin.includes(u.Role));
     const sansRole = actifs.filter((u) => !u.Role).map((u) => u.Courriel || `ligne ${u.id}`);
     // colonnes calculées de la norme (Courriel_valide, Doublon), ou le même calcul si elles manquent
     const cle = (c) => String(c || '').trim().toLowerCase();
@@ -390,7 +395,8 @@
     const doublons = [...new Set(U.filter(doublon).map((u) => cle(u.Courriel)))];
     return [
       { principe: 'Personnes', objet: 'Administrateurs actifs', etat: admins.length ? OK : ABSENT, page,
-        detail: admins.length ? `${admins.length} administrateur(s) actif(s)` : 'Aucun administrateur actif : personne ne peut gérer l\'application en dehors des propriétaires', elements: [] },
+        detail: admins.length ? `${admins.length} personne(s) active(s) au rôle ${rolesAdmin.join(' ou ')}`
+          : `Aucune personne active au rôle ${rolesAdmin.join(' ou ')} : personne ne peut gérer l'application en dehors des propriétaires (rôle d'administration : paramètre Roles_administration)`, elements: [] },
       { principe: 'Personnes', objet: 'Personnes actives sans rôle', etat: sansRole.length ? PARTIEL : OK, page,
         detail: sansRole.length ? `${sansRole.length} personne(s) active(s) sans rôle : elles ne voient que l'accueil` : 'Chaque personne active a un rôle', elements: sansRole },
       { principe: 'Personnes', objet: 'Courriels', etat: malFormes.length || doublons.length ? PARTIEL : OK, page,
@@ -433,10 +439,11 @@
     lignes.push({ principe: 'Santé', objet: 'Widgets : sorties vers internet', etat: exterieures.length ? PARTIEL : OK,
       detail: exterieures.length ? `appels vers des sites extérieurs à la norme : ${liste(exterieures)}` : 'Aucun appel hors du dépôt, de Grist et des bibliothèques de la norme',
       elements: exterieures, outil: 'explorateur' });
-    // les outils d'administration de la norme ont besoin du jeton : seuls les widgets métier sont signalés
-    const jetons = analyses.filter((a) => a.jeton && !widgetDeLaNorme(a)).map((a) => a.page);
+    // jeton en écriture d'un widget métier : il peut tout modifier par l'API, en contournant l'interface.
+    // (un jeton en lecture seule, ou ceux des outils de la norme, ne sont pas signalés)
+    const jetons = analyses.filter((a) => a.jeton === 'ecriture' && !widgetDeLaNorme(a)).map((a) => a.page);
     if (jetons.length) lignes.push({ principe: 'Santé', objet: 'Widgets : jeton d\'accès', etat: PARTIEL,
-      detail: `widgets métier qui demandent un jeton d'accès au document (à réserver aux outils d'administration) : ${liste(jetons)}`,
+      detail: `widgets métier qui demandent un jeton d'accès en écriture (à réserver aux outils d'administration) : ${liste(jetons)}`,
       elements: jetons, outil: 'explorateur' });
     const illisibles = analyses.filter((a) => a.illisible).map((a) => a.page);
     if (illisibles.length) lignes.push({ principe: 'Santé', objet: 'Widgets : code illisible', etat: '❔',

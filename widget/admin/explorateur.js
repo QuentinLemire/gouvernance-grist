@@ -1609,7 +1609,7 @@ function afficherWidgets() {
     const badges = [
       a.builder ? '<span class="kind-badge builder">🧱 Builder</span>' : '<span class="kind-badge url">🔗 Adresse</span>',
       a.ecrit ? '<span class="kind-badge ecrit" title="Le widget modifie des données (applyUserActions…)">✏️ écrit</span>' : '<span class="kind-badge">👁 lecture</span>',
-      a.jeton ? '<span class="kind-badge jeton" title="Le widget obtient un jeton d\'accès au document (getAccessToken)">🔑 jeton</span>' : '',
+      a.jeton ? '<span class="kind-badge jeton" title="Le widget obtient un jeton d\'accès à l\'API du document (getAccessToken), ' + (a.jeton === 'lecture' ? 'en lecture seule' : 'qui permet d\'écrire') + '">🔑 jeton ' + (a.jeton === 'lecture' ? 'lecture' : 'écriture') + '</span>' : '',
       a.acces ? '<span class="kind-badge">accès : ' + escapeHtml(a.acces) + '</span>' : '',
     ].join(' ');
     const tables = a.tables.length ? a.tables.map(t =>
