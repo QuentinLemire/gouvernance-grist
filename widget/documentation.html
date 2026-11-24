@@ -168,7 +168,7 @@ async function lireRubriques() {
  */
 async function charger() {
   const [docs, p, r] = await Promise.all([lire('Gouv_Documentation'), parametres(), lireRubriques()]);
-  entete(p, 'Gouv_Documentation');
+  entete(p, 'Documentation');
   rubriques = r;
   pages = (docs || []).sort((a, b) => String(a.Rubrique || '').localeCompare(String(b.Rubrique || '')) || (a.Ordre || 0) - (b.Ordre || 0) || String(a.Titre).localeCompare(String(b.Titre)));
   if (!pages.some((d) => d.id === courante)) courante = pages[0]?.id ?? null;

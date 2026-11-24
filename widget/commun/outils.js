@@ -185,7 +185,7 @@ window.Outils = (() => {
     const bulle = (auteur, date, contenu) => {
       const estDemandeur = String(auteur || '').toLowerCase() === demandeur;
       const cote = (estDemandeur ? 'demandeur' : 'support') === droite ? 'droite' : 'gauche';
-      return `<div class="bulle ${cote} ${estDemandeur ? '' : 'equipe'}"><small>${esc(estDemandeur ? (droite === 'demandeur' ? 'Vous' : auteur) : (auteur || 'Gouv_Support') + ' · support')} · ${dateHeure(date)}</small><div>${texte(contenu)}</div></div>`;
+      return `<div class="bulle ${cote} ${estDemandeur ? '' : 'equipe'}"><small>${esc(estDemandeur ? (droite === 'demandeur' ? 'Vous' : auteur) : (auteur || 'Support') + ' · support')} · ${dateHeure(date)}</small><div>${texte(contenu)}</div></div>`;
     };
     // Le premier message du fil est la demande elle-même (sa description, à défaut son titre).
     const fil = [bulle(ticket.Demandeur || ticket.CreePar, ticket.CreeLe, ticket.Description || ticket.Titre)];

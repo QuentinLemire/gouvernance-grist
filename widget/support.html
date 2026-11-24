@@ -158,7 +158,7 @@ async function charger() {
   // lireStructure() ne rend rien : elle remplit directement categories et
   // typeCommentaire, d'où seulement 3 noms pour 4 lectures.
   const [S, C, p] = await Promise.all([lire('Gouv_Support'), lire('Gouv_Support_commentaires'), parametres(), lireStructure()]);
-  entete(p, 'Gouv_Support');
+  entete(p, 'Support');
   demandes = (S || []).sort((a, b) => (b.Dernier_retour || b.CreeLe || 0) - (a.Dernier_retour || a.CreeLe || 0));
   commentaires = C || [];
   if (courante !== 'nouvelle' && !demandes.some((d) => d.id === courante)) courante = visibles()[0]?.id ?? (demandes.length ? null : 'nouvelle');
