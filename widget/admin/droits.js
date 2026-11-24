@@ -194,5 +194,128 @@ function simulation(courriel) {
 }
 
 // Vue du module dans la console
+/** Réécrit l'aperçu des règles qui seraient écrites (rien n'est écrit dans le document). */
+function majApercu() {
+  const el = $('apercu-regles'); if (!el) return;
+  const r = construireRegles();
+  let t = '', tableEnCours = '';
+  for (const x of r) { if (x.table !== tableEnCours) { tableEnCours = x.table; t += '\n▸ ' + x.table + '\n'; } t += '   ' + (x.cols ? '[' + x.cols + '] ' : '') + 'si ' + x.formule.padEnd(70) + ' → ' + x.perm + '\n'; }
+  el.textContent = r.length ? t.trim() : 'Aucune règle : le document reste ouvert à toute personne qui y a accès.';
+}
+
+/**
+ * Écrit (ou retire) les règles du panneau dans les règles d'accès du document.
+ * Étapes : crée les « ressources » Grist manquantes (table × colonnes visées), déclare l'attribut
+ * user.Profil s'il n'existe pas, supprime les anciennes règles [Admin] puis ajoute les nouvelles,
+ * placées avant toutes les autres. Les règles écrites à la main ne sont pas touchées.
+ * @param {HTMLElement} bouton
+ * @param {boolean} retirer  vrai : retire seulement les règles du panneau, sans en écrire
+ */
+async function appliquerDroits(bouton, retirer) {
+  await occupe(bouton, async () => {
+    const regles = retirer ? [] : construireRegles();
+    let ressources = etat.acl.ressources;
+    const cles = [...new Set(regles.map((r) => r.table + '|' + (r.cols || '*')))].map((k) => k.split('|'));
+    const besoin = regles.length ? [['*', '*'], ...cles] : [];
+    const manquantes = besoin.filter(([t, c]) => !ressources.some((r) => r.tableId === t && r.colIds === c));
+    if (manquantes.length) {
+      await agir([['BulkAddRecord', '_grist_ACLResources', manquantes.map(() => null), { tableId: manquantes.map((m) => m[0]), colIds: manquantes.map((m) => m[1]) }]]);
+      ressources = (await lire('_grist_ACLResources')) || [];
+    }
+    const idRes = (t, c = '*') => ressources.find((r) => r.tableId === t && r.colIds === c).id;
+    // Les règles du panneau passent avant toutes les autres, sauf les règles [Intégrité] remises juste devant elles.
+    let pos = Math.min(0, ...etat.acl.regles.map((r) => Number(r.rulePos) || 0)) - 1000;
+    const integrite = etat.acl.regles.filter((r) => String(r.memo || '').startsWith(INTEGRITE));
+    const devant = integrite.map((r, i) => ['UpdateRecord', '_grist_ACLRules', r.id, { rulePos: pos - 500 + i }]);
+    const nouvelles = [];
+    const attributExiste = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT && json(r.userAttributes, {}).tableId === 'Gouv_Utilisateurs');
+    if (regles.length && !attributExiste) {
+      nouvelles.push({ resource: idRes('*'), aclFormula: '', permissionsText: '', rulePos: pos++, memo: MARQUE + ' attribut',
+        userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Gouv_Utilisateurs', charId: 'Email', lookupColId: colonne('Gouv_Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
+    }
+    for (const r of regles) nouvelles.push({ resource: idRes(r.table, r.cols), aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE, userAttributes: '' });
+    // L'attribut user.Profil n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
+    const anciennes = reglesDuPanneau().filter((r) => !json(r.userAttributes, {}).name);
+    const actions = [...(retirer ? [] : devant)];
+    if (anciennes.length) actions.push(['BulkRemoveRecord', '_grist_ACLRules', anciennes.map((r) => r.id)]);
+    if (nouvelles.length) {
+      const cles = Object.keys(nouvelles[0]);
+      actions.push(['BulkAddRecord', '_grist_ACLRules', nouvelles.map(() => null), Object.fromEntries(cles.map((k) => [k, nouvelles.map((n) => n[k])]))]);
+    }
+    if (actions.length) await agir(actions);
+    // « Bloquer toute personne sans rôle reconnu » : la garde du document (non inscrits, inactifs, sans rôle → accueil seulement)
+    if (!retirer && etat.droits.bloquerAutres && !gardePresente()) { etat.acl.regles = await lire('_grist_ACLRules'); await poserGarde(null); }
+    if (!retirer) await reglesDocumentation();
+    await tracer(retirer ? 'Droits retirés' : 'Droits appliqués', retirer ? anciennes.length + ' règle(s) retirée(s)' : regles.length + ' règle(s) sur ' + new Set(regles.map((r) => r.table)).size + ' table(s)');
+    message(retirer ? '✅ Règles du panneau retirées.' : '✅ ' + regles.length + ' règles appliquées.');
+    await actualiser();
+  });
+}
+
+/**
+ * Documentation : lecture pour les personnes inscrites (actives et avec un rôle), modification
+ * réservée aux propriétaires du document (décision du 24/11/2026). Règles [Gouvernance] posées sur
+ * la table elle-même, donc avant les règles générales ; les propriétaires passent ensuite par la
+ * règle « Propriétaires : tous les droits ». Rien n'est fait si elles sont déjà là.
+ */
+async function reglesDocumentation() {
+  if (!aTable('Gouv_Documentation')) return;
+  let res = (await lire('_grist_ACLResources')) || [];
+  const regles = (await lire('_grist_ACLRules')) || [];
+  if (regles.some((r) => String(r.memo || '').startsWith('[Gouvernance] Documentation'))) return;
+  const actions = [];
+  // les anciennes règles du panneau sur cette table ne servent plus
+  const doc = res.find((r) => r.tableId === 'Gouv_Documentation' && r.colIds === '*');
+  const anciennes = doc ? regles.filter((r) => r.resource === doc.id && String(r.memo || '').startsWith(MARQUE)) : [];
+  if (anciennes.length) actions.push(['BulkRemoveRecord', '_grist_ACLRules', anciennes.map((r) => r.id)]);
+  if (!doc) {
+    await agir([['AddRecord', '_grist_ACLResources', null, { tableId: 'Gouv_Documentation', colIds: '*' }]]);
+    res = (await lire('_grist_ACLResources')) || [];
+  }
+  const id = res.find((r) => r.tableId === 'Gouv_Documentation' && r.colIds === '*').id;
+  actions.push(['BulkAddRecord', '_grist_ACLRules', [null, null], {
+    resource: [id, id],
+    aclFormula: ['user.Access != OWNER and user.Profil and user.Profil.Actif and user.Profil.Role', 'user.Access != OWNER'],
+    permissionsText: ['+R-CUD', '-CRUD'],
+    rulePos: [5, 6],
+    memo: ['[Gouvernance] Documentation : lecture pour les inscrits', '[Gouvernance] Documentation : modification réservée aux propriétaires'],
+    userAttributes: ['', ''],
+  }]);
+  await agir(actions);
+  await tracer('Documentation protégée', 'Modification réservée aux propriétaires du document');
+}
+
+/**
+ * Pose la « garde » de base : une personne absente de Utilisateurs (ou inactive) ne voit que
+ * la table Accueil ; les propriétaires gardent tous les droits. Ces règles portent la mention
+ * [Gouvernance] et non [Admin] : « Retirer les règles du panneau » ne les enlève donc pas.
+ * @param {HTMLElement} bouton
+ */
+async function poserGarde(bouton) {
+  if (!aTable('Gouv_Accueil')) return message("Installez d'abord la page d'accueil publique (onglet Structure).", true);
+  await occupe(bouton, async () => {
+    let res = etat.acl.ressources;
+    const manque = [['*', '*'], ['Gouv_Accueil', '*']].filter(([t]) => !res.some((r) => r.tableId === t && r.colIds === '*'));
+    if (manque.length) {
+      await agir([['BulkAddRecord', '_grist_ACLResources', manque.map(() => null), { tableId: manque.map((m) => m[0]), colIds: manque.map(() => '*') }]]);
+      res = await lire('_grist_ACLResources');
+    }
+    const id = (t) => res.find((r) => r.tableId === t && r.colIds === '*').id;
+    const attribut = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT);
+    const a = [];
+    if (!attribut) a.push({ resource: id('*'), aclFormula: '', permissionsText: '', rulePos: 1, memo: '[Gouvernance] attribut', userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Gouv_Utilisateurs', charId: 'Email', lookupColId: colonne('Gouv_Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
+    a.push({ resource: id('Gouv_Accueil'), aclFormula: 'True', permissionsText: '+R-CUD', rulePos: 2, memo: '[Gouvernance] Accueil lisible par tous', userAttributes: '' });
+    a.push({ resource: id('*'), aclFormula: 'user.Access == OWNER', permissionsText: 'all', rulePos: 3, memo: '[Gouvernance] Propriétaires : tous les droits', userAttributes: '' });
+    a.push({ resource: id('*'), aclFormula: 'not user.Profil or not user.Profil.Actif or not user.Profil.Role', permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits, inactifs ou sans rôle : Accueil seulement', userAttributes: '' });
+    const cles = Object.keys(a[0]);
+    await agir([['BulkAddRecord', '_grist_ACLRules', a.map(() => null), Object.fromEntries(cles.map((k) => [k, a.map((x) => x[k])]))]]);
+    await tracer('Garde posée', 'Non inscrits : page d\'accueil seulement');
+    await reglesDocumentation();
+    message('✅ Les personnes non inscrites ne voient plus que la page d\'accueil.');
+    await actualiser();
+  });
+}
+
+// Vue du module dans la console
 VUES.droits = ongletDroits;
 declarerVue('droits', 'droits');
