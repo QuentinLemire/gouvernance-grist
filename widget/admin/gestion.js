@@ -54,13 +54,6 @@ const ADRESSE_WIDGET = new RegExp(`(?:/${GITHUB.proprietaire}/${GITHUB.depot}/([
  * « fichier » : nom du fichier structure/<fichier>.json sur le dépôt ;
  * « obligatoire » : sujet du socle, dont l'absence est signalée au tableau de bord.
  */
-/**
- * Version de ce code. À changer à chaque modification du fichier : avant de publier, la page compare
- * cette valeur à celle du fichier sur le dépôt et refuse de publier avec une copie périmée
- * (GitHub Pages peut servir l'ancienne copie une à deux minutes après un commit).
- */
-const VERSION_WIDGET = '2026-11-24.4';
-
 const SUJETS = [
   // Socle : présent dans toute application.
   { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },

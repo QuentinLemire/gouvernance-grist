@@ -87,18 +87,15 @@ async function publierNorme(bouton) {
 }
 
 /**
- * Refuse de publier avec une copie périmée de cette page : relit VERSION_WIDGET dans le fichier du dépôt,
- * par l'API GitHub (sans cache). Dépôt injoignable : on laisse publier (rien à comparer).
- * @throws {Error} si la page affichée est plus ancienne que le fichier du dépôt
+ * Refuse de publier avec une copie périmée de cette page : sa version (?v=… de l'adresse) doit être
+ * le dernier commit des widgets. Dépôt injoignable ou page sans version : on laisse publier.
+ * @throws {Error} si la page affichée est plus ancienne que le dépôt
  */
 async function verifierVersionWidget() {
-  try {
-    const r = await fetch(`https://api.github.com/repos/${GITHUB.proprietaire}/${GITHUB.depot}/contents/widget/administration.html?ref=${GITHUB.branche}`,
-      { headers: { Accept: 'application/vnd.github.raw' }, cache: 'no-store' });
-    if (!r.ok) return;
-    const v = ((await r.text()).match(/const VERSION_WIDGET = '([^']+)'/) || [])[1];
-    if (v && v !== VERSION_WIDGET) throw new Error('Cette page Administration est une copie périmée (version ' + VERSION_WIDGET + ', dépôt : ' + v + '). Cliquez sur « Mettre les pages à la dernière version » (onglet Structure), puis publiez.');
-  } catch (e) { if (/périmée/.test(e.message)) throw e; }
+  if (!/^[0-9a-f]{40}$/.test(VERSION_PAGE)) return;
+  let derniere;
+  try { derniere = await derniereVersion(); } catch (e) { return; }
+  if (derniere !== VERSION_PAGE) throw new Error('Cette page est une copie périmée (version ' + VERSION_PAGE.slice(0, 7) + ', dépôt : ' + derniere.slice(0, 7) + '). Cliquez sur « Mettre les pages à la dernière version », puis publiez.');
 }
 
 /**
@@ -142,7 +139,7 @@ async function chargerVersions() {
 }
 
 /**
- * Fait pointer toutes les pages de la norme (Accueil, Documentation, Support, Administration, Boîte à outils)
+ * Fait pointer toutes les pages de la norme (Accueil, Documentation, Support, Administration et ses outils)
  * sur le dernier commit du dépôt. Les pages se rechargent d'elles-mêmes, sans attendre aucun cache.
  * @param {HTMLElement} bouton
  */
@@ -340,19 +337,36 @@ async function rangerColonnes(tables) {
 
 /**
  * Le menu commun à toutes les applications, dans l'ordre. Les pages métier se placent
- * entre Support et Administration. « fichier » = widget personnalisé du dépôt.
+ * entre Support et Administration.
+ * « fichier » : widget du dépôt ; « module » : outil affiché par console.html (?module=…) ;
  * « table » : table rattachée à la page (la page n'est créée que si elle existe) ;
- * « sousPage » : page placée en retrait sous Administration.
+ * « sousPage » : page placée en retrait sous Administration ;
+ * « anciens » : fichiers d'avant la console, reconnus pour ranger le menu d'un document pas encore migré.
  */
+const OUTIL = { fichier: 'console.html', table: 'Gouv_Parametres', sousPage: true };
 const PAGES = [
   { cle: 'accueil', nom: '🏠 Accueil', table: 'Gouv_Accueil', fichier: 'accueil.html' },
   // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
   { cle: 'documentation', nom: '📖 Documentation', table: 'Gouv_Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
   { cle: 'support', nom: '🆘 Support', table: 'Gouv_Support', fichier: 'support.html', facultative: true, sujet: 'support' },
-  { cle: 'administration', nom: '🛡️ Administration', fichier: 'administration.html' },
-  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true },
-  { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Gouv_Parametres', fichier: 'boite-a-outils.html', sousPage: true },
+  // Administration : le tableau de bord, puis un outil par page en dessous
+  { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'tableau', sousPage: false, anciens: ['administration.html'] },
+  { ...OUTIL, cle: 'utilisateurs', nom: '👥 Utilisateurs', module: 'utilisateurs' },
+  { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
+  { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
+  { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
+  { ...OUTIL, cle: 'maintenance', nom: '🧱 Maintenance', module: 'maintenance' },
+  { ...OUTIL, cle: 'aide', nom: '❓ Aide', module: 'aide' },
 ];
+
+/** La page standard affichée par une adresse de widget (fichier, et module pour la console), ou undefined. */
+function pageDeLAdresse(url) {
+  let u;
+  try { u = new URL(url); } catch (e) { return undefined; }
+  const fichier = u.pathname.split('/').pop();
+  return PAGES.find((x) => (x.fichier === fichier && (x.module || '') === (u.searchParams.get('module') || ''))
+    || (x.anciens || []).includes(fichier));
+}
 
 /**
  * Pages du document dans l'ordre du menu. Chacune est reconnue comme page standard (« cle »)
@@ -366,16 +380,14 @@ async function lirePages() {
   return (pages || []).sort((a, b) => a.pagePos - b.pagePos).map((p) => {
     const urls = (sections || []).filter((s) => s.parentId === p.viewRef).map((s) => json(json(s.options, {}).customView, {}).url || '');
     const nom = vue[p.viewRef]?.name || '';
-    const std = PAGES.find((x) => (x.fichier && urls.some((u) => u.split('?')[0].endsWith('/' + x.fichier)))
-      || (!x.fichier && nom.replace(/[^\p{L}]/gu, '') === x.nom.replace(/[^\p{L}]/gu, '')));
+    const std = urls.map(pageDeLAdresse).find(Boolean);
     return { ...p, nom, cle: std?.cle || null };
   });
 }
 
 /**
  * Crée les pages standard qui manquent (si leur table existe), puis remet le menu dans l'ordre de la norme.
- * Page avec « fichier » : un widget personnalisé en accès complet, pointant vers le fichier voisin de ce panneau.
- * Page Utilisateurs : annuaire et fiche liée, côte à côte.
+ * Chaque page est un widget personnalisé en accès complet, à la version de la page en cours.
  * @param {HTMLElement} bouton
  */
 async function creerPages(bouton, seulement = null) {
@@ -391,31 +403,13 @@ async function creerPages(bouton, seulement = null) {
       await chargerStructure();
     }
     for (const page of PAGES.filter((x) => !presentes.has(x.cle) && x.table && tableRef(x.table) && voulue(x))) {
-      if (page.fichier) {
-        const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
-        await agir([
-          ['UpdateRecord', '_grist_Views', r.viewRef, { name: page.nom }],
-          ['UpdateRecord', '_grist_Views_section', r.sectionRef, { title: page.nom.replace(/^\S+\s/, ''), options: JSON.stringify({ customView: JSON.stringify({
-            mode: 'url', url: new URL(page.fichier, location.href).href, widgetDef: null, access: 'full', pluginId: '', sectionId: '',
-            renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }) }],
-        ]);
-      } else {
-        // Annuaire (liste triée par nom) et fiche de la personne choisie, côte à côte.
-        const t = tableRef(page.table);
-        const r1 = (await agir([['CreateViewSection', t, 0, 'record', null, null]])).retValues[0];
-        const r2 = (await agir([['CreateViewSection', t, r1.viewRef, 'single', null, null]])).retValues[0];
-        const champs = ((await lire('_grist_Views_section_field')) || []).filter((f) => f.parentId === r1.sectionRef || f.parentId === r2.sectionRef);
-        const colId = (f) => etat.meta.colonnesParId[f.colRef]?.colId;
-        const technique = ['Courriel_cle', 'manualSort'];
-        const enListe = ['Nom', 'Courriel', 'Entite', 'Role', 'Actif'];
-        const retirer = champs.filter((f) => technique.includes(colId(f)) || colId(f)?.startsWith('gristHelper') || (f.parentId === r1.sectionRef && !enListe.includes(colId(f))));
-        await agir([
-          ...(retirer.length ? [['BulkRemoveRecord', '_grist_Views_section_field', retirer.map((f) => f.id)]] : []),
-          ['UpdateRecord', '_grist_Views', r1.viewRef, { name: page.nom, layoutSpec: JSON.stringify({ children: [{ children: [{ size: 125, leaf: r1.sectionRef }, { size: 75, leaf: r2.sectionRef }] }], collapsed: [] }) }],
-          ['UpdateRecord', '_grist_Views_section', r1.sectionRef, { title: 'Annuaire', sortColRefs: JSON.stringify([colonne(page.table, 'Nom')?.id].filter(Boolean)) }],
-          ['UpdateRecord', '_grist_Views_section', r2.sectionRef, { title: 'Fiche', linkSrcSectionRef: r1.sectionRef, linkSrcColRef: 0, linkTargetColRef: 0 }],
-        ]);
-      }
+      const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
+      await agir([
+        ['UpdateRecord', '_grist_Views', r.viewRef, { name: page.nom }],
+        ['UpdateRecord', '_grist_Views_section', r.sectionRef, { title: page.nom.replace(/^\S+\s/, ''), options: JSON.stringify({ customView: JSON.stringify({
+          mode: 'url', url: URL_WIDGET(VERSION_PAGE || GITHUB.branche, page.fichier, page.module), widgetDef: null, access: 'full', pluginId: '', sectionId: '',
+          renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }) }],
+      ]);
       creees.push(page.nom);
     }
     await rangerMenu();
@@ -426,9 +420,9 @@ async function creerPages(bouton, seulement = null) {
 }
 
 /**
- * Ordre du menu : Accueil, Documentation, Support, pages métier, Administration › Utilisateurs, Boîte à outils.
+ * Ordre du menu : Accueil › Documentation, Support ; pages métier ; Administration › ses outils.
  * Les pages métier gardent leur ordre et leur retrait d'origine ; celles déjà rangées sous Administration
- * (ex. Référentiel, Données des agents) y restent, entre Utilisateurs et Boîte à outils.
+ * (ex. Référentiel, Données des agents) y restent, après les outils.
  */
 async function rangerMenu() {
   const pages = await lirePages();
@@ -443,9 +437,9 @@ async function rangerMenu() {
     ...['documentation', 'support'].flatMap(de).map((p) => [p, 1]),
     ...metier.map((p) => [p, p.indentation]),
     ...de('administration').map((p) => [p, 0]),
-    ...de('utilisateurs').map((p) => [p, 1]),
+    // les outils d'administration, puis les pages métier déjà rangées sous Administration
+    ...PAGES.filter((x) => x.sousPage).flatMap((x) => de(x.cle)).map((p) => [p, 1]),
     ...pages.filter((p) => sousAdmin.has(p.id)).map((p) => [p, p.indentation]),
-    ...de('boite').map((p) => [p, 1]),
   ];
   if (ordre.length && ordre[0][1]) ordre[0][1] = 0; // une page ne peut pas commencer le menu en retrait
   await agir([['BulkUpdateRecord', '_grist_Pages', ordre.map(([p]) => p.id), { pagePos: ordre.map((_, i) => i + 1), indentation: ordre.map(([, n]) => n) }]]);
