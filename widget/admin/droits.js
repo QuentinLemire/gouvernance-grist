@@ -108,7 +108,7 @@ function construireRegles() {
  */
 function ongletDroits() {
   if (!etat.acl.regles) return '<div class="encadre alerte">Seuls les <b>propriétaires</b> du document peuvent gérer les droits.</div>';
-  if (!aTable('Gouv_Utilisateurs') || !roles().length) return '<div class="encadre alerte">Il faut d\'abord des utilisateurs avec des rôles (onglet Utilisateurs).</div>';
+  if (!aTable('Gouv_Utilisateurs') || !roles().length) return '<div class="encadre alerte">Il faut d\'abord des utilisateurs avec des rôles (page 👥 Utilisateurs).</div>';
   if (!etat.droits) etat.droits = lireMatrice();
   const m = etat.droits;
   const metier = tablesMetier();
@@ -189,8 +189,8 @@ function simulation(courriel) {
   });
   return `<div class="defile" style="margin-top:12px"><table class="tableau"><tr><th>Table</th><th>${esc(u.Role)} : ce qu'elle peut faire</th></tr>
     ${lignes.map(([t, d]) => `<tr><td class="table">${esc(t)}</td><td>${d}</td></tr>`).join('')}</table></div>
-    <p class="aide">À condition que le document soit partagé avec elle en <b>${esc(accesNecessaire(u.Role))}</b> dans Grist (partagée en lecture, elle ne modifie rien).
-    Un propriétaire du document voit tout, quelles que soient les règles.</p>`;
+    <p class="aide">À condition que le document soit partagé avec elle dans Grist${u.Acces_Grist ? ` en <b>${esc(u.Acces_Grist)}</b> (colonne « Accès Grist »)` : ''} :
+    partagée en lecture, elle ne modifie rien. Un propriétaire du document voit tout, quelles que soient les règles.</p>`;
 }
 
 // Vue du module dans la console

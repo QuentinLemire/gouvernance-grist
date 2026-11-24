@@ -126,8 +126,7 @@ const etat = {
   d: {},                                              // données des tables utiles
   acl: { ressources: [], regles: [] },                // règles d'accès
   droits: null,                                       // matrice en cours d'édition
-  filtres: { texte: '', role: '', statut: 'actifs', support: 'ouverts' },
-  selection: new Set(),                               // utilisateurs cochés
+  filtres: { support: 'ouverts' },
   sujets: null,                                       // sujets lus sur le dépôt
   pages: null,                                        // pages du menu (onglet Structure)
 };
@@ -295,7 +294,7 @@ const parametres = () => Object.fromEntries((etat.d.Gouv_Parametres || []).map((
  * vue en se chargeant (VUES.droits = ongletDroits…) ; la Maintenance réunit Structure et Paramètres.
  */
 const VUES = {};
-const MODULE_DE = { accueil: 'tableau', utilisateurs: 'utilisateurs', droits: 'droits', support: 'support',
+const MODULE_DE = { accueil: 'tableau', droits: 'droits', support: 'support',
   structure: 'maintenance', parametres: 'maintenance' };
 
 /** Redessine la vue courante dans la zone de son module ; pour les droits, calcule aussi l'aperçu des règles. */
@@ -311,7 +310,6 @@ function allerA(onglet) { Console.ouvrir(MODULE_DE[onglet] || onglet); }
 
 /** Module qui porte chaque action des boutons (data-action), chargé au besoin avant de l'exécuter. */
 const MODULE_DE_L_ACTION = {
-  'export-csv': 'utilisateurs', 'copier-partage': 'utilisateurs', ajouter: 'utilisateurs', 'g-activer': 'utilisateurs', 'g-desactiver': 'utilisateurs', 'ajouter-role': 'utilisateurs',
   standard: 'droits', vider: 'droits', 'appliquer-droits': 'droits', 'retirer-droits': 'droits', garde: 'droits',
   repondre: 'support', 'repondre-clore': 'support', clore: 'support', rouvrir: 'support',
   installer: 'maintenance', 'telecharger-copie': 'maintenance', publier: 'maintenance', versions: 'maintenance', pages: 'maintenance', 'page-installer': 'maintenance', module: 'maintenance',
@@ -329,18 +327,13 @@ function declarerVue(module, onglet) {
 
 /**
  * Enregistre aussitôt une valeur modifiée dans un tableau. L'élément désigne sa cible par ses
- * attributs : data-u (utilisateur), data-t (demande de support) ou data-p (paramètre), et data-col.
- * Les changements de rôle, d'entité ou d'activité d'un utilisateur sont tracés au journal.
+ * attributs : data-t (demande de support) ou data-p (paramètre), et data-col.
  * @param {HTMLElement} el  champ, liste ou case modifié
  */
 async function enregistrerChamp(el) {
   const val = el.type === 'checkbox' ? el.checked : el.dataset.type === 'ref' ? (Number(el.value) || 0) : el.value;
   try {
-    if (el.dataset.u) {
-      await agir([['UpdateRecord', 'Gouv_Utilisateurs', Number(el.dataset.u), { [el.dataset.col]: val }]]);
-      const u = etat.d.Gouv_Utilisateurs.find((x) => x.id === Number(el.dataset.u)); u[el.dataset.col] = val;
-      if (el.dataset.col !== 'Nom') tracer('Utilisateur modifié', u.Courriel + ' : ' + el.dataset.col + ' = ' + (el.dataset.type === 'ref' ? nomEntite(val) : val));
-    } else if (el.dataset.t) {
+    if (el.dataset.t) {
       await agir([['UpdateRecord', 'Gouv_Support', Number(el.dataset.t), { [el.dataset.col]: val }]]);
     } else if (el.dataset.p) {
       await agir([['UpdateRecord', 'Gouv_Parametres', Number(el.dataset.p), { Valeur: val }]]);
@@ -350,44 +343,16 @@ async function enregistrerChamp(el) {
   } catch (e) { message('❌ ' + esc(e.message), true); }
 }
 
-// Changement d'une valeur (liste, case, champ quitté) : enregistrement direct, filtres, sélection,
+// Changement d'une valeur (liste, case, champ quitté) : enregistrement direct, simulation,
 // matrice des droits. La matrice n'est pas écrite ici : seul l'aperçu est mis à jour.
 document.addEventListener('change', async (e) => {
   const el = e.target;
-  if (el.dataset.u || el.dataset.t || el.dataset.p) return enregistrerChamp(el);
-  if (el.id === 'u-role') { etat.filtres.role = el.value; return afficher(); }
-  if (el.id === 'u-statut') { etat.filtres.statut = el.value; return afficher(); }
+  if (el.dataset.t || el.dataset.p) return enregistrerChamp(el);
   if (el.id === 'simu-personne') { etat.simulation = el.value; return afficher(); }
-  if (el.dataset.sel) { el.checked ? etat.selection.add(Number(el.dataset.sel)) : etat.selection.delete(Number(el.dataset.sel)); return afficher(); }
-  if (el.id === 'u-tous') { utilisateursFiltres().forEach((u) => (el.checked ? etat.selection.add(u.id) : etat.selection.delete(u.id))); return afficher(); }
-  if (el.id === 'g-role' && el.value) return groupe({ Role: el.value }, 'Rôle « ' + el.value + ' »');
   if (el.dataset.matTable) { const t = el.dataset.matTable; (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {})[el.dataset.matRole] = el.value; return majApercu(); }
   if (el.id === 'bloquer-autres') { etat.droits.bloquerAutres = el.checked; return majApercu(); }
   if (el.id === 'support-prive') { etat.droits.supportPrive = el.checked; return majApercu(); }
 });
-
-// Recherche à la frappe, en gardant le curseur dans le champ.
-document.addEventListener('input', (e) => {
-  if (e.target.id !== 'u-recherche') return;
-  etat.filtres.texte = e.target.value;
-  const pos = e.target.selectionStart; afficher();
-  const champ = $('u-recherche'); champ.focus(); champ.setSelectionRange(pos, pos);
-});
-
-/**
- * Applique la même modification à tous les utilisateurs cochés, en une transaction, puis vide la sélection.
- * @param {object} champs   colonnes à modifier, ex. { Actif: false }
- * @param {string} libelle  texte pour le journal
- */
-async function groupe(champs, libelle) {
-  const ids = [...etat.selection]; if (!ids.length) return;
-  await occupe(null, async () => {
-    await agir([['BulkUpdateRecord', 'Gouv_Utilisateurs', ids, Object.fromEntries(Object.entries(champs).map(([k, v]) => [k, ids.map(() => v)]))]]);
-    await tracer('Modification groupée', ids.length + ' personne(s) : ' + libelle);
-    message('✅ ' + ids.length + ' personne(s) mise(s) à jour.');
-    etat.selection.clear(); await actualiser();
-  });
-}
 
 // Ctrl+Entrée envoie la réponse en cours de saisie.
 document.addEventListener('keydown', (e) => {
@@ -410,16 +375,6 @@ document.addEventListener('click', async (e) => {
   if (proprietaire) await Console.charger(proprietaire);
   switch (b.dataset.action) {
     case 'actualiser': etat.sujets = null; return actualiser();
-    case 'export-csv': return exporterCsv();
-    case 'copier-partage': return copierPartage(b.dataset.valeur);
-    case 'ajouter': return ajouterPersonnes(b);
-    case 'g-activer': return groupe({ Actif: true }, 'activées');
-    case 'g-desactiver': return groupe({ Actif: false }, 'désactivées');
-    case 'ajouter-role': {
-      const r = $('nouveau-role').value.trim(); if (!r || roles().includes(r)) return;
-      const c = colonne('Gouv_Utilisateurs', 'Role'); const wo = json(c.widgetOptions, {}); wo.choices = [...(wo.choices || []), r];
-      return occupe(b, async () => { await agir([['ModifyColumn', 'Gouv_Utilisateurs', 'Role', { widgetOptions: JSON.stringify(wo) }]]); await tracer('Rôle ajouté', r); await actualiser(); });
-    }
     case 'standard': etat.droits = matriceStandard(); return afficher();
     case 'vider': etat.droits = { niveaux: {}, bloquerAutres: false, supportPrive: false }; return afficher();
     case 'appliquer-droits': return appliquerDroits(b, false);
@@ -510,13 +465,6 @@ const reglesDuPanneau = () => (etat.acl.regles || []).filter((r) => String(r.mem
 
 /** Ce document est-il la source de la norme (Grist Gouvernance) ? Oui si Parametres.Source_norme vaut « oui ». */
 const estSource = () => /^oui$/i.test(parametres().Source_norme || '');
-
-// --- Partage du document dans Grist ------------------------------------------------------------
-// Grist ne donne pas le partage aux widgets (l'API /access les traite en visiteurs anonymes) :
-// les outils disent seulement quel accès donner à chacun, d'après son rôle.
-
-/** Accès Grist à donner pour un rôle (libellés de la fenêtre « Partager » de Grist) : le Lecteur lit, les autres écrivent. */
-const accesNecessaire = (role) => (role === 'Lecteur' ? 'Lecteur' : 'Éditeur');
 
 // --- Démarrage -------------------------------------------------------------------------------------
 

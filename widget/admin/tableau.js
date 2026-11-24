@@ -7,8 +7,9 @@
 /**
  * Contrôles de santé du tableau de bord : administrateurs, courriels, rôles, règles d'accès,
  * sujets du socle installés ; renvoie vers la Santé du document pour le contrôle complet de la norme.
- * @returns {{ok: boolean, texte: string, onglet?: string, voir?: boolean}[]}  un point par contrôle ;
- *          « onglet » indique où aller pour corriger (bouton « Corriger → ») ; « voir » : simple renvoi (« Ouvrir → »)
+ * @returns {{ok: boolean, texte: string, onglet?: string, page?: string, voir?: boolean}[]}  un point par contrôle ;
+ *          « onglet » indique où aller pour corriger (bouton « Corriger → ») ; « voir » : simple renvoi (« Ouvrir → ») ;
+ *          « page » : page Grist où corriger (un widget ne peut pas y emmener : elle est seulement nommée)
  */
 function controles() {
   const U = etat.d.Gouv_Utilisateurs || [];
@@ -17,14 +18,14 @@ function controles() {
   const actifs = U.filter((u) => u.Actif !== false);
   const admins = actifs.filter((u) => u.Role === 'Administrateur');
   out.push(admins.length ? { ok: true, texte: admins.length + ' administrateur(s) actif(s).' }
-    : { ok: false, texte: 'Aucun administrateur actif.', onglet: 'utilisateurs' });
+    : { ok: false, texte: 'Aucun administrateur actif.', page: '👥 Utilisateurs' });
   const invalides = U.filter((u) => u.Courriel && !estCourriel(u.Courriel));
-  if (invalides.length) out.push({ ok: false, texte: invalides.length + ' courriel(s) mal formé(s).', onglet: 'utilisateurs' });
+  if (invalides.length) out.push({ ok: false, texte: invalides.length + ' courriel(s) mal formé(s).', page: '👥 Utilisateurs' });
   const vus = {}; let doublons = 0;
   U.forEach((u) => { const k = cle(u.Courriel); if (k) { if (vus[k]) doublons++; vus[k] = 1; } });
-  if (doublons) out.push({ ok: false, texte: doublons + ' courriel(s) en double.', onglet: 'utilisateurs' });
+  if (doublons) out.push({ ok: false, texte: doublons + ' courriel(s) en double.', page: '👥 Utilisateurs' });
   const sansRole = actifs.filter((u) => !u.Role);
-  if (sansRole.length) out.push({ ok: false, texte: sansRole.length + ' personne(s) active(s) sans rôle.', onglet: 'utilisateurs' });
+  if (sansRole.length) out.push({ ok: false, texte: sansRole.length + ' personne(s) active(s) sans rôle.', page: '👥 Utilisateurs' });
 
   // Règles d'accès : Grist ne les montre qu'aux propriétaires du document.
   if (!etat.acl.regles) out.push({ ok: false, texte: "Règles d'accès illisibles : seuls les <b>propriétaires</b> du document peuvent les gérer." });
@@ -76,7 +77,7 @@ function ongletAccueil() {
     </div>
     <div class="grille-2">
       <section class="carte vigilance"><h2>🔎 Points de vigilance</h2>
-        <ul>${c.map((x) => `<li><span>${x.voir ? '🩺' : x.ok ? '✅' : '⚠️'}</span><span>${x.texte}</span>${(!x.ok || x.voir) && x.onglet ? `<button class="bouton petit" data-onglet-aller="${x.onglet}">${x.voir ? 'Ouvrir →' : 'Corriger →'}</button>` : ''}</li>`).join('')}</ul>
+        <ul>${c.map((x) => `<li><span>${x.voir ? '🩺' : x.ok ? '✅' : '⚠️'}</span><span>${x.texte}</span>${(!x.ok || x.voir) && x.onglet ? `<button class="bouton petit" data-onglet-aller="${x.onglet}">${x.voir ? 'Ouvrir →' : 'Corriger →'}</button>` : ''}${!x.ok && x.page ? `<span class="discret" title="Page Grist du menu de gauche">page ${x.page}</span>` : ''}</li>`).join('')}</ul>
       </section>
       <section class="carte"><h2>📒 Dernières actions</h2>
         ${journal.length ? `<table class="tableau"><tr><th>Date</th><th>Qui</th><th>Action</th></tr>${journal.map((j) => `<tr><td>${dateFr(j.Date)}</td><td>${esc(j.Auteur)}</td><td><b>${esc(j.Action)}</b><br><small>${esc(j.Detail)}</small></td></tr>`).join('')}</table>` : '<p class="vide">Aucune action tracée pour l\'instant.</p>'}

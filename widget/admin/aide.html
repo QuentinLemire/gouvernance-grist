@@ -23,7 +23,7 @@
   <h2 class="section">Les outils</h2>
   <div class="outils">
     <div class="outil"><h3>🛡️ Tableau de bord</h3><p>Chiffres clés, points de vigilance (administrateurs, rôles, droits) et dernières actions.</p><button class="bouton petit" data-aide-outil="tableau">Ouvrir →</button></div>
-    <div class="outil"><h3>👥 Utilisateurs</h3><p>Qui travaille dans l'application : courriel, nom, rôle, entité, actif. Ajout en masse, export, liste à partager dans Grist.</p><button class="bouton petit" data-aide-outil="utilisateurs">Ouvrir →</button></div>
+    <div class="outil"><h3>👥 Utilisateurs</h3><p>Une page Grist classique (pas un outil) : l'annuaire et la fiche de la personne choisie. Courriel en rouge s'il est mal formé, en orange s'il est en double.</p></div>
     <div class="outil"><h3>🔐 Rôles et droits</h3><p>Ce que chaque rôle peut faire, table par table. « Voir en tant que » pour vérifier.</p><button class="bouton petit" data-aide-outil="droits">Ouvrir →</button></div>
     <div class="outil"><h3>🔍 Explorateur</h3><p>Le schéma des tables (MLD), les pages et leurs données, et ce que fait chaque widget (tables lues, appels vers internet).</p><button class="bouton petit" data-aide-outil="explorateur">Ouvrir →</button></div>
     <div class="outil"><h3>🏗️ Atelier</h3><p>Créer ou modifier une table et ses colonnes selon la norme : noms, types, traçabilité. Aperçu avant d'appliquer.</p><button class="bouton petit" data-aide-outil="atelier">Ouvrir →</button></div>
@@ -34,19 +34,21 @@
 
   <h2 class="section">Tâches courantes</h2>
   <details class="tache"><summary>Donner accès à une personne</summary><ol>
-    <li><b>Utilisateurs</b> › « Ajouter des personnes » : coller son courriel, choisir son rôle et son entité.</li>
-    <li>Dans Grist, bouton <b>Partager</b> (en haut à droite) : l'ajouter en <b>Éditeur</b> (ou <b>Lecteur</b> pour le rôle Lecteur).
-      La carte « Partage du document Grist » donne la liste à copier.</li>
+    <li>Page <b>👥 Utilisateurs</b> : nouvelle ligne dans l'annuaire, avec son courriel, son rôle et son entité.
+      Pour plusieurs personnes : coller une colonne de courriels dans la colonne Courriel.</li>
+    <li>Dans Grist, bouton <b>Partager</b> (en haut à droite) : l'ajouter avec l'accès indiqué dans la colonne <b>Accès Grist</b>
+      (Éditeur ou Lecteur). Astuce : filtrer sur cette colonne, puis copier les courriels d'un coup.</li>
     <li>Elle voit aussitôt ce que son rôle permet. Pour le vérifier : <b>Rôles et droits</b> › « Voir en tant que ».</li>
-  </ol><button class="bouton petit" data-aide-outil="utilisateurs">Ouvrir Utilisateurs →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Retirer l'accès à une personne</summary><ol>
-    <li><b>Utilisateurs</b> : décocher <b>Actif</b>. Elle ne voit plus que la page d'accueil ; son historique est gardé.</li>
+    <li>Page <b>👥 Utilisateurs</b> : décocher <b>Actif</b>. Elle ne voit plus que la page d'accueil ; son historique est gardé.</li>
     <li>Si elle ne doit plus du tout ouvrir le document : la retirer aussi du <b>Partager</b> de Grist.</li>
-  </ol><button class="bouton petit" data-aide-outil="utilisateurs">Ouvrir Utilisateurs →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Mettre en place les droits</summary><ol>
-    <li>Vérifier que chaque personne a un rôle (Administrateur, Gestionnaire, Contributeur, Lecteur, ou un rôle métier).</li>
+    <li>Vérifier que chaque personne a un rôle (page 👥 Utilisateurs) : Administrateur, Gestionnaire, Contributeur, Lecteur, ou un rôle métier.
+      Pour ajouter un rôle : modifier la liste de choix de la colonne Rôle.</li>
     <li><b>Rôles et droits</b> › « ✨ Proposition standard », ajuster table par table, relire l'aperçu, puis « Appliquer ces droits ».</li>
     <li>« Voir en tant que » : choisir une personne, puis « Ouvrir le document en tant que cette personne ↗ » pour vérifier en vrai.</li>
   </ol><button class="bouton petit" data-aide-outil="droits">Ouvrir Rôles et droits →</button></details>

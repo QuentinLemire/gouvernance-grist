@@ -155,8 +155,15 @@ async function mettreAJourPages(bouton) {
   await occupe(bouton, async () => {
     const version = await derniereVersion();
     let sections = await sectionsWidgets();
+    // pages d'un outil de la console qui n'existe plus (ex. Utilisateurs, devenue une page Grist classique)
+    const retirees = sections.filter((s) => s.fichier === 'console.html' && MODULES_RETIRES[s.module]);
+    if (retirees.length) {
+      const vues = ((await lire('_grist_Views_section')) || []).filter((x) => retirees.some((s) => s.id === x.id)).map((x) => x.parentId);
+      await agir([...new Set(vues)].map((v) => ['RemoveView', v]));
+      await tracer('Pages remplacées', retirees.map((s) => 'outil ' + s.module + ' → page Grist classique').join(', '));
+    }
     const anciennes = sections.filter((s) => remplacante(s.fichier));
-    if (anciennes.length) {
+    if (anciennes.length || retirees.length) {
       // les outils manquants d'abord : cette page-ci sera remplacée (et rechargée) en dernier
       await creerPages(null);
       sections = await sectionsWidgets();
@@ -359,7 +366,8 @@ async function rangerColonnes(tables) {
  * « fichier » : widget du dépôt ; « module » : outil affiché par console.html (?module=…) ;
  * « table » : table rattachée à la page (la page n'est créée que si elle existe) ;
  * « sousPage » : page placée en retrait sous Administration ;
- * « anciens » : fichiers d'avant la console, reconnus pour ranger le menu d'un document pas encore migré.
+ * « anciens » : fichiers d'avant la console, reconnus pour ranger le menu d'un document pas encore migré ;
+ * « native » : page Grist classique, sans widget (reconnue par son nom).
  */
 const OUTIL = { fichier: 'console.html', table: 'Gouv_Parametres', sousPage: true };
 const PAGES = [
@@ -369,7 +377,8 @@ const PAGES = [
   { cle: 'support', nom: '🆘 Support', table: 'Gouv_Support', fichier: 'support.html', facultative: true, sujet: 'support' },
   // Administration : le tableau de bord, puis un outil par page en dessous
   { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'tableau', sousPage: false, anciens: ['administration.html'] },
-  { ...OUTIL, cle: 'utilisateurs', nom: '👥 Utilisateurs', module: 'utilisateurs' },
+  // Utilisateurs : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
+  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: true },
   { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
@@ -377,6 +386,12 @@ const PAGES = [
   { ...OUTIL, cle: 'maintenance', nom: '🧱 Maintenance', module: 'maintenance' },
   { ...OUTIL, cle: 'aide', nom: '❓ Aide', module: 'aide' },
 ];
+
+/**
+ * Outils de la console qui n'existent plus, et la page qui les remplace : la migration retire leur page
+ * (un widget, sans donnée) avant de créer la remplaçante.
+ */
+const MODULES_RETIRES = { utilisateurs: 'utilisateurs' };
 
 /** La page standard affichée par une adresse de widget (fichier, et module pour la console), ou undefined. */
 function pageDeLAdresse(url) {
@@ -399,14 +414,18 @@ async function lirePages() {
   return (pages || []).sort((a, b) => a.pagePos - b.pagePos).map((p) => {
     const urls = (sections || []).filter((s) => s.parentId === p.viewRef).map((s) => json(json(s.options, {}).customView, {}).url || '');
     const nom = vue[p.viewRef]?.name || '';
-    const std = urls.map(pageDeLAdresse).find(Boolean);
+    // page native : reconnue par son nom (émojis ignorés), à condition de ne contenir aucun widget
+    const lettres = (t) => t.replace(/[^\p{L}]/gu, '');
+    const std = urls.map(pageDeLAdresse).find(Boolean)
+      || (!urls.some(Boolean) ? PAGES.find((x) => x.native && lettres(x.nom) === lettres(nom)) : undefined);
     return { ...p, nom, cle: std?.cle || null };
   });
 }
 
 /**
  * Crée les pages standard qui manquent (si leur table existe), puis remet le menu dans l'ordre de la norme.
- * Chaque page est un widget personnalisé en accès complet, à la version de la page en cours.
+ * Chaque page est un widget personnalisé en accès complet, à la version de la page en cours ;
+ * les pages « natives » (Utilisateurs) sont des vues Grist classiques (creerPageNative).
  * @param {HTMLElement} bouton
  */
 async function creerPages(bouton, seulement = null) {
@@ -422,13 +441,16 @@ async function creerPages(bouton, seulement = null) {
       await chargerStructure();
     }
     for (const page of PAGES.filter((x) => !presentes.has(x.cle) && x.table && tableRef(x.table) && voulue(x))) {
-      const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
-      await agir([
-        ['UpdateRecord', '_grist_Views', r.viewRef, { name: page.nom }],
-        ['UpdateRecord', '_grist_Views_section', r.sectionRef, { title: page.nom.replace(/^\S+\s/, ''), options: JSON.stringify({ customView: JSON.stringify({
-          mode: 'url', url: URL_WIDGET(VERSION_PAGE || GITHUB.branche, page.fichier, page.module), widgetDef: null, access: 'full', pluginId: '', sectionId: '',
-          renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }) }],
-      ]);
+      if (page.native) await creerPageNative(page, tableRef(page.table));
+      else {
+        const r = (await agir([['CreateViewSection', tableRef(page.table), 0, 'custom', null, null]])).retValues[0];
+        await agir([
+          ['UpdateRecord', '_grist_Views', r.viewRef, { name: page.nom }],
+          ['UpdateRecord', '_grist_Views_section', r.sectionRef, { title: page.nom.replace(/^\S+\s/, ''), options: JSON.stringify({ customView: JSON.stringify({
+            mode: 'url', url: URL_WIDGET(VERSION_PAGE || GITHUB.branche, page.fichier, page.module), widgetDef: null, access: 'full', pluginId: '', sectionId: '',
+            renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }) }],
+        ]);
+      }
       creees.push(page.nom);
     }
     await rangerMenu();
@@ -436,6 +458,49 @@ async function creerPages(bouton, seulement = null) {
     message(creees.length ? '✅ Pages créées : ' + esc(creees.join(', ')) : '✅ Menu remis dans l\'ordre de la norme.');
     etat.pages = null; await actualiser();
   });
+}
+
+/**
+ * Page Utilisateurs en Grist classique : l'annuaire (liste triée par nom, colonnes utiles) et la fiche
+ * de la personne choisie, côte à côte. Les courriels invalides (rouge) ou en double (orange) ressortent
+ * par une mise en forme conditionnelle sur la colonne, posée une seule fois.
+ * @param {object} page      entrée de PAGES
+ * @param {number} tableRef  identifiant interne de la table
+ */
+async function creerPageNative(page, tableRef) {
+  const r1 = (await agir([['CreateViewSection', tableRef, 0, 'record', null, null]])).retValues[0];
+  const r2 = (await agir([['CreateViewSection', tableRef, r1.viewRef, 'single', null, null]])).retValues[0];
+  const champs = ((await lire('_grist_Views_section_field')) || []).filter((f) => f.parentId === r1.sectionRef || f.parentId === r2.sectionRef);
+  const colId = (f) => etat.meta.colonnesParId[f.colRef]?.colId || '';
+  const technique = ['Courriel_cle', 'Courriel_valide', 'Doublon', 'manualSort'];
+  const enListe = ['Nom', 'Courriel', 'Entite', 'Role', 'Actif', 'Acces_Grist'];
+  const retirer = champs.filter((f) => technique.includes(colId(f)) || colId(f).startsWith('gristHelper')
+    || (f.parentId === r1.sectionRef && !enListe.includes(colId(f))));
+  await agir([
+    ...(retirer.length ? [['BulkRemoveRecord', '_grist_Views_section_field', retirer.map((f) => f.id)]] : []),
+    ['UpdateRecord', '_grist_Views', r1.viewRef, { name: page.nom, layoutSpec: JSON.stringify({ children: [{ children: [{ size: 125, leaf: r1.sectionRef }, { size: 75, leaf: r2.sectionRef }] }], collapsed: [] }) }],
+    ['UpdateRecord', '_grist_Views_section', r1.sectionRef, { title: 'Annuaire', sortColRefs: JSON.stringify([colonne(page.table, 'Nom')?.id].filter(Boolean)) }],
+    ['UpdateRecord', '_grist_Views_section', r2.sectionRef, { title: 'Fiche', linkSrcSectionRef: r1.sectionRef, linkSrcColRef: 0, linkTargetColRef: 0 }],
+  ]);
+  await marquerCourriels(page.table);
+}
+
+/** Mise en forme conditionnelle de la colonne Courriel : rouge si invalide, orange si en double (une seule fois). */
+async function marquerCourriels(table) {
+  const c = colonne(table, 'Courriel');
+  if (!c || !colonne(table, 'Courriel_valide') || !colonne(table, 'Doublon')) return;
+  // Grist rend une liste sous la forme ['L', id, id…]
+  const liste = (v) => (Array.isArray(v) ? v : json(v, [])) || [];
+  if (liste(c.rules).length > 1) return;   // déjà des règles : on n'y touche pas
+  await agir([['AddEmptyRule', table, 0, c.id], ['AddEmptyRule', table, 0, c.id]]);
+  const regles = liste(((await lire('_grist_Tables_column')) || []).find((x) => x.id === c.id).rules).slice(1);
+  const wo = json(c.widgetOptions, {});
+  wo.rulesOptions = [{ fillColor: '#FFE9E9', textColor: '#CE0500' }, { fillColor: '#FEECC2', textColor: '#716043' }];
+  await agir([
+    ['UpdateRecord', '_grist_Tables_column', regles[0], { formula: 'not $Courriel_valide' }],
+    ['UpdateRecord', '_grist_Tables_column', regles[1], { formula: '$Doublon' }],
+    ['UpdateRecord', '_grist_Tables_column', c.id, { widgetOptions: JSON.stringify(wo) }],
+  ]);
 }
 
 /**

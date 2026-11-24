@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "2.0",
+  "version": "2.1",
   "sujet": "UTILISATEURS",
   "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
   "tables": [
@@ -168,6 +168,29 @@
           "type": "Bool",
           "isFormula": true,
           "formula": "return bool($Courriel_cle) and len(Gouv_Utilisateurs.lookupRecords(Courriel_cle=$Courriel_cle)) > 1"
+        },
+        {
+          "id": "Acces_Grist",
+          "label": "Accès Grist",
+          "type": "Choice",
+          "isFormula": true,
+          "formula": "if not $Actif or not $Role:\n  return \"\"\n# Le Lecteur lit ; les autres rôles (dont les rôles métier) modifient\nreturn \"Lecteur\" if $Role == \"Lecteur\" else \"Éditeur\"",
+          "widgetOptions": {
+            "choices": [
+              "Éditeur",
+              "Lecteur"
+            ],
+            "choiceOptions": {
+              "Éditeur": {
+                "fillColor": "#6A6AF4",
+                "textColor": "#FFFFFF"
+              },
+              "Lecteur": {
+                "fillColor": "#E3E3FD",
+                "textColor": "#000000"
+              }
+            }
+          }
         },
         {
           "id": "CreeLe",

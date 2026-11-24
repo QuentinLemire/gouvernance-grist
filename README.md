@@ -60,7 +60,6 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Page | `module` | Rôle |
 |---|---|---|
 | 🛡️ Administration | `tableau` | Tableau de bord : chiffres clés, points de vigilance, dernières actions |
-| 👥 Utilisateurs | `utilisateurs` | Personnes, rôles, entités ; ajout en masse, export CSV ; liste à reporter dans le partage Grist |
 | 🔐 Rôles et droits | `droits` | Qui peut faire quoi, table par table ; aperçu des règles ; « Voir en tant que » (simulation et lien vers le vrai mode Grist) |
 | 🔍 Explorateur | `explorateur` | Schéma des tables (MLD), pages ↔ données, widgets (tables lues, sorties internet) |
 | 🏗️ Atelier | `atelier` | Créer et modifier tables et colonnes selon la norme |
@@ -68,6 +67,10 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | 🆘 Support | `support` | Traiter les demandes (si le module Support est installé) |
 | 🧱 Maintenance | `maintenance` | Sujets de la norme, pages standard, version des pages, sauvegardes et copie du document, paramètres, publication de la norme |
 | ❓ Aide | `aide` | Mode d'emploi |
+
+La page **👥 Utilisateurs** n'est pas un outil mais une page Grist classique (annuaire et fiche) : filtres, collage et export de Grist
+suffisent. Les courriels mal formés (rouge) ou en double (orange) ressortent par une mise en forme ; la colonne **Accès Grist** dit
+quel accès donner à chacun dans « Partager ».
 
 Idée de la Boîte à outils et première version : Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)).
 Fichiers communs à toutes les pages : `widget/commun/` (style DSFR, outils, lecture de la structure, règles de la norme).

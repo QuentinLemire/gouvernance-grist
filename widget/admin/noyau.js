@@ -49,7 +49,6 @@ window.Console = (() => {
   const GESTION = [...NORME, 'admin/gestion.js'];
   const MODULES = [
     { cle: 'tableau', titre: '🏠 Tableau de bord', rubrique: '', avec: GESTION },
-    { cle: 'utilisateurs', titre: '👥 Utilisateurs', rubrique: 'Personnes', avec: GESTION },
     { cle: 'droits', titre: '🔐 Rôles et droits', rubrique: 'Personnes', avec: GESTION },
     { cle: 'explorateur', titre: '🔍 Explorateur', rubrique: 'Données' },
     { cle: 'atelier', titre: '🏗️ Atelier', rubrique: 'Données' },

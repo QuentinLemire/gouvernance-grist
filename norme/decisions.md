@@ -4,6 +4,15 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-24 — Utilisateurs : une page Grist classique, pas un widget
+**Décision** : la page 👥 Utilisateurs redevient une page Grist classique (annuaire trié par nom et fiche liée). L'outil « Utilisateurs » de la console est supprimé.
+**Raison** : il n'apportait rien que Grist ne fasse déjà (filtres, modification, collage en masse, export) et faisait moins bien (courriel non modifiable,
+colonnes Périmètre et Entités vues absentes). Règle générale : **pas de widget s'il ne fait pas gagner nettement en simplicité ou en ergonomie**.
+**Conséquences** :
+- nouvelle colonne calculée `Acces_Grist` (« Éditeur » ou « Lecteur », vide si inactif ou sans rôle) : l'accès à donner dans « Partager » (`utilisateurs.json` 2.1) ;
+- mise en forme conditionnelle de `Courriel` : rouge si invalide, orange si en double (posée par la Maintenance en créant la page) ;
+- « Mettre les pages à la dernière version » remplace l'ancienne page widget par la page classique.
+
 ### 2026-11-24 — Outils d'administration : une page par outil, règles de la norme écrites une fois
 **Décision** : l'ancien panneau Administration et la Boîte à outils sont remplacés par des **outils séparés**, une page Grist chacun, sous Administration :
 tableau de bord, Utilisateurs, Rôles et droits, Explorateur, Atelier, Santé du document, (Support), Maintenance, Aide.
