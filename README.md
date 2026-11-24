@@ -52,11 +52,28 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Accueil | Accueil | `accueil.html` | Pour les personnes sans accès : message, étapes et bouton « Demander un accès ». Pour les autres : confirmation et nouveautés |
 | Documentation | Documentation | `documentation.html` | Sommaire, recherche, pages Markdown, édition avec aperçu |
 | Support | Support | `support.html` | Créer une demande et converser avec le support |
-| Administration | (aucune) | `administration.html` | Utilisateurs, droits, support (clore / rouvrir), mise à la norme, paramètres, journal, aide |
-| Boîte à outils | Parametres | `boite-a-outils.html` | Outil de Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)) : schéma, gestion des tables et colonnes |
+| Administration et ses outils | Parametres | `console.html?module=<outil>` | Une page par outil (voir ci-dessous) |
+
+**Outils d'administration** : une seule page `console.html`, qui n'affiche que l'outil demandé (`?module=…`) et ne charge que son code
+(`widget/admin/`). Sans `module`, elle affiche tous les outils avec un menu.
+
+| Page | `module` | Rôle |
+|---|---|---|
+| 🛡️ Administration | `tableau` | Tableau de bord : chiffres clés, points de vigilance, dernières actions |
+| 👥 Utilisateurs | `utilisateurs` | Personnes, rôles, entités ; ajout en masse, export CSV |
+| 🔐 Rôles et droits | `droits` | Qui peut faire quoi, table par table ; aperçu des règles avant de les appliquer |
+| 🔍 Explorateur | `explorateur` | Schéma des tables (MLD), pages ↔ données, widgets (tables lues, sorties internet) |
+| 🏗️ Atelier | `atelier` | Créer et modifier tables et colonnes selon la norme |
+| 🩺 Santé du document | `sante` | Conformité à la norme (P1 à P7), formules en erreur, colonnes inutilisées, sorties internet |
+| 🆘 Support | `support` | Traiter les demandes (si le module Support est installé) |
+| 🧱 Maintenance | `maintenance` | Sujets de la norme, pages standard, version des pages, paramètres, publication de la norme |
+| ❓ Aide | `aide` | Mode d'emploi |
+
+Idée de la Boîte à outils et première version : Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)).
+Fichiers communs à toutes les pages : `widget/commun/` (style DSFR, outils, lecture de la structure, règles de la norme).
 
 Adresse (GitHub Pages) : `https://quentinlemire.github.io/gouvernance-grist/widget/<fichier>?v=<commit>`.
-Pour la première pose, l'adresse sans `?v=` convient ; ensuite, Administration → **Structure** →
+Pour la première pose, l'adresse sans `?v=` convient ; ensuite, **Maintenance** →
 « 🔄 Mettre les pages à la dernière version » fait pointer toutes les pages sur le dernier commit.
 Les anciennes adresses raw.githack (service tombé en panne le 2026-11-24) sont reconnues et remplacées par ce bouton.
 
@@ -65,16 +82,20 @@ Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une imag
 ## Créer ou mettre à la norme une application
 
 - **Nouvelle application** : ouvrir le Grist « Modèle DGOM » (document de type *Modèle* : il s'ouvre en bac à sable) puis « Enregistrer une copie ».
-- **Application existante** : poser le widget Administration, onglet **Structure** : « Installer » sur chaque table standard manquante ou incomplète,
-  puis « Créer les pages standard » (Accueil, Documentation, Support, Utilisateurs, Boîte à outils) qui range aussi le menu.
+- **Application existante** : poser la page Maintenance (`console.html?module=maintenance`) : « Installer » sur chaque table standard manquante
+  ou incomplète, puis « Créer les pages standard » (Accueil, Administration et ses outils) qui range aussi le menu.
 - **Par script** : console du navigateur (F12) sur le document, coller `scripts/installer-gouvernance.js` puis
   `await installerGouvernance(['utilisateurs', 'parametres', 'accueil_public', 'support', 'journal', 'documentation'])`.
 
 ## Auditer une application
 
-Console du navigateur (F12) sur le document, coller `scripts/auditer-norme.js` puis `const audit = await auditerNorme()`.
-Le script ne modifie rien : il contrôle chaque principe (socle, traçabilité, nommage, ordre, droits, registre unique, widgets, formules)
-et produit dans `audit.markdown` le tableau à coller dans `norme/applications/<application>.md`.
+- **Avec les outils d'administration** : page 🩺 **Santé du document**, puis « Copier le rapport ».
+- **Sans eux** : console du navigateur (F12) sur le document, coller `scripts/auditer-norme.js` puis `const audit = await auditerNorme()`.
+
+Les deux ne modifient rien et appliquent **les mêmes règles**, écrites une seule fois dans `widget/commun/norme.js` : socle, traçabilité,
+nommage, ordre, droits, registre unique, widgets, formules en erreur, colonnes inutilisées. Le rapport (`audit.markdown`) est le tableau
+à coller dans `norme/applications/<application>.md`.
+`scripts/auditer-norme.js` est **fabriqué** à partir de `norme.js` : après toute modification des règles, lancer `node scripts/generer-audit.js`.
 
 ## Faire évoluer la norme : Grist → Git → toutes les applications
 

@@ -41,8 +41,8 @@ Un même objet (un agent, un dossier…) vit dans **une seule table**, avec une 
 Les pages filtrent selon l'état. Cela évite les doublons de colonnes et les contrôles de recopie.
 
 ## P7 — Widgets
-- Les widgets **génériques** (Accueil, Documentation, Support, Administration, Boîte à outils) sont chargés **par URL** depuis ce dépôt, jamais collés dans le document.
-- Pages du **socle** : Accueil, Administration (› Utilisateurs, Boîte à outils). Pages **hors socle** : Documentation et Support, rangées sous l'Accueil, créées par leur bouton « Installer » (qui installe aussi leurs tables).
+- Les widgets **génériques** (Accueil, Documentation, Support, outils d'administration) sont chargés **par URL** depuis ce dépôt, jamais collés dans le document.
+- Pages du **socle** : Accueil, Administration (› Utilisateurs, Rôles et droits, Explorateur, Atelier, Santé du document, Maintenance, Aide). Pages **hors socle** : Documentation et Support, rangées sous l'Accueil, créées par leur bouton « Installer » (qui installe aussi leurs tables).
 - Les widgets **métier** peuvent rester collés dans le document (« Custom widget builder »), à une condition : **un seul code par widget**. Les variantes passent par un réglage (ex. `<body data-type="…">`), jamais par des copies modifiées ; toute correction est reportée à l'identique sur chaque page qui l'utilise.
 - Les héberger dans un dépôt reste possible, mais n'est pas exigé (le code métier n'a pas vocation à être public).
 

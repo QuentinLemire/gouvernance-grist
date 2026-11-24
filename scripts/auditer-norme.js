@@ -171,7 +171,7 @@
   const etat = (bons, total) => (total === 0 || bons === total ? OK : bons === 0 ? ABSENT : PARTIEL);
 
   /** Courte liste lisible : au plus n éléments, puis « … et N autres ». */
-  const liste = (l, n = 6) => (l.length <= n ? l.join(', ') : l.slice(0, n).join(', ') + ` … et ${l.length - n} autres`);
+  const liste = (l, n = 6) => (l.length <= n ? l.join(', ') : l.slice(0, n).join(', ') + ` … et ${l.length - n} autre${l.length - n > 1 ? 's' : ''}`);
 
   /** Lit une chaîne JSON sans jamais échouer. */
   const json = (s, defaut) => { try { return JSON.parse(s); } catch (e) { return defaut; } };

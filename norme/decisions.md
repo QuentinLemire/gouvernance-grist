@@ -4,6 +4,18 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-24 — Outils d'administration : une page par outil, règles de la norme écrites une fois
+**Décision** : l'ancien panneau Administration et la Boîte à outils sont remplacés par des **outils séparés**, une page Grist chacun, sous Administration :
+tableau de bord, Utilisateurs, Rôles et droits, Explorateur, Atelier, Santé du document, (Support), Maintenance, Aide.
+Ils sont servis par une seule page légère (`console.html?module=…`) qui ne charge que l'outil affiché.
+Les règles de conformité sont écrites **une seule fois** (`widget/commun/norme.js`), pour la page Santé et pour le script d'audit, qui en est fabriqué.
+**Raison** : des pages légères et sans redondance ; un contrôle de la norme identique partout.
+**Conséquences** :
+- la Santé du document signale aussi les formules en erreur, les colonnes qui ne servent nulle part et les appels des widgets vers internet ;
+  les bibliothèques choisies par la norme (DSFR, marked, DOMPurify, à version figée) y sont distinguées des sorties extérieures ;
+- le tableau de bord ne contrôle plus la traçabilité (doublon de P2) : il renvoie vers la Santé ;
+- la Maintenance reconnaît encore `administration.html`, `explorateur.html`, `atelier.html` et `boite-a-outils.html`, pour ranger le menu des documents pas encore migrés.
+
 ### 2026-11-23 — Nouveau socle : Utilisateurs, Accueil, Journal (+ Boîte à outils)
 **Décision** : le **socle** comprend Utilisateurs & Entités, la page d'accueil (avec Paramètres, qu'elle lit), le Journal d'administration, et les pages Accueil, Administration, Utilisateurs, Boîte à outils. **Hors socle**, à installer en un clic : Support, Documentation, Territoires.
 **Conséquences** :
