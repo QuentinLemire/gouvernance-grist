@@ -160,6 +160,10 @@ window.Structure = (() => {
       let absolue = url;
       try { absolue = new URL(url, base || undefined).href; } catch (e) { if (!/^https?:/i.test(url)) return; }
       if (!/^https?:/i.test(absolue)) return;
+      // pas une vraie sortie : texte d'exemple (« https://… »), ou nom d'un format XML (www.w3.org/2000/svg…)
+      let hote = '';
+      try { hote = new URL(absolue).hostname; } catch (e) { return; }
+      if (!hote.includes('.') || /…/.test(absolue) || /^https?:\/\/www\.w3\.org\/(19|20)\d\d\//.test(absolue)) return;
       trouvees.push({ url: absolue, genre });
     };
     const balises = { script: 'script', link: 'style', img: 'image', iframe: 'cadre', source: 'média' };
