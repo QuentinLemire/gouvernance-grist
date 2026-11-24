@@ -130,8 +130,14 @@
   .dg-table-box text.dg-col { font-size: 11.5px; font-family: ui-monospace, Menlo, Consolas, monospace; fill: var(--fg); }
   .dg-table-box text.dg-col-type { fill: var(--muted); }
   .dg-table-box rect.dg-row-pk { fill: var(--accent-bg); }
-  .dg-rel-path { fill: none; stroke-width: 1.6; opacity: 0.85; }
-  .dg-rel-path:hover { opacity: 1; stroke-width: 2.4; }
+  .dg-rel-path { fill: none; stroke-width: 1.6; opacity: 0.8; stroke-linejoin: round; }
+  .dg-rel-path:hover { opacity: 1; stroke-width: 2.6; }
+  .dg-table-box text.dg-plus { fill: var(--muted); font-style: italic; }
+  /* survol d'une table : ses liens et ses voisines restent nets, le reste s'estompe */
+  #diagramSvg.dg-focus .dg-rel-path { opacity: 0.12; }
+  #diagramSvg.dg-focus .dg-rel-path.dg-actif { opacity: 1; stroke-width: 2.6; }
+  #diagramSvg.dg-focus .dg-table-box { opacity: 0.35; }
+  #diagramSvg.dg-focus .dg-table-box.dg-actif { opacity: 1; }
   .zoom-controls { display: flex; gap: 6px; }
   .zoom-controls button { width: 30px; padding: 5px 0; }
   #hiddenBar, #usageHiddenBar {
@@ -267,8 +273,8 @@
           <button id="btnResetLayout">↺ Réinitialiser la disposition</button>
           <button id="btnHideAll">🙈 Tout masquer</button>
           <label class="toolbar-check">
-            <input type="checkbox" id="chkShowUnlinkedColumns" checked>
-            Afficher les colonnes sans lien avec une autre table
+            <input type="checkbox" id="chkShowUnlinkedColumns">
+            Afficher toutes les colonnes
           </label>
           <label class="toolbar-check">
             <input type="checkbox" id="chkHideSummaryTables">
@@ -482,7 +488,7 @@ let manualPositions = {}; // { tableId: {x, y} }
 let diagramTables = [];   // dernières données chargées, pour pouvoir re-rendre sans refetch
 let diagramColumns = [];
 let saveStateTimer = null;
-let showUnlinkedColumns = true; // false = ne montrer que la clé primaire et les colonnes Ref/RefList
+let showUnlinkedColumns = false; // vrai = toutes les colonnes ; faux (par défaut) = la clé et les colonnes de lien, plus « + n autres »
 let hideSummaryTables = false; // true = masquer les tables de regroupement (*_summary_*)
 const viewState = { scale: 1 }; // échelle courante du canevas, lue par le glisser-déposer des tables
 
@@ -520,7 +526,7 @@ async function loadDiagramState() {
     if (saved && typeof saved === 'object') {
       hiddenTableIds = new Set(Array.isArray(saved.hidden) ? saved.hidden : []);
       manualPositions = (saved.positions && typeof saved.positions === 'object') ? saved.positions : {};
-      showUnlinkedColumns = saved.showUnlinkedColumns !== false;
+      showUnlinkedColumns = saved.showUnlinkedColumns === true;
       hideSummaryTables = saved.hideSummaryTables === true;
       diagramVersions = (saved.versions && typeof saved.versions === 'object') ? saved.versions : {};
       diagramActiveVersionName = typeof saved.activeVersion === 'string' ? saved.activeVersion : null;
@@ -563,7 +569,7 @@ function applyDiagramSnapshot(snap) {
   hiddenTableIds = new Set(Array.isArray(snap.hidden) ? snap.hidden : []);
   manualPositions = (snap.positions && typeof snap.positions === 'object')
     ? JSON.parse(JSON.stringify(snap.positions)) : {};
-  showUnlinkedColumns = snap.showUnlinkedColumns !== false;
+  showUnlinkedColumns = snap.showUnlinkedColumns === true;
   hideSummaryTables = snap.hideSummaryTables === true;
 }
 
@@ -662,100 +668,120 @@ function wrapTextAtChars(text, maxChars) {
   return lines.length ? lines : [''];
 }
 
+/**
+ * Modèle du schéma : boîtes (tables), positions et liens.
+ *
+ * Disposition « en colonnes par dépendance » : une table qui n'en référence aucune va dans la
+ * colonne 0 (à gauche) ; une table qui en référence d'autres va une colonne à droite de la plus
+ * éloignée d'entre elles. Les liens vont donc tous de droite à gauche. Dans une colonne, l'ordre
+ * suit la position moyenne des tables liées (méthode des barycentres), ce qui limite les
+ * croisements. Les tables sans aucun lien sont rangées à part, en bas.
+ * Une position déplacée à la main (manualPositions) l'emporte toujours.
+ */
 function buildDiagramModel(tables, columns) {
   const colsByTable = {};
   for (const c of columns) {
     if (c.colId === 'manualSort' || String(c.colId).startsWith('gristHelper_')) continue;
     (colsByTable[c.parentId] = colsByTable[c.parentId] || []).push(c);
   }
-  for (const arr of Object.values(colsByTable)) {
-    arr.sort((a, b) => a.parentPos - b.parentPos);
-  }
+  for (const arr of Object.values(colsByTable)) arr.sort((a, b) => a.parentPos - b.parentPos);
 
   const HEADER_H = 28, ROW_H = 19, PAD_X = 10, MIN_W = 170, MAX_W = 280;
-  const sortedTables = tables.slice().sort((a, b) => a.tableId.localeCompare(b.tableId));
+  const visibles = tables.filter(t => !hiddenTableIds.has(t.tableId) && !(hideSummaryTables && isSummaryTableId(t.tableId)));
+  const ids = new Set(visibles.map(t => t.tableId));
 
-  const boxes = sortedTables.map(t => {
-    const cols = colsByTable[t.id] || [];
-    const rows = [{ colId: 'id', typeLabel: 'integer', isPk: true, isRef: false }].concat(
-      cols
-        .map(c => {
-          const { dbmlType, refTable } = mapGristType(c.type);
-          return { colId: c.colId, typeLabel: dbmlType, isPk: false, isRef: !!refTable };
-        })
-        .filter(r => showUnlinkedColumns || r.isRef)
-    );
-    let width = MIN_W;
-    for (const r of rows) {
-      width = Math.max(width, measureTextWidth(r.colId + '  ' + r.typeLabel, 11.5) + PAD_X * 2 + 10);
-    }
+  // Boîtes : la clé, les colonnes de lien, puis les autres colonnes (toutes, ou résumées en « + n »)
+  const boxes = visibles.map(t => {
+    const cols = (colsByTable[t.id] || []).map(c => {
+      const { dbmlType, refTable } = mapGristType(c.type);
+      return { colId: c.colId, typeLabel: dbmlType, isPk: false, isRef: !!refTable && ids.has(refTable), refTable };
+    });
+    const liens = cols.filter(c => c.isRef), autres = cols.filter(c => !c.isRef);
+    const rows = [{ colId: 'id', typeLabel: 'integer', isPk: true, isRef: false }, ...liens,
+      ...(showUnlinkedColumns ? autres : (autres.length ? [{ colId: '+ ' + autres.length + ' autre' + (autres.length > 1 ? 's' : '') + ' colonne' + (autres.length > 1 ? 's' : ''), typeLabel: '', isMore: true }] : []))];
+    let width = Math.max(MIN_W, measureTextWidth(t.tableId, 13) + PAD_X * 2 + 30);
+    for (const r of rows) width = Math.max(width, measureTextWidth(r.colId + '  ' + r.typeLabel, 11.5) + PAD_X * 2 + 16);
     width = Math.min(width, MAX_W);
-    const height = HEADER_H + rows.length * ROW_H + 6;
-    return { tableId: t.tableId, tableRef: t.id, rows, width, height };
+    return { tableId: t.tableId, tableRef: t.id, rows, width, height: HEADER_H + rows.length * ROW_H + 6 };
   });
-
-  // Disposition en grille (nombre de colonnes proche de la racine carrée, pondéré pour un rendu plus large que haut)
-  const n = boxes.length || 1;
-  const colsPerRow = Math.max(1, Math.ceil(Math.sqrt(n * 1.4)));
-  const GAP_X = 70, GAP_Y = 60, MARGIN = 30;
-  const maxW = Math.max(...boxes.map(b => b.width), MIN_W);
-  const maxH = Math.max(...boxes.map(b => b.height), HEADER_H + ROW_H);
-
-  boxes.forEach((b, i) => {
-    const col = i % colsPerRow;
-    const row = Math.floor(i / colsPerRow);
-    b.x = MARGIN + col * (maxW + GAP_X);
-    b.y = MARGIN + row * (maxH + GAP_Y);
-    const manual = manualPositions[b.tableId];
-    if (manual && Number.isFinite(manual.x) && Number.isFinite(manual.y)) {
-      b.x = manual.x;
-      b.y = manual.y;
-    }
-  });
-
   const boxByTableId = {};
   boxes.forEach(b => { boxByTableId[b.tableId] = b; });
 
-  // Relations (calculées sur toutes les tables, filtrées ensuite selon la visibilité)
+  // Liens (une table peut se référencer elle-même : Parent, Rattachement…)
   const relations = [];
-  let colorIdx = 0;
-  for (const b of boxes) {
-    b.rows.forEach((r, rowIndex) => {
-      if (!r.isRef) return;
-      const col = columns.find(c => c.parentId === b.tableRef && c.colId === r.colId);
-      if (!col) return;
-      const { refTable } = mapGristType(col.type);
-      const targetBox = boxByTableId[refTable];
-      if (!targetBox) return;
-      relations.push({
-        fromBox: b, fromRowIndex: rowIndex, colId: r.colId,
-        toBox: targetBox, color: REL_COLORS[colorIdx % REL_COLORS.length],
-      });
-      colorIdx++;
+  boxes.forEach(b => b.rows.forEach((r, rowIndex) => {
+    if (r.isRef && boxByTableId[r.refTable]) relations.push({ fromBox: b, fromRowIndex: rowIndex, colId: r.colId, toBox: boxByTableId[r.refTable] });
+  }));
+  // Une couleur par table référencée : toutes les flèches vers une même table se ressemblent
+  const cibles = [...new Set(relations.map(r => r.toBox.tableId))].sort();
+  relations.forEach(r => { r.color = REL_COLORS[cibles.indexOf(r.toBox.tableId) % REL_COLORS.length]; });
+
+  // Colonne de chaque table : 0 si elle ne référence rien, sinon 1 + la colonne la plus à droite
+  // de ses cibles (les boucles éventuelles A → B → A sont coupées)
+  const cibleDe = new Map(boxes.map(b => [b, [...new Set(relations.filter(r => r.fromBox === b && r.toBox !== b).map(r => r.toBox))]]));
+  const niveau = new Map();
+  const calculer = (b, pile) => {
+    if (niveau.has(b)) return niveau.get(b);
+    if (pile.has(b)) return 0;
+    pile.add(b);
+    const n = Math.max(-1, ...cibleDe.get(b).map(c => calculer(c, pile))) + 1;
+    pile.delete(b);
+    niveau.set(b, n);
+    return n;
+  };
+  boxes.forEach(b => calculer(b, new Set()));
+  const reliees = new Set(relations.filter(r => r.toBox !== r.fromBox).flatMap(r => [r.fromBox, r.toBox]));
+  const isolees = boxes.filter(b => !reliees.has(b)).sort((a, b) => a.tableId.localeCompare(b.tableId));
+  const nbCol = Math.max(0, ...boxes.filter(b => reliees.has(b)).map(b => niveau.get(b))) + 1;
+  const colonnes = Array.from({ length: nbCol }, () => []);
+  boxes.filter(b => reliees.has(b)).forEach(b => colonnes[niveau.get(b)].push(b));
+
+  // Ordre dans chaque colonne : barycentre des tables liées, sur quelques passages de gauche à
+  // droite puis de droite à gauche
+  const voisins = b => relations.filter(r => r.toBox !== r.fromBox && (r.fromBox === b || r.toBox === b)).map(r => r.fromBox === b ? r.toBox : r.fromBox);
+  const rang = new Map();
+  colonnes.forEach(col => { col.sort((a, b) => a.tableId.localeCompare(b.tableId)); col.forEach((b, i) => rang.set(b, i)); });
+  for (let passe = 0; passe < 6; passe++) {
+    const ordre = passe % 2 ? colonnes.slice().reverse() : colonnes;
+    ordre.forEach(col => {
+      const bary = b => { const v = voisins(b).filter(x => niveau.get(x) !== niveau.get(b)); return v.length ? v.reduce((s, x) => s + rang.get(x), 0) / v.length : rang.get(b); };
+      col.sort((a, b) => bary(a) - bary(b) || a.tableId.localeCompare(b.tableId));
+      col.forEach((b, i) => rang.set(b, i));
     });
   }
 
-  const visibleBoxes = boxes.filter(
-    b => !hiddenTableIds.has(b.tableId) && !(hideSummaryTables && isSummaryTableId(b.tableId))
-  );
-  const visibleRelations = relations.filter(
-    r => !hiddenTableIds.has(r.fromBox.tableId) && !hiddenTableIds.has(r.toBox.tableId)
-      && !(hideSummaryTables && (isSummaryTableId(r.fromBox.tableId) || isSummaryTableId(r.toBox.tableId)))
-  );
+  // Positions : colonnes séparées par un couloir assez large pour les lignes de liens
+  const MARGIN = 30, GAP_Y = 34;
+  const couloir = c => 70 + 12 * new Set(relations.filter(r => niveau.get(r.toBox) === c && r.toBox !== r.fromBox).map(r => r.toBox)).size;
+  let x = MARGIN, basColonnes = MARGIN;
+  colonnes.forEach((col, c) => {
+    const largeur = Math.max(MIN_W, ...col.map(b => b.width));
+    let y = MARGIN;
+    col.forEach(b => { b.x = x + (largeur - b.width) / 2; b.y = y; b.colonne = c; y += b.height + GAP_Y; });
+    basColonnes = Math.max(basColonnes, y);
+    x += largeur + couloir(c);
+  });
+  // Tables sans lien : rangées en ligne sous le schéma, avec retour à la ligne
+  const largeurUtile = Math.max(x, 900);
+  let xi = MARGIN, yi = basColonnes + (colonnes.length ? 40 : 0), hauteurLigne = 0;
+  isolees.forEach(b => {
+    if (xi + b.width > largeurUtile && xi > MARGIN) { xi = MARGIN; yi += hauteurLigne + GAP_Y; hauteurLigne = 0; }
+    b.x = xi; b.y = yi; b.colonne = -1;
+    xi += b.width + 30; hauteurLigne = Math.max(hauteurLigne, b.height);
+  });
+  boxes.forEach(b => {
+    const m = manualPositions[b.tableId];
+    if (m && Number.isFinite(m.x) && Number.isFinite(m.y)) { b.x = m.x; b.y = m.y; }
+  });
 
-  const hiddenCount = boxes.length - visibleBoxes.length;
+  // Couloir vertical propre à chaque table cible : ses liens entrants s'y rejoignent
+  const parCible = [...new Set(relations.filter(r => r.toBox !== r.fromBox).map(r => r.toBox))];
+  const dansCouloir = new Map(parCible.map(t => [t, parCible.filter(u => u.colonne === t.colonne).indexOf(t)]));
+  relations.forEach(r => { r.couloir = dansCouloir.get(r.toBox) || 0; });
 
-  const totalWidth = visibleBoxes.length
-    ? Math.max(400, Math.max(...visibleBoxes.map(b => b.x + b.width)) + MARGIN)
-    : 400;
-  const totalHeight = visibleBoxes.length
-    ? Math.max(300, Math.max(...visibleBoxes.map(b => b.y + b.height)) + MARGIN)
-    : 300;
-
-  return {
-    boxes: visibleBoxes, relations: visibleRelations, HEADER_H, ROW_H, PAD_X,
-    totalWidth, totalHeight, hiddenCount,
-  };
+  const totalWidth = boxes.length ? Math.max(400, ...boxes.map(b => b.x + b.width)) + MARGIN + 40 : 400;
+  const totalHeight = boxes.length ? Math.max(300, ...boxes.map(b => b.y + b.height)) + MARGIN : 300;
+  return { boxes, relations, HEADER_H, ROW_H, PAD_X, totalWidth, totalHeight, hiddenCount: tables.length - visibles.length };
 }
 
 function svgEl(tag, attrs, parent) {
@@ -810,7 +836,7 @@ function renderDiagramSvg(model) {
 
   // Boîtes de tables
   model.boxes.forEach(b => {
-    const g = svgEl('g', { class: 'dg-table-box', transform: `translate(${b.x},${b.y})` }, root);
+    const g = svgEl('g', { class: 'dg-table-box', transform: `translate(${b.x},${b.y})`, 'data-table': b.tableId }, root);
     svgEl('rect', { class: 'dg-body', x: 0, y: 0, width: b.width, height: b.height, rx: 6 }, g);
     svgEl('rect', { class: 'dg-header', x: 0, y: 0, width: b.width, height: model.HEADER_H, rx: 6 }, g);
     svgEl('rect', { x: 0, y: model.HEADER_H - 6, width: b.width, height: 6, fill: 'var(--accent)' }, g);
@@ -844,6 +870,7 @@ function renderDiagramSvg(model) {
       }, g);
       const keyMark = r.isPk ? '🔑 ' : (r.isRef ? '↗ ' : '');
       colText.textContent = keyMark + r.colId;
+      if (r.isMore) colText.setAttribute('class', 'dg-col dg-plus');
       const typeText = svgEl('text', {
         class: 'dg-col dg-col-type', x: b.width - model.PAD_X, y: y + model.ROW_H / 2 + 4,
         'text-anchor': 'end',
@@ -851,30 +878,60 @@ function renderDiagramSvg(model) {
       typeText.textContent = r.typeLabel;
     });
 
+    // survol : la table et ses liens restent nets, le reste s'estompe
+    g.addEventListener('pointerenter', () => mettreEnValeur(b, model, true));
+    g.addEventListener('pointerleave', () => mettreEnValeur(b, model, false));
     attachBoxDrag(g, b, model);
   });
 }
 
-// Calcule le tracé (attribut "d") d'une relation entre deux boîtes, à partir de leur position courante.
-function computeRelPathD(rel, model) {
-  const y1 = rel.fromBox.y + model.HEADER_H + rel.fromRowIndex * model.ROW_H + model.ROW_H / 2;
-  const fromRight = rel.fromBox.x + rel.fromBox.width < rel.toBox.x + rel.toBox.width / 2;
-  const x1 = fromRight ? rel.fromBox.x + rel.fromBox.width : rel.fromBox.x;
+/** Met en valeur une table et ses liens (survol), ou rend son aspect normal au schéma. */
+function mettreEnValeur(box, model, oui) {
+  document.getElementById('diagramSvg').classList.toggle('dg-focus', oui);
+  model.relations.forEach(rel => rel.pathEl && rel.pathEl.classList.toggle('dg-actif', oui && (rel.fromBox === box || rel.toBox === box)));
+  const liees = new Set([box.tableId, ...model.relations.filter(r => r.fromBox === box || r.toBox === box).flatMap(r => [r.fromBox.tableId, r.toBox.tableId])]);
+  document.querySelectorAll('#diagramRoot .dg-table-box').forEach(g => g.classList.toggle('dg-actif', oui && liees.has(g.dataset.table)));
+}
 
-  const isSelf = rel.toBox === rel.fromBox;
-  if (isSelf) {
-    const x2 = rel.fromBox.x + rel.fromBox.width;
-    const y2 = rel.fromBox.y + model.HEADER_H / 2;
-    const bulge = 46;
-    return `M ${x1} ${y1} C ${x1 + bulge} ${y1}, ${x2 + bulge} ${y2}, ${x2} ${y2}`;
+/** Chemin passant par des points, à angles droits arrondis (rayon 7 au plus). */
+function cheminArrondi(points) {
+  let d = `M ${points[0][0]} ${points[0][1]}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const [x0, y0] = points[i - 1], [x1, y1] = points[i], [x2, y2] = points[i + 1];
+    const longueurs = [Math.abs(x1 - x0) + Math.abs(y1 - y0), Math.abs(x2 - x1) + Math.abs(y2 - y1)];
+    const r = Math.min(7, ...longueurs.map(l => l / 2));
+    const ax = x1 - Math.sign(x1 - x0) * r, ay = y1 - Math.sign(y1 - y0) * r;
+    const bx = x1 + Math.sign(x2 - x1) * r, by = y1 + Math.sign(y2 - y1) * r;
+    d += ` L ${ax} ${ay} Q ${x1} ${y1} ${bx} ${by}`;
   }
-  const toLeftSide = x1 < rel.toBox.x + rel.toBox.width / 2;
-  const x2 = toLeftSide ? rel.toBox.x : rel.toBox.x + rel.toBox.width;
-  const y2 = rel.toBox.y + model.HEADER_H / 2;
-  const dx = Math.max(Math.abs(x2 - x1) / 2, 40);
-  const c1x = x1 + (fromRight ? dx : -dx);
-  const c2x = x2 + (toLeftSide ? -dx : dx);
-  return `M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
+  const [xn, yn] = points[points.length - 1];
+  return d + ` L ${xn} ${yn}`;
+}
+
+/**
+ * Tracé d'un lien : il part de la colonne de lien (côté gauche de la table), rejoint le couloir
+ * vertical de la table cible (juste à sa droite), puis entre dans la cible à la hauteur de sa clé
+ * « id ». Les liens vers une même table partagent ce couloir et finissent en une seule flèche.
+ * Si la cible n'est pas à gauche (table déplacée à la main), une courbe simple prend le relais.
+ */
+function computeRelPathD(rel, model) {
+  const src = rel.fromBox, dst = rel.toBox;
+  const y1 = src.y + model.HEADER_H + rel.fromRowIndex * model.ROW_H + model.ROW_H / 2;
+  const y2 = dst.y + model.HEADER_H + model.ROW_H / 2;
+  if (src === dst) {
+    const x = src.x + src.width, bosse = 22 + 6 * (rel.fromRowIndex % 3);
+    return cheminArrondi([[x, y1], [x + bosse, y1], [x + bosse, y2], [x, y2]]);
+  }
+  const x2 = dst.x + dst.width;
+  if (x2 + 30 < src.x) {
+    const xc = x2 + 22 + 12 * (rel.couloir || 0);
+    return cheminArrondi([[src.x, y1], [xc, y1], [xc, y2], [x2, y2]]);
+  }
+  // cas déplacé à la main : courbe douce du bord le plus proche
+  const versDroite = src.x + src.width / 2 < dst.x + dst.width / 2;
+  const x1 = versDroite ? src.x + src.width : src.x, xa = versDroite ? dst.x : x2;
+  const dx = Math.max(Math.abs(xa - x1) / 2, 40);
+  return `M ${x1} ${y1} C ${x1 + (versDroite ? dx : -dx)} ${y1}, ${xa + (versDroite ? -dx : dx)} ${y2}, ${xa} ${y2}`;
 }
 
 // Recalcule et applique en direct le tracé des relations connectées à une boîte (pendant son déplacement).
