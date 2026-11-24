@@ -355,6 +355,7 @@ const PAGES = [
   { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
+  { ...OUTIL, cle: 'sante', nom: '🩺 Santé du document', module: 'sante' },
   { ...OUTIL, cle: 'maintenance', nom: '🧱 Maintenance', module: 'maintenance' },
   { ...OUTIL, cle: 'aide', nom: '❓ Aide', module: 'aide' },
 ];

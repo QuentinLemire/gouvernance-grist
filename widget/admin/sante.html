@@ -1,0 +1,21 @@
+<!-- 🩺 Santé du document : contrôles de la norme (commun/norme.js) et du document, dessinés par admin/sante.js -->
+<style>
+  .sante { padding: 24px; max-width: 1150px; margin: 0 auto; }
+  .sante .entete-sante { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+  .sante .entete-sante p { margin: 4px 0 0; }
+  .sante .actions-sante { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .sante .point { border-top: 1px solid var(--bordure); }
+  .sante .point:first-of-type { border-top: none; }
+  .sante .point > summary { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 10px 4px; cursor: pointer; list-style: none; }
+  .sante .point > summary::-webkit-details-marker { display: none; }
+  .sante .point > summary:hover { background: var(--fond); }
+  .sante .point .objet { font-weight: 700; }
+  .sante .point .detail { color: var(--texte-doux); font-size: 13.5px; margin-top: 2px; }
+  .sante .point .elements { padding: 0 4px 12px 42px; }
+  .sante .point.sans-detail > summary { cursor: default; }
+  .sante .etat-sante { font-size: 18px; line-height: 1.2; }
+  .sante table.sorties { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .sante table.sorties th, .sante table.sorties td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--bordure); vertical-align: top; }
+  .sante table.sorties th { color: var(--texte-doux); font-weight: 600; font-size: 12.5px; }
+</style>
+<div class="sante" id="sante-contenu"><p class="discret">Contrôle du document…</p></div>

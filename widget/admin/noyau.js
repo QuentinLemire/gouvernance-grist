@@ -45,14 +45,15 @@ window.Console = (() => {
    * cle : nom des fichiers admin/<cle>.html et admin/<cle>.js ; rubrique : titre du groupe dans le menu ;
    * avec : fichiers à charger d'abord (le moteur de l'administration) ; aVenir : pas encore livré.
    */
-  const GESTION = ['admin/gestion.js'];
+  const NORME = ['commun/norme.js'];   // règles de la norme (commun avec scripts/auditer-norme.js)
+  const GESTION = [...NORME, 'admin/gestion.js'];
   const MODULES = [
     { cle: 'tableau', titre: '🏠 Tableau de bord', rubrique: '', avec: GESTION },
     { cle: 'utilisateurs', titre: '👥 Utilisateurs', rubrique: 'Personnes', avec: GESTION },
     { cle: 'droits', titre: '🔐 Rôles et droits', rubrique: 'Personnes', avec: GESTION },
     { cle: 'explorateur', titre: '🔍 Explorateur', rubrique: 'Données' },
     { cle: 'atelier', titre: '🏗️ Atelier', rubrique: 'Données' },
-    { cle: 'sante', titre: '🩺 Santé du document', rubrique: 'Qualité', aVenir: true },
+    { cle: 'sante', titre: '🩺 Santé du document', rubrique: 'Qualité', avec: NORME },
     { cle: 'support', titre: '🆘 Support', rubrique: 'Support', avec: GESTION },
     { cle: 'maintenance', titre: '🧱 Maintenance', rubrique: 'Maintenance', avec: GESTION },
     { cle: 'aide', titre: '❓ Aide', rubrique: '', avec: GESTION },

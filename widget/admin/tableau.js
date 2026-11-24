@@ -6,9 +6,9 @@
 
 /**
  * Contrôles de santé du tableau de bord : administrateurs, courriels, rôles, règles d'accès,
- * sujets du socle installés, traçabilité des tables métier.
- * @returns {{ok: boolean, texte: string, onglet?: string}[]}  un point par contrôle ;
- *          « onglet » indique où aller pour corriger (bouton « Corriger → »)
+ * sujets du socle installés ; renvoie vers la Santé du document pour le contrôle complet de la norme.
+ * @returns {{ok: boolean, texte: string, onglet?: string, voir?: boolean}[]}  un point par contrôle ;
+ *          « onglet » indique où aller pour corriger (bouton « Corriger → ») ; « voir » : simple renvoi (« Ouvrir → »)
  */
 function controles() {
   const U = etat.d.Gouv_Utilisateurs || [];
@@ -49,11 +49,8 @@ function controles() {
       out.push({ ok: false, texte: 'Sujet transverse incomplet : <b>' + esc(s.nom) + '</b>.', onglet: 'structure' });
     }
   }
-  // Tables de référence ou techniques : pas besoin de savoir qui les a modifiées ligne par ligne.
-  const sansObjet = ['Gouv_Journal', 'Gouv_Accueil', 'Gouv_Parametres', 'Gouv_Territoires'];
-  // Les tables techniques d'une seule colonne (ex. un « verrou » qui cache des pages) sont aussi exclues.
-  const sansTraca = etat.meta.tables.filter((t) => !sansObjet.includes(t.tableId) && t.colonnes.length > 1 && !t.colonnes.some((c) => c.colId === 'ModifiePar'));
-  if (sansTraca.length) out.push({ ok: false, texte: sansTraca.length + ' table(s) sans traçabilité : ' + sansTraca.map((t) => esc(t.tableId)).join(', ') + '.', onglet: 'structure' });
+  // Conformité complète à la norme (traçabilité, nommage, widgets…) : contrôlée par la Santé du document
+  out.push({ ok: true, texte: 'Conformité à la norme et qualité du document : <b>🩺 Santé du document</b>.', onglet: 'sante', voir: true });
   return out;
 }
 
@@ -79,7 +76,7 @@ function ongletAccueil() {
     </div>
     <div class="grille-2">
       <section class="carte sante"><h2>🩺 Santé du document</h2>
-        <ul>${c.map((x) => `<li><span>${x.ok ? '✅' : '⚠️'}</span><span>${x.texte}</span>${!x.ok && x.onglet ? `<button class="bouton petit" data-onglet-aller="${x.onglet}">Corriger →</button>` : ''}</li>`).join('')}</ul>
+        <ul>${c.map((x) => `<li><span>${x.voir ? '🩺' : x.ok ? '✅' : '⚠️'}</span><span>${x.texte}</span>${(!x.ok || x.voir) && x.onglet ? `<button class="bouton petit" data-onglet-aller="${x.onglet}">${x.voir ? 'Ouvrir →' : 'Corriger →'}</button>` : ''}</li>`).join('')}</ul>
       </section>
       <section class="carte"><h2>📒 Dernières actions</h2>
         ${journal.length ? `<table class="tableau"><tr><th>Date</th><th>Qui</th><th>Action</th></tr>${journal.map((j) => `<tr><td>${dateFr(j.Date)}</td><td>${esc(j.Auteur)}</td><td><b>${esc(j.Action)}</b><br><small>${esc(j.Detail)}</small></td></tr>`).join('')}</table>` : '<p class="vide">Aucune action tracée pour l\'instant.</p>'}

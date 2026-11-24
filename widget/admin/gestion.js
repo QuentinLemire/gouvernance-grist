@@ -49,22 +49,8 @@ const URL_WIDGET = (version, fichier, module) => `${SITE_WIDGETS}${fichier}?${mo
 // Reconnaît une adresse de widget de la norme : GitHub Pages (fichier, version) ou ancienne adresse raw.githack (version, fichier).
 const ADRESSE_WIDGET = new RegExp(`(?:/${GITHUB.proprietaire}/${GITHUB.depot}/([^/]+)|${GITHUB.proprietaire}\\.github\\.io/${GITHUB.depot})/widget/([^?#]+)(?:\\?v=([0-9a-f]+))?`, 'i');
 
-/**
- * Sujets transverses de la norme, dans l'ordre d'installation conseillé.
- * « fichier » : nom du fichier structure/<fichier>.json sur le dépôt ;
- * « obligatoire » : sujet du socle, dont l'absence est signalée au tableau de bord.
- */
-const SUJETS = [
-  // Socle : présent dans toute application.
-  { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
-  { fichier: 'parametres', nom: "Paramètres (nom, contact, logo : lus par la page d'accueil)", obligatoire: true },
-  { fichier: 'accueil_public', nom: "Page d'accueil publique", obligatoire: true },
-  { fichier: 'journal', nom: "Journal d'administration", obligatoire: true },
-  // Hors socle : à installer si l'application en a besoin (bouton « Installer »).
-  { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins (ajoute aussi Entites.Territoire)', obligatoire: false },
-  { fichier: 'support', nom: 'Support', obligatoire: false },
-  { fichier: 'documentation', nom: 'Documentation', obligatoire: false },
-];
+/** Sujets transverses de la norme (commun/norme.js) : fichier, nom, obligatoire (socle). */
+const SUJETS = Norme.SUJETS;
 
 /** Données de référence livrées avec certains sujets (dossier donnees/ du dépôt), chargées à l'installation si la table est vide. */
 const DONNEES = { referentiel_territoires: 'territoires.json', documentation: 'documentation.json' };   // documentation : une page modèle « à modifier »
