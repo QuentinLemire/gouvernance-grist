@@ -73,6 +73,9 @@ Restent à trancher plus tard : `Bureaux.Rattachement` (sous-direction du bureau
 - Annuaire : vue de Personnel filtrée sur `Present` (colonnes `Telephone`, `Situation`, `Present` calculées dans Personnel) ; l'ancienne table de résumé `Personnel_summary_Cle` est supprimée — **les flux n8n lisent désormais la table `Personnel` (filtre `Present`)**.
 - Grade : saisie libre, avec en suggestion les grades déjà renseignés (plus de liste figée dans le code).
 
+## Tables de la gouvernance (2026-11-24)
+Renommées `Gouv_…` (🧱 socle, 🧩 modules) ; les tables métier et le référentiel gardent leur nom. ⚠️ Les flux n8n qui lisaient `Utilisateurs` lisent désormais `Gouv_Utilisateurs`.
+
 ## Campagne de tests des droits (2026-11-23, données vidées)
 Comptes fictifs : admin.test, rh.dgom, rh.sma, chef.bcl, adjoint.bcl, chef.baei, bssiom, lecteur.bcl, contributeur.dgom, inactif, sansrole (+ un inconnu).
 Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conformes après correction d'une faille (changement d'entité d'une fiche par une RH, corrigé sur 20 règles).

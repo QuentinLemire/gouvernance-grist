@@ -70,6 +70,10 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 **Décision** : le widget Administration porte `VERSION_WIDGET` (à changer à chaque modification) ; « Publier la norme » refuse si la version du dépôt est différente. Une table d'un sujet qui dépend d'un autre sujet définissant la même table est traitée comme « extension », même sans la marque.
 **Raison** : le 2026-11-23, une publication faite avec une copie en cache (raw.githack) a remis `Entites.Territoire` dans Utilisateurs et retiré la marque `extension` de Territoires. Fichiers remis en état (Utilisateurs 1.9, Territoires 1.5).
 
+### 2026-11-24 — Tables de la gouvernance préfixées `Gouv_`
+**Décision** : `Gouv_Utilisateurs`, `Gouv_Entites`, `Gouv_Parametres`, `Gouv_Accueil`, `Gouv_Journal` (socle), `Gouv_Support`, `Gouv_Support_commentaires`, `Gouv_Documentation`, `Gouv_Territoires` (modules). Structure en version 2.0.
+**Raison** : « Données source » trie les tables par identifiant ; le préfixe les regroupe (l'emoji du titre ne suffisait pas). Appliqué dans Gouvernance et Arrivées-Départs ; Grist a mis à jour formules, règles et attribut `user.Profil` ; widgets de la norme et code des applications adaptés.
+
 ### 2026-11-24 — Tables de la norme repérables dans « Données source »
 **Décision** : 🧱 devant le nom des tables du socle, 🧩 devant celles des modules installés ; rien sur les tables de l'application. Posé par l'installateur (script et widget Administration).
 **Raison** : distinguer d'un coup d'œil ce qui relève de la gouvernance. Le titre garde le nom exact de la table, car Grist recalcule l'identifiant d'après le titre : un libellé libre (« Socle · Entités ») avait renommé les tables en test.
