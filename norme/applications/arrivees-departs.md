@@ -61,6 +61,10 @@ Décision du 2026-11-23 : Entité + Périmètre.
 - ⚠️ Les flux n8n qui lisent l'annuaire (`Personnel_summary_Cle`) par l'API doivent utiliser les nouveaux noms (`Nom`, `Prenom`, `Courriel`, `Telephone`…).
 - Corrigés au passage : la Bannette ne se chargeait pas (aucune lecture au démarrage) et y affichait des fiches déjà signées (une section non lue effaçait la signature connue de Personnel).
 
+## Données source (2026-11-24)
+Inventaire table par table et colonne par colonne (formules, règles d'accès, code des widgets, pages de la norme) : tout sert, sauf le module **Territoires** (table et colonne `Entites.Territoire`, vides et inutilisées), retiré. Le document compte 22 tables ; audit 15/15 (le module retiré n'est plus contrôlé).
+Restent à trancher plus tard : `Bureaux.Rattachement` (sous-direction du bureau, inutilisée mais informative) ; `Personnel.Cree_le` / `Cree_par`, doublons de la traçabilité de la norme encore lus par les fiches et une règle d'accès.
+
 ## Campagne de tests des droits (2026-11-23, données vidées)
 Comptes fictifs : admin.test, rh.dgom, rh.sma, chef.bcl, adjoint.bcl, chef.baei, bssiom, lecteur.bcl, contributeur.dgom, inactif, sansrole (+ un inconnu).
 Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conformes après correction d'une faille (changement d'entité d'une fiche par une RH, corrigé sur 20 règles).
