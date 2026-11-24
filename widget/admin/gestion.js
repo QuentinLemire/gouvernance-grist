@@ -534,7 +534,7 @@ async function chargerPartage() {
   etat.partage = { enCours: true, personnes: new Map(), public: null };
   try {
     const a = await (await Outils.api('/access')).json();
-    console.info('[partage-diag]', JSON.stringify(a).slice(0, 1500));
+    avis('[diag] ' + JSON.stringify(a).slice(0, 600), 'erreur');
     for (const u of a.users || []) {
       if (u.email === 'everyone@getgrist.com') { etat.partage.public = u.access; continue; }
       if (u.anonymous) continue;
