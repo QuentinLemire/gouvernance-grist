@@ -84,6 +84,11 @@ Renommées `Gouv_…` (🧱 socle, 🧩 modules) ; les tables métier et le réf
 - Testé rôle par rôle (lecture, saisie, signature, création de départ, refus hors entité/bureau) : conforme.
 - ⚠️ Flux n8n : lire `Arrivee` / `Depart` au lieu des anciennes tables de section.
 
+## Partage RH / chef de bureau à la DGOM (2026-11-24)
+- RH : identité, grade, date du mouvement, date de fin de contrat, statut, bureau, poste et équipements, observations.
+- Chef de bureau (ou adjoint) : fonction, pièce, téléphonie, accès internet, réseau local, applications, messagerie, **listes de diffusion et accès aux boîtes partagées** (passés de la RH au chef de bureau), puis signature. SMA et CABMOM (« RH seul ») : la RH remplit tout.
+- « Transmettre au bureau » reste grisé tant que la partie RH est incomplète : nom, prénom, grade, date du mouvement, statut (et sa précision si « Autre »), date de fin de contrat pour un contractuel, vacataire, stagiaire ou apprenti, bureau. La fiche affiche ce qui manque.
+
 ## Campagne de tests des droits (2026-11-23, données vidées)
 Comptes fictifs : admin.test, rh.dgom, rh.sma, chef.bcl, adjoint.bcl, chef.baei, bssiom, lecteur.bcl, contributeur.dgom, inactif, sansrole (+ un inconnu).
 Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conformes après correction d'une faille (changement d'entité d'une fiche par une RH, corrigé sur 20 règles).
