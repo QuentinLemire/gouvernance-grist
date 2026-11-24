@@ -24,7 +24,8 @@
 <script>
   // Fichiers communs chargés avec la version de la page (?v=…) : jamais d'ancienne copie en cache.
   const VERSION_PAGE = new URLSearchParams(location.search).get('v') || '';
-  const commun = (fichier) => 'commun/' + fichier + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '');
+  const RECHARGE = new URLSearchParams(location.search).get('r') || '';   // ?r=… : force un nouveau téléchargement
+  const commun = (fichier) => 'commun/' + fichier + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '') + (RECHARGE ? '&r=' + RECHARGE : '');
   document.write('<link rel="stylesheet" href="' + commun('dsfr-grist.css') + '">');
 </script>
 <style>
@@ -55,7 +56,7 @@
 <script>
   document.write('<script src="' + commun('outils.js') + '"><\/script>');
   document.write('<script src="' + commun('structure.js') + '"><\/script>');
-  document.write('<script src="admin/noyau.js' + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '') + '"><\/script>');
+  document.write('<script src="admin/noyau.js' + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '') + (RECHARGE ? '&r=' + RECHARGE : '') + '"><\/script>');
 </script>
 </body>
 </html>

@@ -57,9 +57,11 @@ window.Console = (() => {
     { cle: 'aide', titre: '❓ Aide', rubrique: '' },
   ];
 
-  // Version de la page (?v=…) : les fichiers des modules sont chargés avec la même, jamais une ancienne copie
-  const VERSION = new URLSearchParams(location.search).get('v') || '';
-  const adresse = (chemin) => chemin + (VERSION ? '?v=' + VERSION : '');
+  // Version de la page (?v=…, et ?r=… pour forcer un rechargement) : les fichiers des modules sont chargés
+  // avec la même, jamais une ancienne copie gardée par le navigateur
+  const SUITE = ['v', 'r'].map((k) => [k, new URLSearchParams(location.search).get(k)]).filter(([, x]) => x)
+    .map(([k, x]) => k + '=' + encodeURIComponent(x)).join('&');
+  const adresse = (chemin) => chemin + (SUITE ? '?' + SUITE : '');
 
   const charges = new Map();      // cle → promesse de chargement (un module n'est chargé qu'une fois)
   const surAffichage = new Map(); // cle → fonctions appelées à chaque affichage du module
