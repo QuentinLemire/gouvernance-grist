@@ -7,8 +7,7 @@
 - [ ] Utilisateurs : `Nom`, `Courriel`, `Entite`, `Perimetre`, `Entites_vues`, `Role`, `Actif`, `Courriel_cle`, `Courriel_valide`, `Doublon`
 - [ ] Bureaux et services rangés comme sous-entités (`Entites.Parent`), pas dans une table à part
 - [ ] Parametres (avec `Nom_application`, `Contact_support`, `Logo_DGOM`) et Accueil
-- [ ] Journal_Admin
-- [ ] Pages : Accueil, Administration › Utilisateurs, Rôles et droits, Explorateur, Atelier, Journal, Maintenance, Aide
+- [ ] Pages : Accueil, Administration › Utilisateurs, Rôles et droits, Explorateur, Atelier, Maintenance, Aide (et Journal si l'application a besoin d'un audit)
 - [ ] Administration (santé du document) : aucun point « à corriger »
 
 ## Hors socle (si installés, ils doivent être complets)

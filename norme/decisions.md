@@ -4,6 +4,14 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-24 — Le journal quitte le socle : module facultatif
+**Décision** : le Journal d'administration (`journal.json`) n'est plus dans le socle. Il s'installe depuis la Maintenance (tables et page 📒 Journal)
+pour une application qui a besoin d'un audit des actions d'administration. Retiré de Gouvernance.
+**Raison** : dans Gouvernance, ses 28 lignes étaient du bruit technique (mises à jour de pages) ou des informations déjà ailleurs, et mieux :
+colonnes `ModifiePar`/`ModifieLe`, *Historique du document › Activité* de Grist, historique Git pour la norme, fil des demandes pour le support.
+Aucune ligne « droits appliqués », le seul cas où il aurait apporté quelque chose.
+**Conséquences** : les outils n'écrivent au journal que s'il est installé (déjà le cas) ; la carte « journal » de la Maintenance (doublon) est retirée.
+
 ### 2026-11-24 — Plus de tableau de bord : Administration = santé du document ; Journal en page classique
 **Décision** : le tableau de bord est supprimé. La page 🛡️ Administration affiche la santé du document (la page Santé séparée disparaît) ;
 le journal devient une page Grist classique 📒 Journal (le plus récent en haut).

@@ -365,7 +365,7 @@ const PAGES = [
   { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
-  { cle: 'journal', nom: '📒 Journal', table: 'Gouv_Journal', sousPage: true, native: {
+  { cle: 'journal', nom: '📒 Journal', table: 'Gouv_Journal', sousPage: true, facultative: true, sujet: 'journal', native: {
     titre: 'Journal d\'administration', colonnes: ['Date', 'Auteur', 'Action', 'Detail', 'Personne'], tri: '-Date', fiche: false } },
   { ...OUTIL, cle: 'maintenance', nom: '🧱 Maintenance', module: 'maintenance' },
   { ...OUTIL, cle: 'aide', nom: '❓ Aide', module: 'aide' },
@@ -596,24 +596,19 @@ async function installerTablesSujet(fichier) {
 
 /**
  * Contenu de l'onglet « Paramètres » : valeurs modifiables directement (les jetons sont masqués
- * comme des mots de passe) et journal complet des actions d'administration.
+ * comme des mots de passe). Le journal, s'il est installé, a sa propre page (📒 Journal).
  * @returns {string} HTML de l'onglet
  */
 function ongletParametres() {
   const P = (etat.d.Gouv_Parametres || []);
-  const J = (etat.d.Gouv_Journal || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0));
   return `
     <section class="carte"><h2>⚙️ Paramètres de l'application</h2>
       ${aTable('Gouv_Parametres') ? `<table class="tableau">${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
         <td><input class="champ" style="width:100%;max-width:none" data-p="${p.id}" value="${esc(p.Valeur)}" ${/_jeton$/.test(p.Cle) ? 'type="password" autocomplete="off"' : ''}>${p.Cle === 'Logo_DGOM' && p.Valeur ? `<img class="apercu-logo" src="${esc(p.Valeur)}" alt="">` : ''}</td></tr>`).join('')}</table>`
         : `<div class="encadre alerte">Pas de table Parametres. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`}
-    </section>
-    <section class="carte"><h2>📒 Journal d'administration</h2>
-      ${J.length ? `<div class="defile"><table class="tableau"><tr><th>Date</th><th>Qui</th><th>Action</th><th>Détail</th></tr>${J.map((j) => `<tr><td>${dateFr(j.Date)}</td><td>${esc(j.Auteur)}</td><td>${esc(j.Action)}</td><td>${esc(j.Detail)}</td></tr>`).join('')}</table></div>` : '<p class="vide">Journal vide.</p>'}
     </section>`;
 }
 
-// Vue du module dans la console : la structure de la norme, puis les paramètres et le journal
 // --- Sauvegardes du document -----------------------------------------------------------------------
 
 /**
@@ -655,7 +650,7 @@ function carteSauvegardes() {
 
 /**
  * Télécharge une copie complète du document (fichier .grist : données, pages, règles), datée.
- * Rien n'est modifié ; le téléchargement est noté au journal.
+ * Rien n'est modifié ; le téléchargement est noté au journal (s'il est installé).
  * @param {HTMLElement} bouton
  */
 async function telechargerCopie(bouton) {

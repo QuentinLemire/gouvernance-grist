@@ -238,7 +238,7 @@ async function creerStructure(tables) {
 }
 
 /** Sujets du socle (les autres sont des modules à installer au besoin). */
-const SOCLE = ['utilisateurs', 'parametres', 'accueil_public', 'journal'];
+const SOCLE = ['utilisateurs', 'parametres', 'accueil_public'];
 
 /**
  * Repère les tables de la norme dans « Données source » : 🧱 devant une table du socle, 🧩 devant

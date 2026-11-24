@@ -14,12 +14,12 @@ Les règles écrites, le journal des décisions, la checklist d'audit et l'état
 | `parametres.json` | Parametres | Nom de l'application, contact, logo DGOM |
 | `accueil_public.json` | Accueil | Message affiché aux personnes sans droit |
 | `support.json` | Support, Support_commentaires *(hors socle)* | Demandes et conversation avec le support |
-| `journal.json` | Journal_Admin | Trace des actions d'administration |
+| `journal.json` | Gouv_Journal *(hors socle)* | Trace des actions des outils d'administration, pour une application qui a besoin d'un audit |
 | `documentation.json` | Documentation *(hors socle)* | Guides, procédures, FAQ, notes et nouveautés en Markdown |
 
 Chaque fichier ne contient que la structure (tables, colonnes, types, formules), jamais de données.
 
-**Socle** : `utilisateurs`, `parametres`, `accueil_public`, `journal`. **Hors socle** (bouton « Installer » dans Administration → Structure) : `support`, `documentation`, `referentiel_territoires`.
+**Socle** : `utilisateurs`, `parametres`, `accueil_public`. **Hors socle** (bouton « Installer » dans la Maintenance) : `support`, `documentation`, `journal`, `referentiel_territoires`.
 
 ### Comment les tables sont liées
 
@@ -67,8 +67,8 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | 🧱 Maintenance | `maintenance` | Sujets de la norme, pages standard, version des pages, sauvegardes et copie du document, paramètres, publication de la norme |
 | ❓ Aide | `aide` | Mode d'emploi |
 
-Les pages **👥 Utilisateurs** (annuaire et fiche) et **📒 Journal** (le plus récent en haut) ne sont pas des outils mais des pages
-Grist classiques : filtres, collage et export de Grist suffisent. Les courriels mal formés (rouge) ou en double (orange) ressortent par une mise en forme ; la colonne **Accès Grist** dit
+La page **👥 Utilisateurs** (annuaire et fiche) et, si le journal est installé, **📒 Journal** (le plus récent en haut) ne sont pas des outils
+mais des pages Grist classiques : filtres, collage et export de Grist suffisent. Les courriels mal formés (rouge) ou en double (orange) ressortent par une mise en forme ; la colonne **Accès Grist** dit
 quel accès donner à chacun dans « Partager ».
 
 Idée de la Boîte à outils et première version : Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)).

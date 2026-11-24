@@ -47,11 +47,12 @@
     { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
     { fichier: 'parametres', nom: "Paramètres (nom, contact, logo : lus par la page d'accueil)", obligatoire: true },
     { fichier: 'accueil_public', nom: "Page d'accueil publique", obligatoire: true },
-    { fichier: 'journal', nom: "Journal d'administration", obligatoire: true },
     // Hors socle : à installer si l'application en a besoin.
     { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins (ajoute aussi Entites.Territoire)', obligatoire: false },
     { fichier: 'support', nom: 'Support', obligatoire: false },
     { fichier: 'documentation', nom: 'Documentation', obligatoire: false },
+    // trace des actions des outils d'administration, pour une application qui a besoin d'un audit (ex. changements de droits)
+    { fichier: 'journal', nom: "Journal d'administration", obligatoire: false },
   ];
 
   /** Les 4 colonnes de traçabilité (P2) et leur recalcul : 0 = à la création, 2 = à chaque modification. */

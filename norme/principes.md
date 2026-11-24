@@ -3,7 +3,7 @@
 Chaque principe a un identifiant (P1, P2…) pour y renvoyer depuis les audits et les décisions.
 
 ## P1 — Socle de tables standard
-**Socle** (présent dans toute application) : **Utilisateurs & Entités**, **Accueil** (avec **Paramètres**, que la page d'accueil lit : nom de l'application, contact, logo) et **Journal_Admin**.
+**Socle** (présent dans toute application) : **Utilisateurs & Entités**, **Accueil** (avec **Paramètres**, que la page d'accueil lit : nom de l'application, contact, logo). Le **Journal** (trace des actions d'administration) est un module à installer si l'application a besoin d'un audit.
 **Hors socle** (bouton « Installer » dans Administration → Structure) : **Support** (+ Support_commentaires), **Documentation**, **Territoires** (qui ajoute aussi la colonne `Entites.Territoire`).
 Les colonnes propres à l'application **s'ajoutent après** celles de la norme ; on ne renomme ni ne retire une colonne de la norme.
 
@@ -42,7 +42,7 @@ Les pages filtrent selon l'état. Cela évite les doublons de colonnes et les co
 
 ## P7 — Widgets
 - Les widgets **génériques** (Accueil, Documentation, Support, outils d'administration) sont chargés **par URL** depuis ce dépôt, jamais collés dans le document.
-- Pages du **socle** : Accueil, Administration (santé du document › Utilisateurs, Rôles et droits, Explorateur, Atelier, Journal, Maintenance, Aide). Pages **hors socle** : Documentation et Support, rangées sous l'Accueil, créées par leur bouton « Installer » (qui installe aussi leurs tables).
+- Pages du **socle** : Accueil, Administration (santé du document › Utilisateurs, Rôles et droits, Explorateur, Atelier, Maintenance, Aide). Pages **hors socle** : Documentation et Support, rangées sous l'Accueil, et Journal, sous Administration, créées par leur bouton « Installer » (qui installe aussi leurs tables).
 - Les widgets **métier** peuvent rester collés dans le document (« Custom widget builder »), à une condition : **un seul code par widget**. Les variantes passent par un réglage (ex. `<body data-type="…">`), jamais par des copies modifiées ; toute correction est reportée à l'identique sur chaque page qui l'utilise.
 - Les héberger dans un dépôt reste possible, mais n'est pas exigé (le code métier n'a pas vocation à être public).
 
