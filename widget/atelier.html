@@ -25,7 +25,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Atelier</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-<link rel="stylesheet" href="commun/dsfr-grist.css">
+<script>
+  // Fichiers communs chargés avec la version de la page (?v=…) : la page et son socle sont toujours
+  // de la même version, sans ancienne copie gardée par le navigateur (Quentin, 24/11/2026).
+  const VERSION_PAGE = new URLSearchParams(location.search).get('v') || '';
+  const commun = (fichier) => 'commun/' + fichier + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '');
+  document.write('<link rel="stylesheet" href="' + commun('dsfr-grist.css') + '">');
+</script>
 <style>
   body { background: var(--fond); }
   main.atelier { max-width: 1180px; margin: 0 auto; padding: 20px 24px 40px; }
@@ -190,7 +196,7 @@
             <th title="Formule Python, sans le signe =">Formule</th>
             <th class="centre" title="La formule s'exécute une fois, à la création de la ligne">À la création</th>
             <th class="centre" title="La formule s'exécute à chaque modification de la ligne">À chaque modif.</th>
-            <th class="centre" id="th-history" title="Les modifications de cette colonne sont suivies dans l'historique">📜 Historique</th>
+            <th class="centre hidden" id="th-history" title="Les modifications de cette colonne sont suivies dans l'historique">📜 Historique</th>
             <th></th>
           </tr>
         </thead>
@@ -240,8 +246,10 @@
   </div>
 </div>
 
-<script src="commun/outils.js"></script>
-<script src="commun/structure.js"></script>
+<script>
+  document.write('<script src="' + commun('outils.js') + '"><\/script>');
+  document.write('<script src="' + commun('structure.js') + '"><\/script>');
+</script>
 <script>
 grist.ready({ requiredAccess: 'full' });
 // Socle commun : messages, questions, identifiants selon la norme, échappement

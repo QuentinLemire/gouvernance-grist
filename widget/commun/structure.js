@@ -131,9 +131,12 @@ window.Structure = (() => {
     const html = await telecharger(w.url);
     if (html === null) return { code: '', base: w.url, illisible: true };
     const origine = new URL(w.url).origin;
-    const locaux = [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)\s*=\s*["']([^"']+\.(?:js|css))["']/gi)]
-      .map((m) => new URL(m[1], w.url))
-      .filter((u) => u.origin === origine);
+    // fichiers chargés par balise, ou par le petit chargeur commun('…') des pages de la norme
+    const chemins = [
+      ...[...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)\s*=\s*["']([^"']+\.(?:js|css))["']/gi)].map((m) => m[1]),
+      ...[...html.matchAll(/\bcommun\(\s*['"]([\w.-]+\.(?:js|css))['"]\s*\)/g)].map((m) => 'commun/' + m[1]),
+    ];
+    const locaux = [...new Set(chemins)].map((c) => new URL(c, w.url)).filter((u) => u.origin === origine);
     const fichiers = await Promise.all(locaux.map((u) => telecharger(u.href)));
     return { code: [html, ...fichiers.filter(Boolean)].join('\n'), base: w.url, illisible: false };
   }

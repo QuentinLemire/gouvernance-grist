@@ -25,7 +25,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Explorateur du document</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-<link rel="stylesheet" href="commun/dsfr-grist.css">
+<script>
+  // Fichiers communs chargés avec la version de la page (?v=…) : la page et son socle sont toujours
+  // de la même version, sans ancienne copie gardée par le navigateur (Quentin, 24/11/2026).
+  const VERSION_PAGE = new URLSearchParams(location.search).get('v') || '';
+  const commun = (fichier) => 'commun/' + fichier + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '');
+  document.write('<link rel="stylesheet" href="' + commun('dsfr-grist.css') + '">');
+</script>
 <style>
   :root {
     --bg: #ffffff;
@@ -376,8 +382,10 @@
 </div>
 
 
-<script src="commun/outils.js"></script>
-<script src="commun/structure.js"></script>
+<script>
+  document.write('<script src="' + commun('outils.js') + '"><\/script>');
+  document.write('<script src="' + commun('structure.js') + '"><\/script>');
+</script>
 <script>
 grist.ready({ requiredAccess: 'full' });
 // Socle commun : messages dans la page et échappement
