@@ -91,6 +91,12 @@ Renommées `Gouv_…` (🧱 socle, 🧩 modules) ; les tables métier et le réf
 - La RH peut corriger sa partie jusqu'à la signature, même après la transmission au bureau (droits et fiche).
 - « Transmettre au bureau » reste grisé tant que la partie RH est incomplète : nom, prénom, grade, date du mouvement, statut (et sa précision si « Autre »), date de fin de contrat pour un contractuel, vacataire, stagiaire ou apprenti, bureau. La fiche affiche ce qui manque.
 
+## Menus par rôle (2026-11-24)
+- **Pilotage** (avec, dessous, Fiche d'arrivée, Fiche de départ, Personnel présent, Personnel parti, Fiches des agents partis) : réservé aux gestionnaires RH (BRC), au BSSIOM et aux administrateurs. Verrou : section repliée « Verrou pilotage » sur la table `VuePilotage`, réglée dans le panneau des droits comme `VueAdmin`.
+- **Administration** : administrateurs et BSSIOM (lecture de `VueAdmin` ouverte au rôle BSSIOM).
+- **👥 Agents de mon bureau** (nouvelle page, pour tous) : liste des agents non partis que l'on peut voir (le chef : ceux de son bureau) et leur fiche, au choix arrivée ou départ ; le chef y signe les départs. Widget fiche en mode `BUR`.
+- **Annuaire** sorti du Pilotage pour rester visible de tous.
+
 ## Campagne de tests des droits (2026-11-23, données vidées)
 Comptes fictifs : admin.test, rh.dgom, rh.sma, chef.bcl, adjoint.bcl, chef.baei, bssiom, lecteur.bcl, contributeur.dgom, inactif, sansrole (+ un inconnu).
 Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conformes après correction d'une faille (changement d'entité d'une fiche par une RH, corrigé sur 20 règles).
