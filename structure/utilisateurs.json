@@ -1,11 +1,11 @@
 {
   "format": "grist-structure",
-  "version": "1.10",
+  "version": "2.0",
   "sujet": "UTILISATEURS",
   "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
   "tables": [
     {
-      "tableId": "Entites",
+      "tableId": "Gouv_Entites",
       "columns": [
         {
           "id": "Nom",
@@ -15,7 +15,7 @@
         {
           "id": "Parent",
           "label": "Parent",
-          "type": "Ref:Entites",
+          "type": "Ref:Gouv_Entites",
           "visibleCol": "Nom"
         },
         {
@@ -35,9 +35,9 @@
         {
           "id": "Membres",
           "label": "Membres",
-          "type": "RefList:Utilisateurs",
+          "type": "RefList:Gouv_Utilisateurs",
           "isFormula": true,
-          "formula": "Utilisateurs.lookupRecords(Entite=$id, sort_by=\"Nom\")",
+          "formula": "Gouv_Utilisateurs.lookupRecords(Entite=$id, sort_by=\"Nom\")",
           "visibleCol": "Courriel"
         },
         {
@@ -45,7 +45,7 @@
           "label": "Nb utilisateurs",
           "type": "Numeric",
           "isFormula": true,
-          "formula": "return len(Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))"
+          "formula": "return len(Gouv_Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))"
         },
         {
           "id": "CreeLe",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "tableId": "Utilisateurs",
+      "tableId": "Gouv_Utilisateurs",
       "columns": [
         {
           "id": "Nom",
@@ -93,21 +93,21 @@
         {
           "id": "Entite",
           "label": "Entité",
-          "type": "Ref:Entites",
+          "type": "Ref:Gouv_Entites",
           "visibleCol": "Nom"
         },
         {
           "id": "Perimetre",
           "label": "Périmètre (autres entités)",
-          "type": "RefList:Entites",
+          "type": "RefList:Gouv_Entites",
           "visibleCol": "Nom"
         },
         {
           "id": "Entites_vues",
           "label": "Entités vues",
-          "type": "RefList:Entites",
+          "type": "RefList:Gouv_Entites",
           "isFormula": true,
-          "formula": "# Entité principale + périmètre, avec toutes leurs sous-entités (hiérarchie Parent)\nvues = set()\na_voir = [e for e in [$Entite] + list($Perimetre) if e]\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
+          "formula": "# Entité principale + périmètre, avec toutes leurs sous-entités (hiérarchie Parent)\nvues = set()\na_voir = [e for e in [$Entite] + list($Perimetre) if e]\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Gouv_Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
           "visibleCol": "Nom"
         },
         {
@@ -167,7 +167,7 @@
           "label": "Doublon",
           "type": "Bool",
           "isFormula": true,
-          "formula": "return bool($Courriel_cle) and len(Utilisateurs.lookupRecords(Courriel_cle=$Courriel_cle)) > 1"
+          "formula": "return bool($Courriel_cle) and len(Gouv_Utilisateurs.lookupRecords(Courriel_cle=$Courriel_cle)) > 1"
         },
         {
           "id": "CreeLe",

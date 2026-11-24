@@ -11,18 +11,18 @@
 
   INSTALLATION DANS GRIST
     Widget personnalisé posé sur la page « Support », lié à la table
-    Support, niveau d'accès « Accès complet au document » (nécessaire pour
+    Gouv_Support, niveau d'accès « Accès complet au document » (nécessaire pour
     écrire et pour lire la structure du document, voir lireStructure()).
 
   TABLES GRIST UTILISÉES
-    - Support (une ligne par demande) : lue ; le widget y AJOUTE des lignes
+    - Gouv_Support (une ligne par demande) : lue ; le widget y AJOUTE des lignes
       (Titre, Categorie, Description, Url_page). Statut, Demandeur,
       CreeLe, Dernier_retour… sont remplis par Grist ou par le support.
-    - Support_commentaires (une ligne par message) : lue ; le widget y
+    - Gouv_Support_commentaires (une ligne par message) : lue ; le widget y
       AJOUTE les réponses de l'utilisateur (Demande, Message, et Type si
       cette colonne existe). Les lignes de Type « Événement » (clôture,
       réouverture…) sont écrites par le panneau d'administration.
-    - Parametres : logo et nom de l'application.
+    - Gouv_Parametres : logo et nom de l'application.
     - Tables internes _grist_Tables / _grist_Tables_column : catégories.
 
   CONFIDENTIALITÉ
@@ -139,8 +139,8 @@ function message(texte, erreur) {
 async function lireStructure() {
   const [tables, cols] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
   const col = (t, c) => { const tt = (tables || []).find((x) => x.tableId === t); return tt && (cols || []).find((x) => x.parentId === tt.id && x.colId === c); };
-  try { categories = JSON.parse(col('Support', 'Categorie').widgetOptions).choices || []; } catch (e) { categories = []; }
-  typeCommentaire = !!col('Support_commentaires', 'Type');
+  try { categories = JSON.parse(col('Gouv_Support', 'Categorie').widgetOptions).choices || []; } catch (e) { categories = []; }
+  typeCommentaire = !!col('Gouv_Support_commentaires', 'Type');
 }
 
 // ===== 3. Chargement des données =====
@@ -157,8 +157,8 @@ async function lireStructure() {
 async function charger() {
   // lireStructure() ne rend rien : elle remplit directement categories et
   // typeCommentaire, d'où seulement 3 noms pour 4 lectures.
-  const [S, C, p] = await Promise.all([lire('Support'), lire('Support_commentaires'), parametres(), lireStructure()]);
-  entete(p, 'Support');
+  const [S, C, p] = await Promise.all([lire('Gouv_Support'), lire('Gouv_Support_commentaires'), parametres(), lireStructure()]);
+  entete(p, 'Gouv_Support');
   demandes = (S || []).sort((a, b) => (b.Dernier_retour || b.CreeLe || 0) - (a.Dernier_retour || a.CreeLe || 0));
   commentaires = C || [];
   if (courante !== 'nouvelle' && !demandes.some((d) => d.id === courante)) courante = visibles()[0]?.id ?? (demandes.length ? null : 'nouvelle');
@@ -252,7 +252,7 @@ function formulaire() {
 async function creer(form) {
   const champs = Object.fromEntries([...new FormData(form)].filter(([, v]) => String(v).trim()));
   try {
-    const r = await grist.docApi.applyUserActions([['AddRecord', 'Support', null, champs]]);
+    const r = await grist.docApi.applyUserActions([['AddRecord', 'Gouv_Support', null, champs]]);
     courante = r.retValues[0]; filtre = 'ouvertes';
     message('Demande envoyée. Le support vous répondra ici.');
     await charger();
@@ -269,7 +269,7 @@ async function creer(form) {
 async function envoyer(id) {
   const zone = document.getElementById('reponse'); const texte = zone.value.trim(); if (!texte) return;
   try {
-    await grist.docApi.applyUserActions([['AddRecord', 'Support_commentaires', null, { Demande: id, Message: texte, ...(typeCommentaire ? { Type: 'Message' } : {}) }]]);
+    await grist.docApi.applyUserActions([['AddRecord', 'Gouv_Support_commentaires', null, { Demande: id, Message: texte, ...(typeCommentaire ? { Type: 'Message' } : {}) }]]);
     await charger();
   } catch (e) { message("Message refusé : vous n'avez peut-être pas les droits nécessaires.", true); }
 }

@@ -1,10 +1,10 @@
 {
   "format": "grist-structure",
-  "version": "1.4",
+  "version": "2.0",
   "sujet": "JOURNAL",
   "tables": [
     {
-      "tableId": "Journal_Admin",
+      "tableId": "Gouv_Journal",
       "columns": [
         {
           "id": "Date",
@@ -16,9 +16,9 @@
         {
           "id": "Personne",
           "label": "Auteur (fiche)",
-          "type": "Ref:Utilisateurs",
+          "type": "Ref:Gouv_Utilisateurs",
           "isFormula": true,
-          "formula": "Utilisateurs.lookupOne(Courriel_cle=($Auteur or \"\").strip().lower()) or None",
+          "formula": "Gouv_Utilisateurs.lookupOne(Courriel_cle=($Auteur or \"\").strip().lower()) or None",
           "visibleCol": "Courriel"
         },
         {

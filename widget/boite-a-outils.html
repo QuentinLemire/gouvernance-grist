@@ -3681,7 +3681,7 @@ function parseAndLoadPythonCode() {
 
 
 async function createUserManagement() {
-    if (!confirm("Voulez-vous créer automatiquement les tables 'Entites' et 'Utilisateurs' avec leurs relations et formules complexes ?")) return;
+    if (!confirm("Voulez-vous créer automatiquement les tables 'Gouv_Entites' et 'Gouv_Utilisateurs' avec leurs relations et formules complexes ?")) return;
 
     const saveBtn = document.getElementById('saveBtn');
     saveBtn.disabled = true;
@@ -3693,12 +3693,12 @@ async function createUserManagement() {
         // =================================================================
         const entitesColumns = [
             { id: 'Nom', label: 'Nom', type: 'Text', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Parent', label: 'Parent', type: 'Ref:Entites', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
+            { id: 'Parent', label: 'Parent', type: 'Ref:Gouv_Entites', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Nom_complet', label: 'Nom complet', type: 'Text', formula: "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom +\"/\"+ nom\n    parent = parent.Parent\nreturn nom", isFormula: true, recalcWhen: 0, recalcDeps: null },
-            { id: 'Mail_groupe', label: 'Mail groupe', type: 'Text', formula: "from urllib.parse import quote\npeople = Utilisateurs.lookupRecords(Entite=rec.id)\nreturn \"Courriel groupé (%s) mailto:%s\" % (len(people), quote(\", \".join(people.Courriel)))", isFormula: true, recalcWhen: 0, recalcDeps: null },
+            { id: 'Mail_groupe', label: 'Mail groupe', type: 'Text', formula: "from urllib.parse import quote\npeople = Gouv_Utilisateurs.lookupRecords(Entite=rec.id)\nreturn \"Courriel groupé (%s) mailto:%s\" % (len(people), quote(\", \".join(people.Courriel)))", isFormula: true, recalcWhen: 0, recalcDeps: null },
             { id: 'Actif', label: 'Actif', type: 'Bool', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Nbre', label: 'Nbre', type: 'Numeric', formula: "return len(Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))", isFormula: true, recalcWhen: 0, recalcDeps: null },
-            { id: 'NbreTotal', label: 'NbreTotal', type: 'Numeric', formula: "def somme_descendants(entite):\n    enfants = Entites.lookupRecords(Parent=entite)\n    return sum(r.Nbre for r in enfants) + sum(somme_descendants(r) for r in enfants)\n\nreturn rec.Nbre + somme_descendants(rec)", isFormula: true, recalcWhen: 0, recalcDeps: null },
+            { id: 'Nbre', label: 'Nbre', type: 'Numeric', formula: "return len(Gouv_Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))", isFormula: true, recalcWhen: 0, recalcDeps: null },
+            { id: 'NbreTotal', label: 'NbreTotal', type: 'Numeric', formula: "def somme_descendants(entite):\n    enfants = Gouv_Entites.lookupRecords(Parent=entite)\n    return sum(r.Nbre for r in enfants) + sum(somme_descendants(r) for r in enfants)\n\nreturn rec.Nbre + somme_descendants(rec)", isFormula: true, recalcWhen: 0, recalcDeps: null },
             
             // On intègre directement la structure brute des colonnes de traçabilité
             { id: 'CreeLe', label: 'CrééLe', type: 'DateTime' },
@@ -3708,15 +3708,15 @@ async function createUserManagement() {
         ];
         document.getElementById('info').textContent = "Ajout de la table Entites";
         // Création de la table Entites complète en un seul appel
-        await grist.docApi.applyUserActions([['AddTable', 'Entites', entitesColumns]]);
+        await grist.docApi.applyUserActions([['AddTable', 'Gouv_Entites', entitesColumns]]);
 
-        // Configuration des formules de traçabilité pour 'Entites' en un seul lot d'actions
+        // Configuration des formules de traçabilité pour 'Gouv_Entites' en un seul lot d'actions
         const entitesFormulasActions = [
-            ['ModifyColumn', 'Entites', 'Actif', { formula: 'True', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Entites', 'CreeLe', { formula: 'NOW()', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Entites', 'CreePar', { formula: 'user.Email', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Entites', 'ModifieLe', { formula: 'NOW()', isFormula: false, recalcWhen: 2 }],
-            ['ModifyColumn', 'Entites', 'ModifiePar', { formula: 'user.Email', isFormula: false, recalcWhen: 2 }]
+            ['ModifyColumn', 'Gouv_Entites', 'Actif', { formula: 'True', isFormula: false, recalcWhen: 0 }],
+            ['ModifyColumn', 'Gouv_Entites', 'CreeLe', { formula: 'NOW()', isFormula: false, recalcWhen: 0 }],
+            ['ModifyColumn', 'Gouv_Entites', 'CreePar', { formula: 'user.Email', isFormula: false, recalcWhen: 0 }],
+            ['ModifyColumn', 'Gouv_Entites', 'ModifieLe', { formula: 'NOW()', isFormula: false, recalcWhen: 2 }],
+            ['ModifyColumn', 'Gouv_Entites', 'ModifiePar', { formula: 'user.Email', isFormula: false, recalcWhen: 2 }]
         ];
         document.getElementById('info').textContent = "Ajout des formules sur la table Entites";
         await grist.docApi.applyUserActions(entitesFormulasActions);
@@ -3728,7 +3728,7 @@ async function createUserManagement() {
         const utilisateursColumns = [
             { id: 'Courriel', label: 'Courriel', type: 'Text', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Role', label: 'Role', type: 'Choice', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
-            { id: 'Entite', label: 'Entite', type: 'Ref:Entites', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
+            { id: 'Entite', label: 'Entite', type: 'Ref:Gouv_Entites', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Actif', label: 'Actif', type: 'Bool', formula: '', isFormula: false, recalcWhen: 0, recalcDeps: null },
             { id: 'Moi', label: 'Moi', type: 'Bool', formula: 'return True', isFormula: true, recalcWhen: 0, recalcDeps: null },
             
@@ -3740,15 +3740,15 @@ async function createUserManagement() {
         ];
         document.getElementById('info').textContent = "Ajout de la table Utilisateurs";
         // Création de la table Utilisateurs en un seul appel
-        await grist.docApi.applyUserActions([['AddTable', 'Utilisateurs', utilisateursColumns]]);
+        await grist.docApi.applyUserActions([['AddTable', 'Gouv_Utilisateurs', utilisateursColumns]]);
 
-        // Configuration des formules de traçabilité pour 'Utilisateurs' en un seul lot d'actions
+        // Configuration des formules de traçabilité pour 'Gouv_Utilisateurs' en un seul lot d'actions
         const utilisateursFormulasActions = [
-            ['ModifyColumn', 'Utilisateurs', 'Actif', { formula: 'True', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Utilisateurs', 'CreeLe', { formula: 'NOW()', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Utilisateurs', 'CreePar', { formula: 'user.Email', isFormula: false, recalcWhen: 0 }],
-            ['ModifyColumn', 'Utilisateurs', 'ModifieLe', { formula: 'NOW()', isFormula: false, recalcWhen: 2 }],
-            ['ModifyColumn', 'Utilisateurs', 'ModifiePar', { formula: 'user.Email', isFormula: false, recalcWhen: 2 }]
+            ['ModifyColumn', 'Gouv_Utilisateurs', 'Actif', { formula: 'True', isFormula: false, recalcWhen: 0 }],
+            ['ModifyColumn', 'Gouv_Utilisateurs', 'CreeLe', { formula: 'NOW()', isFormula: false, recalcWhen: 0 }],
+            ['ModifyColumn', 'Gouv_Utilisateurs', 'CreePar', { formula: 'user.Email', isFormula: false, recalcWhen: 0 }],
+            ['ModifyColumn', 'Gouv_Utilisateurs', 'ModifieLe', { formula: 'NOW()', isFormula: false, recalcWhen: 2 }],
+            ['ModifyColumn', 'Gouv_Utilisateurs', 'ModifiePar', { formula: 'user.Email', isFormula: false, recalcWhen: 2 }]
         ];
         document.getElementById('info').textContent = "Ajout des formules sur la table Utilisateurs";
         await grist.docApi.applyUserActions(utilisateursFormulasActions);

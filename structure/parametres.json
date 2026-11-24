@@ -1,11 +1,11 @@
 {
   "format": "grist-structure",
-  "version": "1.2",
+  "version": "2.0",
   "sujet": "PARAMETRES",
   "description": "Clé / valeur : Nom_application, Direction, Contact_support, Logo_DGOM.",
   "tables": [
     {
-      "tableId": "Parametres",
+      "tableId": "Gouv_Parametres",
       "columns": [
         {
           "id": "Cle",

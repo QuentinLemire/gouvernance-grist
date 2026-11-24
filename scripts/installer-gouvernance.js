@@ -18,10 +18,10 @@
  *  cohérent de tables), sans aucune donnée :
  *      {
  *        "format": "grist-structure", "version": "1.5", "sujet": "SUPPORT",
- *        "tables": [ { "tableId": "Support", "columns": [
+ *        "tables": [ { "tableId": "Gouv_Support", "columns": [
  *            { "id": "Titre", "label": "Titre", "type": "Text" },
- *            { "id": "Personne", "type": "Ref:Utilisateurs", "isFormula": true,
- *              "formula": "Utilisateurs.lookupOne(…)", "visibleCol": "Courriel" }, … ] } ],
+ *            { "id": "Personne", "type": "Ref:Gouv_Utilisateurs", "isFormula": true,
+ *              "formula": "Gouv_Utilisateurs.lookupOne(…)", "visibleCol": "Courriel" }, … ] } ],
  *        "dependances": [ "UTILISATEURS" ]
  *      }
  *  - L'ORDRE des colonnes dans le fichier est l'ordre de la norme : ce qui
@@ -114,7 +114,7 @@ async function api(chemin, options = {}) {
  * BulkUpdateRecord…) en une seule transaction : soit tout passe, soit rien.
  * Ce sont les mêmes actions que celles que Grist enregistre quand on modifie
  * le document à la main ; elles apparaissent donc dans l'historique.
- * @param {Array[]} actions  liste d'actions, ex. [['AddColumn', 'Support', 'Titre', {…}]]
+ * @param {Array[]} actions  liste d'actions, ex. [['AddColumn', 'Gouv_Support', 'Titre', {…}]]
  * @returns {Promise<Object>} réponse de Grist (retValues : identifiants créés)
  */
 const appliquer = (actions) => api('/apply', { method: 'POST', body: JSON.stringify(actions) });
@@ -158,7 +158,7 @@ function versColonneGrist(c) {
 
 /**
  * Donne la table vers laquelle pointe une colonne de référence :
- * « Ref:Entites » ou « RefList:Entites » → « Entites ». Pour toute autre
+ * « Ref:Gouv_Entites » ou « RefList:Gouv_Entites » → « Entites ». Pour toute autre
  * colonne, renvoie null.
  * @param {Object} c  colonne au format grist-structure
  * @returns {string|null}
@@ -172,7 +172,7 @@ const tableReferencee = (c) => (/^(Ref|RefList):(\w+)/.exec(c.type || '') || [])
  * colonne déjà présente (même identifiant) est laissée telle quelle.
  *
  * Pourquoi deux passes ? Une colonne peut dépendre d'une autre table (une
- * référence « Ref:Utilisateurs », ou une formule qui cite « Utilisateurs. »).
+ * référence « Ref:Gouv_Utilisateurs », ou une formule qui cite « Utilisateurs. »).
  * Grist refuse de la créer si cette table n'existe pas encore. Ces colonnes
  * sont donc mises de côté, puis ajoutées à la fin, une fois toutes les tables
  * présentes ; l'ordre des sujets demandés n'a ainsi pas d'importance.
@@ -370,14 +370,14 @@ async function poserReglesDeBase() {
     return (await appliquer([['AddRecord', '_grist_ACLResources', null, { tableId, colIds: '*' }]])).retValues[0];
   };
   const parDefaut = await ressource('*');
-  const accueil = await ressource('Accueil');
+  const accueil = await ressource('Gouv_Accueil');
 
   const regle = (resource, aclFormula, permissionsText, rulePos, memo, extra = {}) =>
     ['AddRecord', '_grist_ACLRules', null, { resource, aclFormula, permissionsText, rulePos, memo, ...extra }];
 
   await appliquer([
     regle(parDefaut, '', '', 1, '', {
-      userAttributes: JSON.stringify({ name: 'Profil', tableId: 'Utilisateurs', charId: 'Email', lookupColId: 'Courriel_cle' }),
+      userAttributes: JSON.stringify({ name: 'Profil', tableId: 'Gouv_Utilisateurs', charId: 'Email', lookupColId: 'Courriel_cle' }),
     }),
     regle(accueil, 'user.Access == OWNER', 'all', 2, "[Gouvernance] Propriétaires : modifier la page d'accueil"),
     regle(accueil, 'True', '+R-CUD', 3, '[Gouvernance] Accueil lisible par tous'),

@@ -9,14 +9,14 @@
 
   INSTALLATION DANS GRIST
     Widget personnalisé posé sur la page « Documentation », lié à la table
-    Documentation, niveau d'accès « Accès complet au document » (nécessaire
+    Gouv_Documentation, niveau d'accès « Accès complet au document » (nécessaire
     pour écrire et pour lire la structure du document, voir lireRubriques()).
 
-  TABLE GRIST UTILISÉE : Documentation
+  TABLE GRIST UTILISÉE : Gouv_Documentation
     Colonnes lues et écrites : Titre, Rubrique (liste de choix), Ordre
     (rang dans la rubrique), Contenu (Markdown).
     Colonnes lues seulement : CreeLe, ModifieLe (dates remplies par Grist).
-    Lues aussi : Parametres (logo, nom) et les tables internes de Grist
+    Lues aussi : Gouv_Parametres (logo, nom) et les tables internes de Grist
     _grist_Tables / _grist_Tables_column (liste des rubriques possibles).
 
   FONCTIONNEMENT
@@ -151,7 +151,7 @@ const date = (s) => (s ? new Date(s * 1000).toLocaleDateString('fr-FR') : '');
  */
 async function lireRubriques() {
   const [tables, cols] = await Promise.all([lire('_grist_Tables'), lire('_grist_Tables_column')]);
-  const t = (tables || []).find((x) => x.tableId === 'Documentation');
+  const t = (tables || []).find((x) => x.tableId === 'Gouv_Documentation');
   const c = t && (cols || []).find((x) => x.parentId === t.id && x.colId === 'Rubrique');
   try { return JSON.parse(c.widgetOptions).choices || []; } catch (e) { return []; }
 }
@@ -167,8 +167,8 @@ async function lireRubriques() {
  * Effet sur le document Grist : aucun (lecture seule).
  */
 async function charger() {
-  const [docs, p, r] = await Promise.all([lire('Documentation'), parametres(), lireRubriques()]);
-  entete(p, 'Documentation');
+  const [docs, p, r] = await Promise.all([lire('Gouv_Documentation'), parametres(), lireRubriques()]);
+  entete(p, 'Gouv_Documentation');
   rubriques = r;
   pages = (docs || []).sort((a, b) => String(a.Rubrique || '').localeCompare(String(b.Rubrique || '')) || (a.Ordre || 0) - (b.Ordre || 0) || String(a.Titre).localeCompare(String(b.Titre)));
   if (!pages.some((d) => d.id === courante)) courante = pages[0]?.id ?? null;
@@ -275,7 +275,7 @@ async function enregistrer(id) {
   try {
     // Une seule action Grist ; pour une création, Grist renvoie l'identifiant
     // de la nouvelle ligne dans retValues, afin de l'afficher ensuite.
-    const r = await grist.docApi.applyUserActions([id ? ['UpdateRecord', 'Documentation', id, champs] : ['AddRecord', 'Documentation', null, champs]]);
+    const r = await grist.docApi.applyUserActions([id ? ['UpdateRecord', 'Gouv_Documentation', id, champs] : ['AddRecord', 'Gouv_Documentation', null, champs]]);
     courante = id || r.retValues[0];
     enEdition = false;
     message('Page enregistrée.');

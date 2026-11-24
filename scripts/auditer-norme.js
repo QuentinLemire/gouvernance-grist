@@ -280,7 +280,7 @@ function controlerDroits(d) {
   const attributs = d.regles.filter((r) => r.userAttributes).map((r) => { try { return JSON.parse(r.userAttributes); } catch (e) { return {}; } });
   const profil = attributs.find((a) => a.name === 'Profil');
   const autres = attributs.filter((a) => a.name !== 'Profil').map((a) => `user.${a.name}`);
-  const roleCol = (d.colonnesDe.get('Utilisateurs') || []).find((c) => c.colId === 'Role' || c.colId === 'role');
+  const roleCol = (d.colonnesDe.get('Gouv_Utilisateurs') || []).find((c) => c.colId === 'Role' || c.colId === 'role');
   let roles = []; try { roles = JSON.parse(roleCol?.widgetOptions || '{}').choices || []; } catch (e) { /* pas de liste */ }
   const manquants = ROLES_GENERIQUES.filter((r) => !roles.includes(r));
   const metier = roles.filter((r) => !ROLES_GENERIQUES.includes(r));

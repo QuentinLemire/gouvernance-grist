@@ -24,8 +24,8 @@
     commun/outils.js        fonctions partagées (Outils.ticketOuvert, Outils.conversation)
 
   Tables du document utilisées
-    Utilisateurs, Entites, Territoires, Support, Support_commentaires,
-    Journal_Admin, Parametres, Accueil, et les tables techniques de Grist
+    Gouv_Utilisateurs, Gouv_Entites, Gouv_Territoires, Gouv_Support, Gouv_Support_commentaires,
+    Gouv_Journal, Gouv_Parametres, Gouv_Accueil, et les tables techniques de Grist
     (_grist_Tables…, _grist_ACL… pour les règles d'accès, _grist_Pages… pour le menu).
 
   Plan du fichier
@@ -47,7 +47,7 @@
      13. Démarrage
   Principes
     - Ne supprime jamais de données ni de tables.
-    - Toute action d'administration est tracée dans Journal_Admin.
+    - Toute action d'administration est tracée dans Gouv_Journal.
     - Les règles d'accès écrites portent la mention « [Admin] » : elles se
       réécrivent ou se retirent proprement, les autres règles sont conservées.
     - Toute écriture passe par une transaction Grist : elle s'annule avec Ctrl+Z.
@@ -212,7 +212,7 @@ const NIVEAUX = [
 const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) => [n.perm, n.code]));
 
 /** Tables jamais gérées par la matrice : la page d'accueil doit rester lisible par tous. */
-const HORS_MATRICE = ['Accueil'];
+const HORS_MATRICE = ['Gouv_Accueil'];
 /**
  * Tables qui ont des règles propres à l'application (ni [Admin] ni [Gouvernance]), par exemple les fiches
  * d'Arrivées-Départs (droits par entité, bureau, étape). Le panneau ne les modifie pas : ses règles passent
@@ -321,8 +321,8 @@ const agir = (actions) => grist.docApi.applyUserActions(actions);
  * @param {string} detail  précisions libres
  */
 async function tracer(action, detail = '') {
-  if (!aTable('Journal_Admin')) return;
-  try { await agir([['AddRecord', 'Journal_Admin', null, { Action: action, Detail: detail }]]); } catch (e) { /* non bloquant */ }
+  if (!aTable('Gouv_Journal')) return;
+  try { await agir([['AddRecord', 'Gouv_Journal', null, { Action: action, Detail: detail }]]); } catch (e) { /* non bloquant */ }
 }
 
 /**
@@ -376,7 +376,7 @@ function telecharger(nom, contenu, type = 'text/plain') {
 const aTable = (t) => !!etat.meta.parId[t];
 const colonne = (t, c) => (etat.meta.parId[t]?.colonnes || []).find((x) => x.colId === c);
 const choix = (t, c) => json(colonne(t, c)?.widgetOptions, {}).choices || [];
-const roles = () => choix('Utilisateurs', 'Role');
+const roles = () => choix('Gouv_Utilisateurs', 'Role');
 
 /**
  * Lit la structure du document dans les tables techniques de Grist et la range dans etat.meta :
@@ -407,7 +407,7 @@ async function chargerStructure() {
  * Grist ne laisse lire les règles d'accès qu'aux propriétaires.
  */
 async function chargerDonnees() {
-  const utiles = ['Utilisateurs', 'Entites', 'Territoires', 'Support', 'Support_commentaires', 'Journal_Admin', 'Parametres'];
+  const utiles = ['Gouv_Utilisateurs', 'Gouv_Entites', 'Gouv_Territoires', 'Gouv_Support', 'Gouv_Support_commentaires', 'Gouv_Journal', 'Gouv_Parametres'];
   etat.d = {};
   await Promise.all(utiles.filter(aTable).map(async (t) => { etat.d[t] = (await lire(t)) || []; }));
   etat.acl = { ressources: (await lire('_grist_ACLResources')) || [], regles: await lire('_grist_ACLRules') };
@@ -432,11 +432,11 @@ function majEntete() {
   $('logo-dgom').innerHTML = p.Logo_DGOM ? '<img alt="DGOM" src="' + esc(p.Logo_DGOM) + '">' : '<span>DGOM</span>';
   $('titre-appli').textContent = 'Administration' + (p.Nom_application ? ' · ' + p.Nom_application : '');
   // Onglet Support : seulement si le module Support (hors socle) est installé.
-  document.querySelector('[data-onglet="support"]').hidden = !aTable('Support');
-  if (etat.onglet === 'support' && !aTable('Support')) etat.onglet = 'accueil';
+  document.querySelector('[data-onglet="support"]').hidden = !aTable('Gouv_Support');
+  if (etat.onglet === 'support' && !aTable('Gouv_Support')) etat.onglet = 'accueil';
 }
 /** Paramètres de l'application sous la forme { Cle: Valeur } (vide si la table Parametres n'existe pas). */
-const parametres = () => Object.fromEntries((etat.d.Parametres || []).map((r) => [r.Cle, r.Valeur]));
+const parametres = () => Object.fromEntries((etat.d.Gouv_Parametres || []).map((r) => [r.Cle, r.Valeur]));
 
 // --- 5. Onglet « Tableau de bord » ---------------------------------------------------------------
 
@@ -447,9 +447,9 @@ const parametres = () => Object.fromEntries((etat.d.Parametres || []).map((r) =>
  *          « onglet » indique où aller pour corriger (bouton « Corriger → »)
  */
 function controles() {
-  const U = etat.d.Utilisateurs || [];
+  const U = etat.d.Gouv_Utilisateurs || [];
   const out = [];
-  if (!aTable('Utilisateurs')) return [{ ok: false, texte: "Pas de table <b>Utilisateurs</b> : installez le sujet dans l'onglet Structure.", onglet: 'structure' }];
+  if (!aTable('Gouv_Utilisateurs')) return [{ ok: false, texte: "Pas de table <b>Utilisateurs</b> : installez le sujet dans l'onglet Structure.", onglet: 'structure' }];
   const actifs = U.filter((u) => u.Actif !== false);
   const admins = actifs.filter((u) => u.Role === 'Administrateur');
   out.push(admins.length ? { ok: true, texte: admins.length + ' administrateur(s) actif(s).' }
@@ -486,7 +486,7 @@ function controles() {
     }
   }
   // Tables de référence ou techniques : pas besoin de savoir qui les a modifiées ligne par ligne.
-  const sansObjet = ['Journal_Admin', 'Accueil', 'Parametres', 'Territoires'];
+  const sansObjet = ['Gouv_Journal', 'Gouv_Accueil', 'Gouv_Parametres', 'Gouv_Territoires'];
   // Les tables techniques d'une seule colonne (ex. un « verrou » qui cache des pages) sont aussi exclues.
   const sansTraca = etat.meta.tables.filter((t) => !sansObjet.includes(t.tableId) && t.colonnes.length > 1 && !t.colonnes.some((c) => c.colId === 'ModifiePar'));
   if (sansTraca.length) out.push({ ok: false, texte: sansTraca.length + ' table(s) sans traçabilité : ' + sansTraca.map((t) => esc(t.tableId)).join(', ') + '.', onglet: 'structure' });
@@ -499,17 +499,17 @@ function controles() {
  * @returns {string} HTML de l'onglet
  */
 function ongletAccueil() {
-  const U = etat.d.Utilisateurs || [];
+  const U = etat.d.Gouv_Utilisateurs || [];
   const actifs = U.filter((u) => u.Actif !== false).length;
-  const ouverts = (etat.d.Support || []).filter(ticketOuvert).length;
+  const ouverts = (etat.d.Gouv_Support || []).filter(ticketOuvert).length;
   const c = controles();
   const ko = c.filter((x) => !x.ok).length;
-  const journal = (etat.d.Journal_Admin || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0)).slice(0, 8);
+  const journal = (etat.d.Gouv_Journal || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0)).slice(0, 8);
   return `
     <div class="tuiles">
       <div class="tuile"><div class="valeur">${actifs}</div><div class="libelle">utilisateurs actifs sur ${U.length}</div></div>
       <div class="tuile"><div class="valeur">${roles().length}</div><div class="libelle">rôles</div></div>
-      ${aTable('Support') ? `<div class="tuile ${ouverts ? 'orange' : 'vert'}"><div class="valeur">${ouverts}</div><div class="libelle">demandes de support ouvertes</div></div>` : ''}
+      ${aTable('Gouv_Support') ? `<div class="tuile ${ouverts ? 'orange' : 'vert'}"><div class="valeur">${ouverts}</div><div class="libelle">demandes de support ouvertes</div></div>` : ''}
       <div class="tuile"><div class="valeur">${etat.meta.tables.length}</div><div class="libelle">tables dans le document</div></div>
       <div class="tuile ${ko ? 'rouge' : 'vert'}"><div class="valeur">${ko ? ko : '✓'}</div><div class="libelle">${ko ? 'point(s) à corriger' : 'document en bonne santé'}</div></div>
     </div>
@@ -533,7 +533,7 @@ function ongletAccueil() {
 function utilisateursFiltres() {
   const f = etat.filtres;
   const t = cle(f.texte);
-  return (etat.d.Utilisateurs || []).filter((u) => {
+  return (etat.d.Gouv_Utilisateurs || []).filter((u) => {
     if (f.statut === 'actifs' && u.Actif === false) return false;
     if (f.statut === 'inactifs' && u.Actif !== false) return false;
     if (f.statut === 'anomalies' && estCourriel(u.Courriel) && !estDoublon(u)) return false;
@@ -544,8 +544,8 @@ function utilisateursFiltres() {
 }
 // estDoublon : un autre utilisateur a le même courriel ; nomEntite : nom d'une entité d'après son identifiant ;
 // options : construit les <option> d'une liste déroulante à partir de paires [valeur, libellé].
-const estDoublon = (u) => (etat.d.Utilisateurs || []).filter((x) => cle(x.Courriel) && cle(x.Courriel) === cle(u.Courriel)).length > 1;
-const nomEntite = (id) => (etat.d.Entites || []).find((e) => e.id === id)?.Nom || '';
+const estDoublon = (u) => (etat.d.Gouv_Utilisateurs || []).filter((x) => cle(x.Courriel) && cle(x.Courriel) === cle(u.Courriel)).length > 1;
+const nomEntite = (id) => (etat.d.Gouv_Entites || []).find((e) => e.id === id)?.Nom || '';
 const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</option>` + valeurs.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(choisie) ? ' selected' : ''}>${esc(l)}</option>`).join('');
 
 /**
@@ -555,10 +555,10 @@ const options = (valeurs, choisie, vide = '—') => `<option value="">${vide}</o
  * @returns {string} HTML de l'onglet
  */
 function ongletUtilisateurs() {
-  if (!aTable('Utilisateurs')) return `<div class="encadre alerte">La table Utilisateurs n'existe pas. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
+  if (!aTable('Gouv_Utilisateurs')) return `<div class="encadre alerte">La table Utilisateurs n'existe pas. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
   const f = etat.filtres;
   const U = utilisateursFiltres();
-  const ent = (etat.d.Entites || []).map((e) => [e.id, e.Nom]);
+  const ent = (etat.d.Gouv_Entites || []).map((e) => [e.id, e.Nom]);
   const rl = roles().map((r) => [r, r]);
   const sel = [...etat.selection].filter((id) => U.some((u) => u.id === id));
   return `
@@ -600,7 +600,7 @@ function ongletUtilisateurs() {
       </section>
       <section class="carte"><h2>🎭 Rôles</h2>
         <p class="aide">Les rôles servent à l'onglet Droits. Renommer un rôle ne met pas à jour les personnes qui l'ont déjà.</p>
-        <p>${roles().map((r) => `<span class="badge bleu" style="margin:0 6px 6px 0">${esc(r)} · ${(etat.d.Utilisateurs || []).filter((u) => u.Role === r).length}</span>`).join('')}</p>
+        <p>${roles().map((r) => `<span class="badge bleu" style="margin:0 6px 6px 0">${esc(r)} · ${(etat.d.Gouv_Utilisateurs || []).filter((u) => u.Role === r).length}</span>`).join('')}</p>
         <div class="barre-outils"><input class="champ" id="nouveau-role" placeholder="Nouveau rôle"><button class="bouton petit" data-action="ajouter-role">Ajouter le rôle</button></div>
       </section>
     </div>`;
@@ -615,7 +615,7 @@ function ongletUtilisateurs() {
  */
 async function ajouterPersonnes(bouton) {
   const lignes = $('ajout-liste').value.split(/[\n;,]+/).map((s) => s.trim()).filter(Boolean);
-  const existants = new Set((etat.d.Utilisateurs || []).map((u) => cle(u.Courriel)));
+  const existants = new Set((etat.d.Gouv_Utilisateurs || []).map((u) => cle(u.Courriel)));
   const ok = [], ignores = [];
   for (const l of lignes) {
     const mail = (l.match(/[^\s<>]+@[^\s<>]+/) || [l])[0];
@@ -625,7 +625,7 @@ async function ajouterPersonnes(bouton) {
   if (!ok.length) return message('Aucune nouvelle adresse valide.' + (ignores.length ? ' Ignorées : ' + esc(ignores.join(', ')) : ''), true);
   const role = $('ajout-role').value, entite = Number($('ajout-entite').value) || null;
   await occupe(bouton, async () => {
-    await agir([['BulkAddRecord', 'Utilisateurs', ok.map(() => null), { Courriel: ok, Role: ok.map(() => role), Entite: ok.map(() => entite), Actif: ok.map(() => true) }]]);
+    await agir([['BulkAddRecord', 'Gouv_Utilisateurs', ok.map(() => null), { Courriel: ok, Role: ok.map(() => role), Entite: ok.map(() => entite), Actif: ok.map(() => true) }]]);
     await tracer('Ajout d\'utilisateurs', ok.length + ' personne(s) : ' + ok.join(', '));
     message('✅ ' + ok.length + ' personne(s) ajoutée(s).' + (ignores.length ? ' ' + ignores.length + ' ignorée(s).' : ''));
     $('ajout-liste').value = '';
@@ -678,14 +678,14 @@ function lireMatrice() {
  */
 function matriceStandard() {
   const m = { niveaux: {}, bloquerAutres: true, supportPrive: true };
-  const sensibles = ['Utilisateurs', 'Entites', 'Parametres', 'Territoires'];
+  const sensibles = ['Gouv_Utilisateurs', 'Gouv_Entites', 'Gouv_Parametres', 'Gouv_Territoires'];
   for (const t of tablesGerees()) {
     m.niveaux[t] = {};
     for (const r of roles()) {
       let n = 'lire';
       if (r === 'Administrateur') n = 'tout';
-      else if (t === 'Journal_Admin') n = 'aucun';
-      else if (t === 'Support' || t === 'Support_commentaires') n = r === 'Lecteur' ? 'ajout' : 'modif';
+      else if (t === 'Gouv_Journal') n = 'aucun';
+      else if (t === 'Gouv_Support' || t === 'Gouv_Support_commentaires') n = r === 'Lecteur' ? 'ajout' : 'modif';
       else if (sensibles.includes(t)) n = 'lire';
       else if (r === 'Gestionnaire') n = 'tout';
       else if (r === 'Contributeur') n = 'modif';
@@ -708,11 +708,11 @@ const PAS_SUPPORT = `user.Profil.Role != ${JSON.stringify(ROLE_SUPPORT)} and use
  * Support_commentaires : chacun ne voit que les échanges de ses demandes et ne modifie que ses messages.
  */
 const SUPPORT_PRIVE = {
-  Support: [
+  Gouv_Support: [
     { formule: PAS_SUPPORT + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
     { cols: 'Statut,Priorite,Assigne_a', formule: PAS_SUPPORT, perm: '-U' },
   ],
-  Support_commentaires: [
+  Gouv_Support_commentaires: [
     // Colonne Demandeur recopiée de la demande : une règle d'accès Grist ne lit pas une colonne à travers une
     // référence (rec.Demande.Demandeur n'est pas évalué), il lui faut une colonne de la même table.
     { formule: PAS_SUPPORT + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
@@ -731,11 +731,11 @@ function construireRegles() {
   const m = etat.droits, out = [];
   for (const t of tablesGerees()) {
     const lignes = Object.entries(m.niveaux[t] || {}).filter(([r, n]) => n && roles().includes(r));
-    if (!lignes.length && !m.bloquerAutres && !(m.supportPrive && SUPPORT_PRIVE[t]) && t !== 'Parametres') continue;
+    if (!lignes.length && !m.bloquerAutres && !(m.supportPrive && SUPPORT_PRIVE[t]) && t !== 'Gouv_Parametres') continue;
     out.push({ table: t, formule: 'user.Access == OWNER', perm: '+CRUD' });
     // Les jetons d'accès (clés « …_jeton ») ne sont visibles que des propriétaires du document.
     // Liste explicite : les règles d'accès Grist n'évaluent pas les méthodes comme .endswith() (la règle bloquerait toute la table).
-    if (t === 'Parametres' && colonne(t, 'Cle')) out.push({ table: t, formule: 'rec.Cle in ["Github_jeton", "Gitlab_jeton"] and user.Access != OWNER', perm: '-CRUD' });
+    if (t === 'Gouv_Parametres' && colonne(t, 'Cle')) out.push({ table: t, formule: 'rec.Cle in ["Github_jeton", "Gitlab_jeton"] and user.Access != OWNER', perm: '-CRUD' });
     // Support : chacun ne voit que ses propres demandes et seuls les administrateurs changent statut, priorité, assignation.
     if (m.supportPrive && SUPPORT_PRIVE[t]) for (const r of SUPPORT_PRIVE[t]) out.push({ table: t, ...r });
     for (const [r, n] of lignes) out.push({ table: t, formule: 'user.Profil.Actif and user.Profil.Role == ' + chaine(r), perm: NIVEAUX.find((x) => x.code === n).perm });
@@ -753,7 +753,7 @@ function construireRegles() {
  */
 function ongletDroits() {
   if (!etat.acl.regles) return '<div class="encadre alerte">Seuls les <b>propriétaires</b> du document peuvent gérer les droits.</div>';
-  if (!aTable('Utilisateurs') || !roles().length) return '<div class="encadre alerte">Il faut d\'abord des utilisateurs avec des rôles (onglet Utilisateurs).</div>';
+  if (!aTable('Gouv_Utilisateurs') || !roles().length) return '<div class="encadre alerte">Il faut d\'abord des utilisateurs avec des rôles (onglet Utilisateurs).</div>';
   if (!etat.droits) etat.droits = lireMatrice();
   const m = etat.droits;
   const metier = tablesMetier();
@@ -769,7 +769,7 @@ function ongletDroits() {
         <button class="bouton petit" data-action="standard">✨ Proposition standard</button>
         <button class="bouton petit" data-action="vider">Tout effacer</button>
         <label><input type="checkbox" id="bloquer-autres" ${m.bloquerAutres ? 'checked' : ''}> Bloquer toute personne sans rôle reconnu</label>
-        ${aTable('Support') ? `<label title="Seuls les ${ROLE_SUPPORT}s voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
+        ${aTable('Gouv_Support') ? `<label title="Seuls les ${ROLE_SUPPORT}s voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
       </div>
       <div class="defile"><table class="tableau matrice">
         <tr><th>Table</th>${roles().map((r) => `<th>${esc(r)}</th>`).join('')}</tr>
@@ -825,10 +825,10 @@ async function appliquerDroits(bouton, retirer) {
     const integrite = etat.acl.regles.filter((r) => String(r.memo || '').startsWith(INTEGRITE));
     const devant = integrite.map((r, i) => ['UpdateRecord', '_grist_ACLRules', r.id, { rulePos: pos - 500 + i }]);
     const nouvelles = [];
-    const attributExiste = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT && json(r.userAttributes, {}).tableId === 'Utilisateurs');
+    const attributExiste = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT && json(r.userAttributes, {}).tableId === 'Gouv_Utilisateurs');
     if (regles.length && !attributExiste) {
       nouvelles.push({ resource: idRes('*'), aclFormula: '', permissionsText: '', rulePos: pos++, memo: MARQUE + ' attribut',
-        userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
+        userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Gouv_Utilisateurs', charId: 'Email', lookupColId: colonne('Gouv_Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
     }
     for (const r of regles) nouvelles.push({ resource: idRes(r.table, r.cols), aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE, userAttributes: '' });
     // L'attribut user.Profil n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
@@ -855,10 +855,10 @@ async function appliquerDroits(bouton, retirer) {
  * @param {HTMLElement} bouton
  */
 async function poserGarde(bouton) {
-  if (!aTable('Accueil')) return message("Installez d'abord la page d'accueil publique (onglet Structure).", true);
+  if (!aTable('Gouv_Accueil')) return message("Installez d'abord la page d'accueil publique (onglet Structure).", true);
   await occupe(bouton, async () => {
     let res = etat.acl.ressources;
-    const manque = [['*', '*'], ['Accueil', '*']].filter(([t]) => !res.some((r) => r.tableId === t && r.colIds === '*'));
+    const manque = [['*', '*'], ['Gouv_Accueil', '*']].filter(([t]) => !res.some((r) => r.tableId === t && r.colIds === '*'));
     if (manque.length) {
       await agir([['BulkAddRecord', '_grist_ACLResources', manque.map(() => null), { tableId: manque.map((m) => m[0]), colIds: manque.map(() => '*') }]]);
       res = await lire('_grist_ACLResources');
@@ -866,8 +866,8 @@ async function poserGarde(bouton) {
     const id = (t) => res.find((r) => r.tableId === t && r.colIds === '*').id;
     const attribut = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT);
     const a = [];
-    if (!attribut) a.push({ resource: id('*'), aclFormula: '', permissionsText: '', rulePos: 1, memo: '[Gouvernance] attribut', userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Utilisateurs', charId: 'Email', lookupColId: colonne('Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
-    a.push({ resource: id('Accueil'), aclFormula: 'True', permissionsText: '+R-CUD', rulePos: 2, memo: '[Gouvernance] Accueil lisible par tous', userAttributes: '' });
+    if (!attribut) a.push({ resource: id('*'), aclFormula: '', permissionsText: '', rulePos: 1, memo: '[Gouvernance] attribut', userAttributes: JSON.stringify({ name: ATTRIBUT, tableId: 'Gouv_Utilisateurs', charId: 'Email', lookupColId: colonne('Gouv_Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }) });
+    a.push({ resource: id('Gouv_Accueil'), aclFormula: 'True', permissionsText: '+R-CUD', rulePos: 2, memo: '[Gouvernance] Accueil lisible par tous', userAttributes: '' });
     a.push({ resource: id('*'), aclFormula: 'user.Access == OWNER', permissionsText: 'all', rulePos: 3, memo: '[Gouvernance] Propriétaires : tous les droits', userAttributes: '' });
     a.push({ resource: id('*'), aclFormula: 'not user.Profil or not user.Profil.Actif or not user.Profil.Role', permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits, inactifs ou sans rôle : Accueil seulement', userAttributes: '' });
     const cles = Object.keys(a[0]);
@@ -885,7 +885,7 @@ const ticketOuvert = (t) => Outils.ticketOuvert(t);
 const couleurStatut = { 'Nouveau': 'bleu', 'En cours': 'orange', 'En attente': '', 'Résolu': 'vert', 'Fermé': '' };
 
 /** Échanges d'une demande, du plus ancien au plus récent. */
-const echanges = (id) => (etat.d.Support_commentaires || []).filter((c) => c.Demande === id).sort((a, b) => (a.CreeLe || 0) - (b.CreeLe || 0));
+const echanges = (id) => (etat.d.Gouv_Support_commentaires || []).filter((c) => c.Demande === id).sort((a, b) => (a.CreeLe || 0) - (b.CreeLe || 0));
 
 /**
  * Indique si une demande attend une réponse du support : elle est ouverte et soit encore
@@ -906,9 +906,9 @@ function aTraiter(t) {
  * @returns {string} HTML de l'onglet
  */
 function ongletSupport() {
-  if (!aTable('Support')) return `<div class="encadre alerte">Pas de table Support. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
+  if (!aTable('Gouv_Support')) return `<div class="encadre alerte">Pas de table Support. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
   const f = etat.filtres.support;
-  const T = (etat.d.Support || []).filter((t) => f === 'tous' || (f === 'ouverts') === ticketOuvert(t))
+  const T = (etat.d.Gouv_Support || []).filter((t) => f === 'tous' || (f === 'ouverts') === ticketOuvert(t))
     .sort((a, b) => aTraiter(b) - aTraiter(a) || (b.Dernier_retour || b.CreeLe || 0) - (a.Dernier_retour || a.CreeLe || 0));
   if (!T.some((t) => t.id === etat.ticket)) etat.ticket = T[0]?.id ?? null;
   const t = T.find((x) => x.id === etat.ticket);
@@ -937,10 +937,10 @@ function ongletSupport() {
  */
 function ficheTicket(t) {
   const ouvert = ticketOuvert(t);
-  const statuts = choix('Support', 'Statut').map((s) => [s, s]);
-  const priorites = choix('Support', 'Priorite').map((s) => [s, s]);
-  const personnes = (etat.d.Utilisateurs || []).filter((u) => u.Actif !== false).map((u) => [u.id, u.Nom || u.Courriel]);
-  const avecFil = aTable('Support_commentaires');
+  const statuts = choix('Gouv_Support', 'Statut').map((s) => [s, s]);
+  const priorites = choix('Gouv_Support', 'Priorite').map((s) => [s, s]);
+  const personnes = (etat.d.Gouv_Utilisateurs || []).filter((u) => u.Actif !== false).map((u) => [u.id, u.Nom || u.Courriel]);
+  const avecFil = aTable('Gouv_Support_commentaires');
   return `<article class="ticket">
     <header><b>${esc(t.Titre || '(sans titre)')}</b><span class="badge ${couleurStatut[t.Statut] || ''}">${esc(t.Statut || 'Nouveau')}</span>
       ${ouvert ? `<button class="bouton petit primaire" data-action="clore" data-id="${t.id}">✅ Clore la demande</button>`
@@ -973,14 +973,14 @@ function ficheTicket(t) {
  */
 async function traiterTicket(bouton, id, { texte = '', statut = null, evenement = '' }) {
   await occupe(bouton, async () => {
-    const t = etat.d.Support.find((x) => x.id === id);
-    const fil = aTable('Support_commentaires'), type = colonne('Support_commentaires', 'Type');
+    const t = etat.d.Gouv_Support.find((x) => x.id === id);
+    const fil = aTable('Gouv_Support_commentaires'), type = colonne('Gouv_Support_commentaires', 'Type');
     const a = [];
-    if (texte && fil) a.push(['AddRecord', 'Support_commentaires', null, { Demande: id, Message: texte, ...(type ? { Type: 'Message' } : {}) }]);
+    if (texte && fil) a.push(['AddRecord', 'Gouv_Support_commentaires', null, { Demande: id, Message: texte, ...(type ? { Type: 'Message' } : {}) }]);
     // Écrire sur une demande close la rouvre ; répondre à une demande nouvelle la passe « En cours ».
     if (!statut && texte && (!ticketOuvert(t) || t.Statut === 'Nouveau')) { statut = 'En cours'; evenement = ticketOuvert(t) ? '' : '↩️ Demande rouverte'; }
-    if (statut) a.push(['UpdateRecord', 'Support', id, { Statut: statut }]);
-    if (evenement && fil && type) a.push(['AddRecord', 'Support_commentaires', null, { Demande: id, Message: evenement, Type: 'Événement' }]);
+    if (statut) a.push(['UpdateRecord', 'Gouv_Support', id, { Statut: statut }]);
+    if (evenement && fil && type) a.push(['AddRecord', 'Gouv_Support_commentaires', null, { Demande: id, Message: evenement, Type: 'Événement' }]);
     if (!a.length) return;
     await agir(a);
     if (statut) await tracer('Support : ' + statut, '#' + id + ' ' + (t.Titre || ''));
@@ -1383,13 +1383,13 @@ async function rangerColonnes(tables) {
  * « sousPage » : page placée en retrait sous Administration.
  */
 const PAGES = [
-  { cle: 'accueil', nom: '🏠 Accueil', table: 'Accueil', fichier: 'accueil.html' },
+  { cle: 'accueil', nom: '🏠 Accueil', table: 'Gouv_Accueil', fichier: 'accueil.html' },
   // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
-  { cle: 'documentation', nom: '📖 Documentation', table: 'Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
-  { cle: 'support', nom: '🆘 Support', table: 'Support', fichier: 'support.html', facultative: true, sujet: 'support' },
+  { cle: 'documentation', nom: '📖 Documentation', table: 'Gouv_Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
+  { cle: 'support', nom: '🆘 Support', table: 'Gouv_Support', fichier: 'support.html', facultative: true, sujet: 'support' },
   { cle: 'administration', nom: '🛡️ Administration', fichier: 'administration.html' },
-  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Utilisateurs', sousPage: true },
-  { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Parametres', fichier: 'boite-a-outils.html', sousPage: true },
+  { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true },
+  { cle: 'boite', nom: '🧰 Boîte à outils', table: 'Gouv_Parametres', fichier: 'boite-a-outils.html', sousPage: true },
 ];
 
 /**
@@ -1575,11 +1575,11 @@ async function installerTablesSujet(fichier) {
  * @returns {string} HTML de l'onglet
  */
 function ongletParametres() {
-  const P = (etat.d.Parametres || []);
-  const J = (etat.d.Journal_Admin || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0));
+  const P = (etat.d.Gouv_Parametres || []);
+  const J = (etat.d.Gouv_Journal || []).slice().sort((a, b) => (b.Date || 0) - (a.Date || 0));
   return `
     <section class="carte"><h2>⚙️ Paramètres de l'application</h2>
-      ${aTable('Parametres') ? `<table class="tableau">${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
+      ${aTable('Gouv_Parametres') ? `<table class="tableau">${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
         <td><input class="champ" style="width:100%;max-width:none" data-p="${p.id}" value="${esc(p.Valeur)}" ${/_jeton$/.test(p.Cle) ? 'type="password" autocomplete="off"' : ''}>${p.Cle === 'Logo_DGOM' && p.Valeur ? `<img class="apercu-logo" src="${esc(p.Valeur)}" alt="">` : ''}</td></tr>`).join('')}</table>`
         : `<div class="encadre alerte">Pas de table Parametres. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`}
     </section>
@@ -1663,14 +1663,14 @@ async function enregistrerChamp(el) {
   const val = el.type === 'checkbox' ? el.checked : el.dataset.type === 'ref' ? (Number(el.value) || 0) : el.value;
   try {
     if (el.dataset.u) {
-      await agir([['UpdateRecord', 'Utilisateurs', Number(el.dataset.u), { [el.dataset.col]: val }]]);
-      const u = etat.d.Utilisateurs.find((x) => x.id === Number(el.dataset.u)); u[el.dataset.col] = val;
+      await agir([['UpdateRecord', 'Gouv_Utilisateurs', Number(el.dataset.u), { [el.dataset.col]: val }]]);
+      const u = etat.d.Gouv_Utilisateurs.find((x) => x.id === Number(el.dataset.u)); u[el.dataset.col] = val;
       if (el.dataset.col !== 'Nom') tracer('Utilisateur modifié', u.Courriel + ' : ' + el.dataset.col + ' = ' + (el.dataset.type === 'ref' ? nomEntite(val) : val));
     } else if (el.dataset.t) {
-      await agir([['UpdateRecord', 'Support', Number(el.dataset.t), { [el.dataset.col]: val }]]);
+      await agir([['UpdateRecord', 'Gouv_Support', Number(el.dataset.t), { [el.dataset.col]: val }]]);
     } else if (el.dataset.p) {
-      await agir([['UpdateRecord', 'Parametres', Number(el.dataset.p), { Valeur: val }]]);
-      etat.d.Parametres.find((x) => x.id === Number(el.dataset.p)).Valeur = val; majEntete();
+      await agir([['UpdateRecord', 'Gouv_Parametres', Number(el.dataset.p), { Valeur: val }]]);
+      etat.d.Gouv_Parametres.find((x) => x.id === Number(el.dataset.p)).Valeur = val; majEntete();
     }
     message('✅ Enregistré.');
   } catch (e) { message('❌ ' + esc(e.message), true); }
@@ -1707,7 +1707,7 @@ document.addEventListener('input', (e) => {
 async function groupe(champs, libelle) {
   const ids = [...etat.selection]; if (!ids.length) return;
   await occupe(null, async () => {
-    await agir([['BulkUpdateRecord', 'Utilisateurs', ids, Object.fromEntries(Object.entries(champs).map(([k, v]) => [k, ids.map(() => v)]))]]);
+    await agir([['BulkUpdateRecord', 'Gouv_Utilisateurs', ids, Object.fromEntries(Object.entries(champs).map(([k, v]) => [k, ids.map(() => v)]))]]);
     await tracer('Modification groupée', ids.length + ' personne(s) : ' + libelle);
     message('✅ ' + ids.length + ' personne(s) mise(s) à jour.');
     etat.selection.clear(); await actualiser();
@@ -1738,8 +1738,8 @@ document.addEventListener('click', async (e) => {
     case 'g-desactiver': return groupe({ Actif: false }, 'désactivées');
     case 'ajouter-role': {
       const r = $('nouveau-role').value.trim(); if (!r || roles().includes(r)) return;
-      const c = colonne('Utilisateurs', 'Role'); const wo = json(c.widgetOptions, {}); wo.choices = [...(wo.choices || []), r];
-      return occupe(b, async () => { await agir([['ModifyColumn', 'Utilisateurs', 'Role', { widgetOptions: JSON.stringify(wo) }]]); await tracer('Rôle ajouté', r); await actualiser(); });
+      const c = colonne('Gouv_Utilisateurs', 'Role'); const wo = json(c.widgetOptions, {}); wo.choices = [...(wo.choices || []), r];
+      return occupe(b, async () => { await agir([['ModifyColumn', 'Gouv_Utilisateurs', 'Role', { widgetOptions: JSON.stringify(wo) }]]); await tracer('Rôle ajouté', r); await actualiser(); });
     }
     case 'standard': etat.droits = matriceStandard(); return afficher();
     case 'vider': etat.droits = { niveaux: {}, bloquerAutres: false, supportPrive: false }; return afficher();

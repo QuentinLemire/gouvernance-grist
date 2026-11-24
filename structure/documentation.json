@@ -1,11 +1,11 @@
 {
   "format": "grist-structure",
-  "version": "1.6",
+  "version": "2.0",
   "sujet": "DOCUMENTATION",
   "description": "Pages de documentation, FAQ, notes et nouveautés (rubrique « Nouveauté », affichées sur l'accueil), en Markdown.",
   "tables": [
     {
-      "tableId": "Documentation",
+      "tableId": "Gouv_Documentation",
       "columns": [
         {
           "id": "Rubrique",
@@ -80,9 +80,9 @@
         {
           "id": "Auteur",
           "label": "Auteur (fiche)",
-          "type": "Ref:Utilisateurs",
+          "type": "Ref:Gouv_Utilisateurs",
           "isFormula": true,
-          "formula": "Utilisateurs.lookupOne(Courriel_cle=($CreePar or \"\").strip().lower()) or None",
+          "formula": "Gouv_Utilisateurs.lookupOne(Courriel_cle=($CreePar or \"\").strip().lower()) or None",
           "visibleCol": "Courriel"
         },
         {

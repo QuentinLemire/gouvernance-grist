@@ -1,11 +1,11 @@
 {
   "format": "grist-structure",
-  "version": "1.8",
+  "version": "2.0",
   "sujet": "SUPPORT",
   "description": "Demandes des utilisateurs, lien vers la page concernée, fil d'échanges ; seul le support clôt ou rouvre.",
   "tables": [
     {
-      "tableId": "Support",
+      "tableId": "Gouv_Support",
       "columns": [
         {
           "id": "Titre",
@@ -49,9 +49,9 @@
         {
           "id": "Personne",
           "label": "Demandeur (fiche)",
-          "type": "Ref:Utilisateurs",
+          "type": "Ref:Gouv_Utilisateurs",
           "isFormula": true,
-          "formula": "Utilisateurs.lookupOne(Courriel_cle=($Demandeur or \"\").strip().lower()) or None",
+          "formula": "Gouv_Utilisateurs.lookupOne(Courriel_cle=($Demandeur or \"\").strip().lower()) or None",
           "visibleCol": "Courriel"
         },
         {
@@ -126,15 +126,15 @@
         {
           "id": "Assigne_a",
           "label": "Assigné à",
-          "type": "Ref:Utilisateurs",
+          "type": "Ref:Gouv_Utilisateurs",
           "visibleCol": "Courriel"
         },
         {
           "id": "Commentaires",
           "label": "Échanges",
-          "type": "RefList:Support_commentaires",
+          "type": "RefList:Gouv_Support_commentaires",
           "isFormula": true,
-          "formula": "Support_commentaires.lookupRecords(Demande=$id, sort_by=\"CreeLe\")"
+          "formula": "Gouv_Support_commentaires.lookupRecords(Demande=$id, sort_by=\"CreeLe\")"
         },
         {
           "id": "Dernier_retour",
@@ -174,12 +174,12 @@
       ]
     },
     {
-      "tableId": "Support_commentaires",
+      "tableId": "Gouv_Support_commentaires",
       "columns": [
         {
           "id": "Demande",
           "label": "Demande",
-          "type": "Ref:Support",
+          "type": "Ref:Gouv_Support",
           "visibleCol": "Titre"
         },
         {
@@ -203,9 +203,9 @@
         {
           "id": "Auteur",
           "label": "Auteur (fiche)",
-          "type": "Ref:Utilisateurs",
+          "type": "Ref:Gouv_Utilisateurs",
           "isFormula": true,
-          "formula": "Utilisateurs.lookupOne(Courriel_cle=($CreePar or \"\").strip().lower()) or None",
+          "formula": "Gouv_Utilisateurs.lookupOne(Courriel_cle=($CreePar or \"\").strip().lower()) or None",
           "visibleCol": "Courriel"
         },
         {

@@ -24,7 +24,7 @@
  *  ---------------
  *      const p = await Outils.parametres();          // { Nom_application: '…', Logo_DGOM: '…' }
  *      Outils.entete(p);                             // logo + titre dans l'en-tête
- *      const demandes = await Outils.lire('Support'); // null si la personne n'y a pas droit
+ *      const demandes = await Outils.lire('Gouv_Support'); // null si la personne n'y a pas droit
  *
  *  Ce que contient l'objet Outils
  *  ------------------------------
@@ -75,7 +75,7 @@ window.Outils = (() => {
    * encore dans cette application ou si les règles d'accès interdisent à la
    * personne connectée de la voir : le widget peut alors afficher un message
    * ou masquer la partie concernée.
-   * @param {string} tableId  identifiant de la table, ex. 'Support'
+   * @param {string} tableId  identifiant de la table, ex. 'Gouv_Support'
    * @returns {Promise<Object[]|null>} les lignes, ou null si illisible
    * Action Grist : lecture seule (docApi.fetchTable), rien n'est modifié.
    */
@@ -92,7 +92,7 @@ window.Outils = (() => {
    * @returns {Promise<Object>} les paramètres sous la forme { Cle: Valeur }
    */
   async function parametres() {
-    return Object.fromEntries(((await lire('Parametres')) || []).map((r) => [r.Cle, r.Valeur]));
+    return Object.fromEntries(((await lire('Gouv_Parametres')) || []).map((r) => [r.Cle, r.Valeur]));
   }
 
   // ===== 3. En-tête de page =====
@@ -185,7 +185,7 @@ window.Outils = (() => {
     const bulle = (auteur, date, contenu) => {
       const estDemandeur = String(auteur || '').toLowerCase() === demandeur;
       const cote = (estDemandeur ? 'demandeur' : 'support') === droite ? 'droite' : 'gauche';
-      return `<div class="bulle ${cote} ${estDemandeur ? '' : 'equipe'}"><small>${esc(estDemandeur ? (droite === 'demandeur' ? 'Vous' : auteur) : (auteur || 'Support') + ' · support')} · ${dateHeure(date)}</small><div>${texte(contenu)}</div></div>`;
+      return `<div class="bulle ${cote} ${estDemandeur ? '' : 'equipe'}"><small>${esc(estDemandeur ? (droite === 'demandeur' ? 'Vous' : auteur) : (auteur || 'Gouv_Support') + ' · support')} · ${dateHeure(date)}</small><div>${texte(contenu)}</div></div>`;
     };
     // Le premier message du fil est la demande elle-même (sa description, à défaut son titre).
     const fil = [bulle(ticket.Demandeur || ticket.CreePar, ticket.CreeLe, ticket.Description || ticket.Titre)];
