@@ -60,13 +60,13 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Page | `module` | Rôle |
 |---|---|---|
 | 🛡️ Administration | `tableau` | Tableau de bord : chiffres clés, points de vigilance, dernières actions |
-| 👥 Utilisateurs | `utilisateurs` | Personnes, rôles, entités ; ajout en masse, export CSV |
-| 🔐 Rôles et droits | `droits` | Qui peut faire quoi, table par table ; aperçu des règles avant de les appliquer |
+| 👥 Utilisateurs | `utilisateurs` | Personnes, rôles, entités ; ajout en masse, export CSV ; liste à reporter dans le partage Grist |
+| 🔐 Rôles et droits | `droits` | Qui peut faire quoi, table par table ; aperçu des règles ; « Voir en tant que » (simulation et lien vers le vrai mode Grist) |
 | 🔍 Explorateur | `explorateur` | Schéma des tables (MLD), pages ↔ données, widgets (tables lues, sorties internet) |
 | 🏗️ Atelier | `atelier` | Créer et modifier tables et colonnes selon la norme |
 | 🩺 Santé du document | `sante` | Conformité à la norme (P1 à P7), formules en erreur, colonnes inutilisées, sorties internet |
 | 🆘 Support | `support` | Traiter les demandes (si le module Support est installé) |
-| 🧱 Maintenance | `maintenance` | Sujets de la norme, pages standard, version des pages, paramètres, publication de la norme |
+| 🧱 Maintenance | `maintenance` | Sujets de la norme, pages standard, version des pages, sauvegardes et copie du document, paramètres, publication de la norme |
 | ❓ Aide | `aide` | Mode d'emploi |
 
 Idée de la Boîte à outils et première version : Florent Ballu ([TableManager](https://github.com/balludgom/TableManager)).

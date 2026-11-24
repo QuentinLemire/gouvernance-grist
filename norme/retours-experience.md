@@ -79,3 +79,15 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - Le renommage des tables en `Gouv_…` (2026-11-24) avait aussi modifié des **textes affichés** (titres des pages Documentation et Support, nom de l'équipe dans le fil du support) : après un renommage, relire les chaînes affichées, pas seulement les noms de tables.
 - Les fichiers partagés (`commun/outils.js`, `commun/dsfr-grist.css`…) sont chargés sans numéro de version : après une modification, un navigateur peut garder l'ancienne copie jusqu'à 10 minutes. Ne pas faire dépendre une règle importante (ex. masquer un bouton réservé) d'un changement dans un fichier partagé publié le même jour : la page la porte elle-même.
 - Pour reconnaître un propriétaire dans un widget : lire `_grist_ACLRules` et vérifier que la liste **n'est pas vide** (Grist ne refuse pas la lecture aux autres, il renvoie une liste vide).
+
+### API REST depuis un widget : ce que le jeton permet (2026-11-24)
+- Un widget obtient un jeton avec `grist.docApi.getAccessToken` (accès complet requis) ; `Outils.api(chemin)` s'en sert.
+- **Routes du document** (`/tables`, `/snapshots`, `/download`…) : le jeton est accepté. Mais pour un document protégé par
+  des règles d'accès, Grist refuse les **sauvegardes** et le **téléchargement** à un jeton « lecture seule »
+  (« cannot confirm access to snapshots because of access rules ») : demander un jeton complet (`readOnly: false`).
+- **Routes de l'espace** (`/access`, le partage) : le jeton n'est **pas** reconnu, Grist répond comme à un visiteur anonyme
+  (`"personal": true`, aucune personne). Un widget ne peut donc ni lire ni modifier le partage : la page Utilisateurs
+  donne la liste à reporter dans le bouton « Partager » de Grist.
+- Une sauvegarde s'ouvre à `…/o/<espace>/doc/<docId de la version>` ; sans `/doc/`, Grist ajoute « undefined » à la version
+  et refuse de l'ouvrir (« Invalid version is specified »).
+- Le mode « Voir en tant que » s'ouvre par l'adresse du document suivie de `?aclAsUser_=<courriel>` (propriétaires seulement).
