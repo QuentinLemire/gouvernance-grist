@@ -4,6 +4,14 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-24 — Arrivées-Départs passe aux outils d'administration
+**Fait** : page 🧱 Maintenance ajoutée, puis « Mettre les pages à la dernière version » : Administration → santé du document,
+Boîte à outils → Explorateur, Rôles et droits, Atelier et Aide créés ; colonne `Acces_Grist` ajoutée (« Réparer »).
+Les outils sont posés sur la table-verrou `VueAdmin`, comme la page Administration : invisibles pour la RH et les chefs de bureau
+(vérifié en « voir en tant que »). Pages métier et données non touchées. Sauvegarde de référence : 24/11/2026 15 h 29.
+**Réglage propre à l'application** : `Roles_administration = BSSIOM` (le BSSIOM administre, pas un « Administrateur »).
+**Reste à faire** : traçabilité en fin de table pour Personnel, Arrivee, Depart (Atelier). Le journal (`Gouv_Journal`) est gardé, sans page.
+
 ### 2026-11-24 — Le journal quitte le socle : module facultatif
 **Décision** : le Journal d'administration (`journal.json`) n'est plus dans le socle. Il s'installe depuis la Maintenance (tables et page 📒 Journal)
 pour une application qui a besoin d'un audit des actions d'administration. Retiré de Gouvernance.
@@ -43,7 +51,7 @@ Les règles de conformité sont écrites **une seule fois** (`widget/commun/norm
   « Mettre les pages à la dernière version » fait passer un tel document aux outils séparés (outils manquants créés, ancien panneau → tableau de bord,
   Boîte à outils → Explorateur) ;
 - `explorateur.html` et `atelier.html` autonomes sont supprimés (doublons des modules de la console) ; `administration.html` et `boite-a-outils.html`
-  restent tant qu'une application s'en sert (Arrivées-Départs), puis seront supprimés.
+  aussi, une fois Arrivées-Départs basculé (24/11/2026).
 
 ### 2026-11-23 — Nouveau socle : Utilisateurs, Accueil, Journal (+ Boîte à outils)
 **Décision** : le **socle** comprend Utilisateurs & Entités, la page d'accueil (avec Paramètres, qu'elle lit), le Journal d'administration, et les pages Accueil, Administration, Utilisateurs, Boîte à outils. **Hors socle**, à installer en un clic : Support, Documentation, Territoires.
