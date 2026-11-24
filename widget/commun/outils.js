@@ -36,6 +36,10 @@
  *    - Outils.conversation(...)  fil d'échanges d'une demande de support (bulles)
  *    - Outils.ticketOuvert(t)    vrai si la demande n'est pas close
  *    - Outils.dateHeure(t)       date et heure « jj/mm/aaaa hh:mm » à partir d'une date Grist
+ *    - Outils.enLignes(table)    table Grist « en colonnes » → liste de lignes
+ *    - Outils.avis(texte, genre) bandeau de message en haut de la page
+ *    - Outils.demander(question) petite fenêtre de question (oui/non, ou texte à saisir)
+ *    - Outils.identifiant(texte) identifiant Grist selon la norme (« date d'arrivée » → Date_d_arrivee)
  *
  *  Aucune de ces fonctions n'écrit dans le document : elles ne font que lire
  *  et mettre en forme. Les écritures restent dans chaque widget.
@@ -198,8 +202,84 @@ window.Outils = (() => {
     return `<div class="conversation">${fil.join('')}</div>`;
   }
 
-  // ===== 6. Ce que le fichier rend disponible =====
+  // ===== 6. Messages dans la page =====
+  // Les fenêtres alert / confirm / prompt du navigateur bloquent l'iframe de Grist : on affiche à la
+  // place un bandeau en haut de la page (avis) ou une petite fenêtre de question (demander).
+  // Styles : .avis et .question dans dsfr-grist.css.
+
+  let minuteurAvis = null;
+  /**
+   * Bandeau d'information en haut de la page ; un clic le ferme.
+   * @param {string} message
+   * @param {string} [genre]  'info' (par défaut), 'ok' ou 'erreur' ; les erreurs restent affichées
+   */
+  function avis(message, genre = 'info') {
+    let b = document.getElementById('avis');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'avis';
+      b.setAttribute('role', 'status');
+      b.title = 'Cliquer pour fermer';
+      b.addEventListener('click', () => { b.hidden = true; });
+      document.body.appendChild(b);
+    }
+    b.className = 'avis ' + genre;
+    b.textContent = message + '  ✕';
+    b.hidden = false;
+    clearTimeout(minuteurAvis);
+    if (genre !== 'erreur') minuteurAvis = setTimeout(() => { b.hidden = true; }, 7000);
+  }
+
+  /**
+   * Petite fenêtre de question dans la page.
+   * Sans « saisie » : renvoie vrai ou faux (comme confirm). Avec « saisie » (texte proposé) :
+   * renvoie le texte tapé, ou null si on annule (comme prompt). Échap annule, Entrée valide.
+   * @param {string} question
+   * @param {{ok?: string, annuler?: string, saisie?: string|null}} [options]
+   * @returns {Promise<boolean|string|null>}
+   */
+  function demander(question, { ok = 'Confirmer', annuler = 'Annuler', saisie = null } = {}) {
+    return new Promise((resoudre) => {
+      const fond = document.createElement('div');
+      fond.className = 'question-fond';
+      fond.innerHTML = `<div class="question" role="dialog" aria-modal="true"><p></p>${saisie !== null ? '<input class="champ">' : ''}` +
+        `<div class="question-boutons"><button type="button" class="bouton">${esc(annuler)}</button>` +
+        `<button type="button" class="bouton primaire">${esc(ok)}</button></div></div>`;
+      fond.querySelector('p').textContent = question;
+      const champ = fond.querySelector('input');
+      if (champ) champ.value = saisie;
+      const [non, oui] = fond.querySelectorAll('button');
+      const fermer = (v) => { fond.remove(); resoudre(v); };
+      non.onclick = () => fermer(saisie !== null ? null : false);
+      oui.onclick = () => fermer(saisie !== null ? champ.value : true);
+      fond.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') non.click();
+        if (e.key === 'Enter') oui.click();
+      });
+      document.body.appendChild(fond);
+      (champ || oui).focus();
+    });
+  }
+
+  // ===== 7. Nommage selon la norme =====
+
+  /**
+   * Identifiant Grist (table ou colonne) à partir d'un libellé : sans accents ni espaces,
+   * majuscule initiale (« date d'arrivée » → Date_d_arrivee). Un libellé qui commence par un
+   * chiffre est préfixé de C_ (un identifiant Grist ne peut pas commencer par un chiffre).
+   * @param {string} texte
+   * @returns {string} '' si le texte ne contient ni lettre ni chiffre
+   */
+  function identifiant(texte) {
+    let id = String(texte || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (/^[0-9]/.test(id)) id = 'C_' + id;
+    return id ? id.charAt(0).toUpperCase() + id.slice(1) : '';
+  }
+
+  // ===== 8. Ce que le fichier rend disponible =====
   // Seules ces fonctions sont accessibles depuis les widgets (Outils.xxx).
 
-  return { esc, lire, parametres, entete, markdown, conversation, ticketOuvert, dateHeure };
+  return { esc, lire, enLignes, parametres, entete, markdown, conversation, ticketOuvert, dateHeure,
+    avis, demander, identifiant };
 })();

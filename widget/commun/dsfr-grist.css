@@ -254,3 +254,53 @@ input.champ:focus, select.champ:focus, textarea.champ:focus { outline: 2px solid
   main { padding: 16px; }
   .ligne-barre { grid-template-columns: 110px 1fr 40px; }
 }
+
+/* =====================================================================
+   Outils d'administration (Administration, Santé, Explorateur, Atelier, Maintenance)
+   ===================================================================== */
+
+/* ---------- Onglets ----------
+   Barre collée en haut au défilement ; l'onglet actif est souligné en bleu.
+   <nav class="onglets"><button class="actif">…</button><button>…</button></nav> */
+.onglets { display: flex; gap: 0; flex-wrap: wrap; background: #fff; border-bottom: 1px solid var(--bordure);
+  padding: 0 24px; position: sticky; top: 0; z-index: 5; }
+.onglets button { font: inherit; font-weight: 500; padding: 14px 16px; border: none; background: none; cursor: pointer;
+  color: var(--texte-doux); border-bottom: 3px solid transparent; }
+.onglets button:hover { color: var(--texte); }
+.onglets button.actif { color: var(--bleu); border-bottom-color: var(--bleu); background: var(--bleu-clair); }
+
+/* ---------- Barre d'outils ----------
+   Filtres et boutons sur une ligne ; « .espace » repousse ce qui suit à droite. */
+.barre-outils { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.barre-outils .espace { flex: 1; }
+
+/* ---------- Bandeau de message (Outils.avis) ----------
+   En haut de la page, au-dessus de tout ; un clic le ferme. */
+.avis { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000;
+  max-width: min(720px, 92vw); padding: 10px 16px; font-size: 14px; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .15); background: var(--info-fond); color: var(--info); }
+.avis.ok { background: var(--succes-fond); color: var(--succes); }
+.avis.erreur { background: var(--erreur-fond); color: var(--erreur); }
+
+/* ---------- Fenêtre de question (Outils.demander) ---------- */
+.question-fond { position: fixed; inset: 0; background: rgba(22, 22, 22, .35); z-index: 1001;
+  display: flex; align-items: center; justify-content: center; }
+.question { background: #fff; padding: 20px; width: min(480px, 92vw); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+.question p { margin: 0 0 14px; }
+.question .champ { width: 100%; margin-bottom: 14px; }
+.question-boutons { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- Puces ----------
+   Petites étiquettes en ligne (noms de colonnes, domaines…) ; .manque : élément absent. */
+.puces { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.puce { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; padding: 2px 8px;
+  background: var(--fond); border: 1px solid var(--bordure); }
+.puce.manque { background: var(--erreur-fond); border-color: var(--erreur); color: var(--erreur); }
+.puce.externe { background: var(--alerte-fond); border-color: var(--alerte); color: var(--alerte); }
+
+/* ---------- Petites mises en page ---------- */
+.cache { display: none !important; }
+.pile > * + * { margin-top: 10px; }
+.discret { color: var(--texte-doux); font-size: 13px; }
+.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+

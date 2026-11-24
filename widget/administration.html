@@ -64,15 +64,7 @@
   <script src="commun/outils.js"></script>
   <style>
     /* Compléments propres au panneau d'administration ; couleurs, cartes, boutons et tableaux viennent de commun/dsfr-grist.css. */
-    /* Barre d'onglets : reste collée en haut au défilement ; l'onglet actif est souligné en bleu. */
-    .onglets { display: flex; gap: 0; flex-wrap: wrap; background: #fff; border-bottom: 1px solid var(--bordure); padding: 0 24px; position: sticky; top: 0; z-index: 5; }
-    .onglets button { font: inherit; font-weight: 500; padding: 14px 16px; border: none; background: none; cursor: pointer;
-      color: var(--texte-doux); border-bottom: 3px solid transparent; }
-    .onglets button:hover { color: var(--texte); }
-    .onglets button.actif { color: var(--bleu); border-bottom-color: var(--bleu); background: var(--bleu-clair); }
-    /* Barres d'outils (filtres, boutons) ; « .espace » repousse les éléments suivants à droite. */
-    .barre-outils { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-    .barre-outils .espace { flex: 1; }
+    /* Onglets et barres d'outils : dans commun/dsfr-grist.css (partagés avec les autres outils). */
     /* Tableau de bord : liste des contrôles de santé (icône, texte, bouton « Corriger »). */
     .sante li { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--bordure); list-style: none; }
     .sante ul { padding: 0; margin: 0; }
