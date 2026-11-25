@@ -2,8 +2,7 @@
   "tableId": "Gouv_Accueil",
   "records": [
     {
-      "Titre": "Accès réservé",
-      "Message": "Cette application est réservée aux personnes inscrites.\n\nSi vous devez y travailler, demandez un accès : votre demande sera transmise aux administrateurs de l'application."
+      "Titre": "Accès réservé"
     }
   ]
 }
