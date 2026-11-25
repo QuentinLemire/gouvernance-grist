@@ -18,8 +18,9 @@ function lireMatrice() {
   const m = { niveaux: {}, bloquerAutres: gardePresente() || !dejaEcrit, supportPrive: supportPrivePresent() || !dejaEcrit };
   for (const r of reglesDuPanneau()) {
     const t = ressource(r.resource)?.tableId; if (!t) continue;
-    const role = /user\.Profil\.Role == "((?:[^"\\]|\\.)*)"/.exec(r.aclFormula || '');
-    if (role && !/rec\./.test(r.aclFormula)) (m.niveaux[t] = m.niveaux[t] || {})[JSON.parse('"' + role[1] + '"')] = NIVEAU_DE_PERM[r.permissionsText] || '';
+    // rôle de la règle : « user.X.Role == "r" » (un rôle par personne) ou « "r" in user.X.Role » (plusieurs)
+    const role = /user\.\w+\.Role == ("(?:[^"\\]|\\.)*")/.exec(r.aclFormula || '') || /("(?:[^"\\]|\\.)*") in user\.\w+\.Role/.exec(r.aclFormula || '');
+    if (role && !/rec\./.test(r.aclFormula)) (m.niveaux[t] = m.niveaux[t] || {})[JSON.parse(role[1])] = NIVEAU_DE_PERM[r.permissionsText] || '';
     if ((r.aclFormula || '').trim().startsWith('user.Access != OWNER')) m.bloquerAutres = true;
   }
   const standard = matriceStandard().niveaux;
@@ -41,12 +42,12 @@ function lireMatrice() {
  */
 function matriceStandard() {
   const m = { niveaux: {}, bloquerAutres: true, supportPrive: true };
-  const sensibles = ['Gouv_Utilisateurs', 'Gouv_Entites', 'Gouv_Parametres', 'Gouv_Territoires'];
+  const sensibles = [registre().table, 'Gouv_Entites', 'Gouv_Parametres', 'Gouv_Territoires'];
   for (const t of tablesGerees()) {
     m.niveaux[t] = {};
     for (const r of roles()) {
       let n = 'lire';
-      if (r === 'Administrateur') n = 'tout';
+      if (rolesAdmin().includes(r)) n = 'tout';
       else if (t === 'Gouv_Journal') n = 'aucun';
       else if (t === 'Gouv_Support' || t === 'Gouv_Support_commentaires') n = r === 'Lecteur' ? 'ajout' : 'modif';
       else if (sensibles.includes(t)) n = 'lire';
@@ -61,27 +62,25 @@ function matriceStandard() {
 /** Met un texte entre guillemets, échappé, pour l'insérer sans risque dans une formule Grist. */
 const chaine = (s) => JSON.stringify(String(s));
 
-/** Rôle qui traite le support (voit toutes les demandes, les clôt ou les rouvre). */
-const ROLE_SUPPORT = 'Administrateur';
-/** Condition Grist « la personne n'a pas le rôle support et n'est pas propriétaire ». */
-const PAS_SUPPORT = `user.Profil.Role != ${JSON.stringify(ROLE_SUPPORT)} and user.Access != OWNER`;
+/** Condition Grist « la personne n'administre pas l'application (rôles du support) et n'est pas propriétaire ». */
+const pasSupport = () => rolesAdmin().map((r) => `not (${aLeRole(r)})`).join(' and ') + ' and user.Access != OWNER';
 /**
  * Règles de confidentialité du support, par table (toutes colonnes, sauf mention « cols »).
  * Support : chacun ne voit que ses propres demandes ; seul le support change statut, priorité, assignation.
  * Support_commentaires : chacun ne voit que les échanges de ses demandes et ne modifie que ses messages.
  */
-const SUPPORT_PRIVE = {
+const SUPPORT_PRIVE = () => ({
   Gouv_Support: [
-    { formule: PAS_SUPPORT + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
-    { cols: 'Statut,Priorite,Assigne_a', formule: PAS_SUPPORT, perm: '-U' },
+    { formule: pasSupport() + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
+    { cols: 'Statut,Priorite,Assigne_a', formule: pasSupport(), perm: '-U' },
   ],
   Gouv_Support_commentaires: [
     // Colonne Demandeur recopiée de la demande : une règle d'accès Grist ne lit pas une colonne à travers une
     // référence (rec.Demande.Demandeur n'est pas évalué), il lui faut une colonne de la même table.
-    { formule: PAS_SUPPORT + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
-    { formule: PAS_SUPPORT + ' and rec.CreePar != user.Email', perm: '-UD' },
+    { formule: pasSupport() + ' and rec.Demandeur != user.Email', perm: '-CRUD' },
+    { formule: pasSupport() + ' and rec.CreePar != user.Email', perm: '-UD' },
   ],
-};
+});
 
 /**
  * Traduit la matrice (etat.droits) en règles Grist, dans l'ordre où Grist les évalue :
@@ -91,17 +90,17 @@ const SUPPORT_PRIVE = {
  * @returns {{table: string, cols?: string, formule: string, perm: string}[]}
  */
 function construireRegles() {
-  const m = etat.droits, out = [];
+  const m = etat.droits, out = [], prive = SUPPORT_PRIVE();
   for (const t of tablesGerees()) {
     const lignes = Object.entries(m.niveaux[t] || {}).filter(([r, n]) => n && roles().includes(r));
-    if (!lignes.length && !m.bloquerAutres && !(m.supportPrive && SUPPORT_PRIVE[t]) && t !== 'Gouv_Parametres') continue;
+    if (!lignes.length && !m.bloquerAutres && !(m.supportPrive && prive[t]) && t !== 'Gouv_Parametres') continue;
     out.push({ table: t, formule: 'user.Access == OWNER', perm: '+CRUD' });
     // Les jetons d'accès (clés « …_jeton ») ne sont visibles que des propriétaires du document.
     // Liste explicite : les règles d'accès Grist n'évaluent pas les méthodes comme .endswith() (la règle bloquerait toute la table).
     if (t === 'Gouv_Parametres' && colonne(t, 'Cle')) out.push({ table: t, formule: 'rec.Cle in ["Github_jeton", "Gitlab_jeton"] and user.Access != OWNER', perm: '-CRUD' });
     // Support : chacun ne voit que ses propres demandes et seuls les administrateurs changent statut, priorité, assignation.
-    if (m.supportPrive && SUPPORT_PRIVE[t]) for (const r of SUPPORT_PRIVE[t]) out.push({ table: t, ...r });
-    for (const [r, n] of lignes) out.push({ table: t, formule: 'user.Profil.Actif and user.Profil.Role == ' + chaine(r), perm: NIVEAUX.find((x) => x.code === n).perm });
+    if (m.supportPrive && prive[t]) for (const r of prive[t]) out.push({ table: t, ...r });
+    for (const [r, n] of lignes) out.push({ table: t, formule: condRole(r), perm: NIVEAUX.find((x) => x.code === n).perm });
     if (m.bloquerAutres) {
       out.push({ table: t, formule: 'user.Access != OWNER', perm: '-CRUD' });
     }
@@ -116,7 +115,7 @@ function construireRegles() {
  */
 function ongletDroits() {
   if (!etat.acl.regles) return '<div class="encadre alerte">Seuls les <b>propriétaires</b> du document peuvent gérer les droits.</div>';
-  if (!aTable('Gouv_Utilisateurs') || !roles().length) return '<div class="encadre alerte">Il faut d\'abord des utilisateurs avec des rôles (page 👥 Utilisateurs).</div>';
+  if (!aTable(registre().table) || !roles().length) return `<div class="encadre alerte">Il faut d'abord des utilisateurs avec des rôles (table ${esc(registre().table)}).</div>`;
   if (!etat.droits) etat.droits = lireMatrice();
   const m = etat.droits;
   const metier = tablesMetier();
@@ -132,7 +131,7 @@ function ongletDroits() {
       <div class="barre-outils">
         <button class="bouton petit" data-action="standard">✨ Proposition standard</button>
         <label><input type="checkbox" id="bloquer-autres" ${m.bloquerAutres ? 'checked' : ''}> Bloquer toute personne sans rôle reconnu</label>
-        ${aTable('Gouv_Support') ? `<label title="Seuls les ${ROLE_SUPPORT}s voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
+        ${aTable('Gouv_Support') ? `<label title="Seuls les rôles ${esc(rolesAdmin().join(', '))} voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
       </div>
       <div class="defile"><table class="tableau matrice">
         <tr><th>Table</th>${roles().map((r) => `<th>${esc(r)}</th>`).join('')}</tr>
@@ -163,7 +162,7 @@ function ongletDroits() {
  */
 function carteSimulation() {
   if (etat.adresseDoc === undefined) { etat.adresseDoc = ''; Outils.adresseDocument().then((a) => { etat.adresseDoc = a; afficher(); }).catch(() => {}); }
-  const U = (etat.d.Gouv_Utilisateurs || []).filter((u) => estCourriel(u.Courriel)).sort((a, b) => cle(a.Courriel).localeCompare(cle(b.Courriel)));
+  const U = (etat.d[registre().table] || []).filter((u) => estCourriel(u.Courriel)).sort((a, b) => cle(a.Courriel).localeCompare(cle(b.Courriel)));
   const choisi = etat.simulation || '';
   const lien = choisi && etat.adresseDoc
     ? `<a class="bouton" href="${esc(etat.adresseDoc + '?aclAsUser_=' + encodeURIComponent(choisi))}" target="_blank" rel="noopener">Ouvrir le document en tant que cette personne ↗</a>` : '';
@@ -171,7 +170,7 @@ function carteSimulation() {
     <p class="aide">Ce qu'une personne peut faire, d'après les droits <b>appliqués</b>. Le lien ouvre le document avec ses droits, pour vérifier en vrai (réservé aux propriétaires).</p>
     <div class="barre-outils">
       <select class="champ" id="simu-personne" style="min-width:320px"><option value="">Choisir une personne…</option>
-        ${U.map((u) => `<option value="${esc(u.Courriel)}" ${cle(u.Courriel) === cle(choisi) ? 'selected' : ''}>${esc(u.Courriel)}${u.Role ? ' — ' + esc(u.Role) : ''}${u.Actif === false ? ' (inactif)' : ''}</option>`).join('')}
+        ${U.map((u) => `<option value="${esc(u.Courriel)}" ${cle(u.Courriel) === cle(choisi) ? 'selected' : ''}>${esc(u.Courriel)}${rolesDe(u).length ? ' — ' + esc(rolesDe(u).join(', ')) : ''}${u.Actif === false ? ' (inactif)' : ''}</option>`).join('')}
       </select>${lien}
     </div>
     ${choisi ? simulation(choisi) : ''}
@@ -180,9 +179,10 @@ function carteSimulation() {
 
 /** Résultat de la simulation pour un courriel : un message, ou un tableau table → droits. */
 function simulation(courriel) {
-  const u = (etat.d.Gouv_Utilisateurs || []).find((x) => cle(x.Courriel) === cle(courriel));
+  const u = (etat.d[registre().table] || []).find((x) => cle(x.Courriel) === cle(courriel));
   const encadre = (classe, texte) => `<div class="encadre ${classe}" style="margin-top:12px">${texte}</div>`;
-  if (!u || u.Actif === false || !u.Role) {
+  const sesRoles = rolesDe(u);
+  if (!u || u.Actif === false || !sesRoles.length) {
     const pourquoi = !u ? 'absente de la table Utilisateurs' : u.Actif === false ? 'inactive' : 'sans rôle';
     return gardePresente()
       ? encadre('', `🏠 Personne ${pourquoi} : elle <b>ne voit que la page d'accueil</b> (sauf si elle est propriétaire du document).`)
@@ -192,10 +192,12 @@ function simulation(courriel) {
   const metier = tablesMetier();
   const lignes = etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => {
     if (metier.has(t.tableId)) return [t.tableId, '⚙️ Règles métier : à vérifier avec le lien « Ouvrir en tant que »'];
-    const code = (m.niveaux[t.tableId] || {})[u.Role] || '';
+    // plusieurs rôles : le plus large l'emporte (NIVEAUX va du plus restreint au plus large)
+    const rang = (c) => NIVEAUX.findIndex((x) => x.code === c);
+    const code = sesRoles.map((r) => (m.niveaux[t.tableId] || {})[r] || '').sort((a, b) => rang(b) - rang(a))[0] || '';
     return [t.tableId, code ? esc(NIVEAUX.find((x) => x.code === code).libelle) : '— Règle par défaut du document'];
   });
-  return `<div class="defile" style="margin-top:12px"><table class="tableau"><tr><th>Table</th><th>${esc(u.Role)} : ce qu'elle peut faire</th></tr>
+  return `<div class="defile" style="margin-top:12px"><table class="tableau"><tr><th>Table</th><th>${esc(sesRoles.join(', '))} : ce qu'elle peut faire</th></tr>
     ${lignes.map(([t, d]) => `<tr><td class="table">${esc(t)}</td><td>${d}</td></tr>`).join('')}</table></div>
     <p class="aide">À condition que le document soit partagé avec elle dans Grist${u.Acces_Grist ? ` en <b>${esc(u.Acces_Grist)}</b> (colonne « Accès Grist »)` : ''} :
     partagée en lecture, elle ne modifie rien. Un propriétaire du document voit tout, quelles que soient les règles.</p>`;
@@ -213,7 +215,7 @@ function majApercu() {
 /**
  * Écrit (ou retire) les règles du panneau dans les règles d'accès du document.
  * Étapes : crée les « ressources » Grist manquantes (table × colonnes visées), déclare l'attribut
- * user.Profil s'il n'existe pas, supprime les anciennes règles [Admin] puis ajoute les nouvelles,
+ * utilisateur du registre (user.Profil par défaut) s'il n'existe pas, supprime les anciennes règles [Admin] puis ajoute les nouvelles,
  * placées avant toutes les autres. Les règles écrites à la main ne sont pas touchées.
  * @param {HTMLElement} bouton
  * @param {boolean} retirer  vrai : retire seulement les règles du panneau, sans en écrire
@@ -226,11 +228,10 @@ async function appliquerDroits(bouton, retirer) {
     let pos = Math.min(0, ...etat.acl.regles.map((r) => Number(r.rulePos) || 0)) - 1000;
     if (!retirer) etat.acl.regles.filter(estPrioritaire)
       .forEach((r, i) => plan.actions.push(['UpdateRecord', '_grist_ACLRules', r.id, { rulePos: pos - 500 + i }]));
-    // L'attribut user.Profil n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
+    // L'attribut du registre n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
     const anciennes = reglesDuPanneau().filter((r) => !json(r.userAttributes, {}).name);
     if (anciennes.length) plan.actions.push(['BulkRemoveRecord', '_grist_ACLRules', anciennes.map((r) => r.id)]);
-    const attributExiste = etat.acl.regles.some((r) => json(r.userAttributes, {}).name === ATTRIBUT && json(r.userAttributes, {}).tableId === 'Gouv_Utilisateurs');
-    if (regles.length && !attributExiste) plan.regle('*', '*', { aclFormula: '', permissionsText: '', rulePos: pos++, memo: MARQUE + ' attribut', userAttributes: attributProfil() });
+    if (regles.length && !registre().declare) plan.regle('*', '*', { aclFormula: '', permissionsText: '', rulePos: pos++, memo: MARQUE + ' attribut', userAttributes: attributProfil() });
     for (const r of regles) plan.regle(r.table, r.cols, { aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE });
     // « Bloquer toute personne sans rôle reconnu » : la garde du document (non inscrits, inactifs, sans rôle → accueil seulement)
     if (!retirer && etat.droits.bloquerAutres && !gardePresente()) planGarde(plan);
@@ -276,9 +277,9 @@ function planAcl() {
   };
 }
 
-/** Attribut user.Profil : la ligne de Gouv_Utilisateurs de la personne connectée (par son courriel). */
-const attributProfil = () => JSON.stringify({ name: ATTRIBUT, tableId: 'Gouv_Utilisateurs', charId: 'Email',
-  lookupColId: colonne('Gouv_Utilisateurs', 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' });
+/** Attribut utilisateur (user.Profil par défaut) : la ligne du registre de la personne connectée (par son courriel). */
+const attributProfil = () => { const t = registre().table; return JSON.stringify({ name: registre().attribut, tableId: t, charId: 'Email',
+  lookupColId: colonne(t, 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }); };
 
 /**
  * Documentation : lecture pour les personnes inscrites (actives et avec un rôle), modification
@@ -295,7 +296,7 @@ function planDocumentation(plan) {
   const doc = (etat.acl.ressources || []).find((r) => r.tableId === 'Gouv_Documentation' && r.colIds === '*');
   const anciennes = doc ? regles.filter((r) => r.resource === doc.id && String(r.memo || '').startsWith(MARQUE)) : [];
   if (anciennes.length) plan.actions.push(['BulkRemoveRecord', '_grist_ACLRules', anciennes.map((r) => r.id)]);
-  plan.regle('Gouv_Documentation', '*', { aclFormula: 'user.Access != OWNER and user.Profil and user.Profil.Actif and user.Profil.Role', permissionsText: '+R-CUD', rulePos: 5, memo: '[Gouvernance] Documentation : lecture pour les inscrits' });
+  plan.regle('Gouv_Documentation', '*', { aclFormula: 'user.Access != OWNER and ' + condInscrit(), permissionsText: '+R-CUD', rulePos: 5, memo: '[Gouvernance] Documentation : lecture pour les inscrits' });
   plan.regle('Gouv_Documentation', '*', { aclFormula: 'user.Access != OWNER', permissionsText: '-CRUD', rulePos: 6, memo: '[Gouvernance] Documentation : modification réservée aux propriétaires' });
 }
 
@@ -318,15 +319,15 @@ async function poserGarde(bouton) {
   });
 }
 
-/** Règles de la garde, ajoutées au plan (avec l'attribut user.Profil s'il manque). */
+/** Règles de la garde, ajoutées au plan (avec l'attribut du registre s'il manque). */
 function planGarde(plan) {
   if (!aTable('Gouv_Accueil')) return;
-  if (!(etat.acl.regles || []).some((r) => json(r.userAttributes, {}).name === ATTRIBUT)) {
+  if (!registre().declare) {
     plan.regle('*', '*', { aclFormula: '', permissionsText: '', rulePos: 1, memo: '[Gouvernance] attribut', userAttributes: attributProfil() });
   }
   plan.regle('Gouv_Accueil', '*', { aclFormula: 'True', permissionsText: '+R-CUD', rulePos: 2, memo: '[Gouvernance] Accueil lisible par tous' });
   plan.regle('*', '*', { aclFormula: 'user.Access == OWNER', permissionsText: 'all', rulePos: 3, memo: '[Gouvernance] Propriétaires : tous les droits' });
-  plan.regle('*', '*', { aclFormula: 'not user.Profil or not user.Profil.Actif or not user.Profil.Role', permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits, inactifs ou sans rôle : Accueil seulement' });
+  plan.regle('*', '*', { aclFormula: condNonInscrit(), permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits, inactifs ou sans rôle : Accueil seulement' });
 }
 
 // Vue du module dans la console

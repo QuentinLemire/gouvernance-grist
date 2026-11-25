@@ -239,6 +239,11 @@ function ongletStructure() {
 
   // Socle : tables, puis pages
   const socle = SUJETS.filter((s) => s.obligatoire).map((s) => {
+    if (sujetRemplace(s.fichier)) {
+      const R = registre();
+      return `<div class="sujet"><div><b>${esc(s.nom)}</b><br><small>Remplacé par le registre de l'application : table <b>${esc(R.table)}</b>
+        (attribut user.${esc(R.attribut)}${R.multi ? ', plusieurs rôles par personne' : ''}). La norme s'y adapte.</small></div><span class="badge vert">registre de l'application</span></div>`;
+    }
     const { ajouts, details, x } = ligneSujet(s);
     return `<div class="sujet"><div><b>${esc(s.nom)}</b><br><small>${x.def ? esc(x.def.description || '') : ''}${details}</small></div>
       ${aPublier(ajouts)} ${etatSocle[x.etat]} ${x.etat === 'absent' || x.etat === 'partiel' ? `<button class="bouton petit primaire" data-action="installer" data-sujet="${s.fichier}">Réparer</button>` : ''}</div>`;
@@ -272,7 +277,7 @@ function ongletStructure() {
       <p class="aide">Présent dans toute application. Lu en direct sur le <a href="${PAGE_DEPOT}" target="_blank" rel="noopener">dépôt Git</a> ; « Réparer » ajoute ce qui manque et range les colonnes dans l'ordre de la norme : rien n'est jamais supprimé.</p>
       ${socle}${lignesPages}
       ${ligneVersion()}
-      <p><button class="bouton primaire" data-action="pages">${manquent.length || SUJETS.some((x) => x.obligatoire && ['absent', 'partiel'].includes(etat.sujets?.[x.fichier]?.etat))
+      <p><button class="bouton primaire" data-action="pages">${manquent.length || SUJETS.some((x) => x.obligatoire && !sujetRemplace(x.fichier) && ['absent', 'partiel'].includes(etat.sujets?.[x.fichier]?.etat))
         ? '➕ Installer tout le socle et ranger le menu' : '↕️ Ranger le menu'}</button></p>
     </section>
     <section class="carte"><h2>🧩 Modules facultatifs</h2>
@@ -420,7 +425,14 @@ async function tableDesOutils(sections) {
  * Pages standard dont l'application ne veut pas : paramètre Pages_retirees (clés séparées par des virgules,
  * ex. « aide, journal »). Elles ne sont ni signalées manquantes ni recréées.
  */
-const pagesRetirees = () => new Set(String(parametres().Pages_retirees || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
+const pagesRetirees = () => {
+  const retirees = new Set(String(parametres().Pages_retirees || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
+  // registre des personnes propre à l'application (ex. OPCOM) : elle a déjà sa page, pas d'annuaire de la norme en double
+  if (!registre().norme) retirees.add('utilisateurs');
+  return retirees;
+};
+/** Le sujet du socle est-il remplacé par l'application ? (registre des personnes propre : pas de Gouv_Utilisateurs) */
+const sujetRemplace = (fichier) => fichier === 'utilisateurs' && !registre().norme;
 
 /** La page standard affichée par une adresse de widget (fichier, et module pour la console), ou undefined. */
 function pageDeLAdresse(url) {
@@ -472,7 +484,7 @@ async function creerPages(bouton, seulement = null) {
     //  - sans : tout le socle absent ou incomplet (un seul clic pose tout le socle).
     const aInstaller = seulement
       ? PAGES.filter((p) => seulement.includes(p.cle) && sujetDeLaPage(p) && (!aTable(p.table) || etat.sujets?.[sujetDeLaPage(p)]?.etat !== 'present')).map(sujetDeLaPage)
-      : SUJETS.filter((x) => x.obligatoire && ['absent', 'partiel'].includes(etat.sujets?.[x.fichier]?.etat)).map((x) => x.fichier);
+      : SUJETS.filter((x) => x.obligatoire && !sujetRemplace(x.fichier) && ['absent', 'partiel'].includes(etat.sujets?.[x.fichier]?.etat)).map((x) => x.fichier);
     for (const sujet of [...new Set(aInstaller)]) {
       await installerTablesSujet(sujet);
       await chargerStructure();
@@ -504,8 +516,16 @@ async function creerPages(bouton, seulement = null) {
     const moi = (x) => location.href.includes('module=' + (x.module || ''));
     const rattacher = aRattacher.filter((x) => outils && tables[x.id] !== outils).sort((a, b) => moi(a) - moi(b));
     if (rattacher.length) await agir(rattacher.map((x) => ['UpdateRecord', '_grist_Views_section', x.id, { tableRef: outils }]));
-    // 2. mise en forme des courriels (si elle manque encore) : elle change la structure de la table.
-    if (aTable('Gouv_Utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
+    // 2. registre propre à l'application : déclaré dans les Paramètres, pour la page d'accueil (qui ne lit pas les règles)
+    const R = registre();
+    if (!R.norme && aTable('Gouv_Parametres') && parametres().Table_utilisateurs !== R.table) {
+      const ligne = ((await lire('Gouv_Parametres')) || []).find((p) => p.Cle === 'Table_utilisateurs');
+      await agir([ligne ? ['UpdateRecord', 'Gouv_Parametres', ligne.id, { Valeur: R.table }]
+        : ['AddRecord', 'Gouv_Parametres', null, { Cle: 'Table_utilisateurs', Valeur: R.table,
+          Description: "Table des personnes de l'application (registre propre, lu par la page d'accueil)" }]]);
+    }
+    // 3. mise en forme des courriels (si elle manque encore) : elle change la structure de la table.
+    if (R.norme && aTable('Gouv_Utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
   });
 }
 

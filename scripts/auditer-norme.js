@@ -137,7 +137,7 @@
       .filter((t) => !t.tableId.startsWith('_grist') && !t.tableId.startsWith('GristHidden') && !t.summarySourceTable)
       .map((t) => t.tableId)
       .filter((t) => colonnesDe.get(t).length > 1 && colonnesDe.get(t).some((c) => !c.isFormula));
-    return { tables, colonnes, sections, vues, champs, regles, norme, colParId, colonnesDe, metier };
+    return { tables, colonnes, sections, vues, champs, regles, norme, colParId, colonnesDe, metier, personnes: registrePersonnes(regles, colonnesDe) };
   }
 
 
@@ -189,6 +189,23 @@
 
   // --- 4. Contrôles de la norme, un par principe -------------------------------------------------
 
+  /**
+   * Registre des personnes, lu dans les règles d'accès : l'attribut utilisateur qui retrouve la personne
+   * connectée par son courriel (charId « Email »). Par défaut : Gouv_Utilisateurs et user.Profil. Une
+   * application existante peut garder le sien (OPCOM : Utilisateurs, user.Permission, plusieurs rôles).
+   * Règles illisibles (personne non propriétaire) : le registre de la norme.
+   * @returns {{table: string, attribut: string, norme: boolean, declare: boolean, multi: boolean}}
+   */
+  function registrePersonnes(regles, colonnesDe) {
+    const attributs = (regles || []).map((r) => json(r.userAttributes, {})).filter((a) => a.name && a.tableId && a.charId === 'Email');
+    const a = attributs.find((x) => x.tableId === 'Gouv_Utilisateurs') || attributs.find((x) => x.name === 'Profil') || attributs[0];
+    const table = a?.tableId || 'Gouv_Utilisateurs';
+    const role = (colonnesDe.get(table) || []).find((c) => c.colId === 'Role');
+    return { table, attribut: a?.name || 'Profil', norme: table === 'Gouv_Utilisateurs', declare: !!a, multi: /^ChoiceList/.test(role?.type || '') };
+  }
+  /** Rôles d'une personne : une liste (colonne Role à choix multiples, encodée ['L', …]) ou un seul rôle. */
+  const rolesDe = (u) => { const v = u?.Role; return Array.isArray(v) ? (v[0] === 'L' ? v.slice(1) : v).filter(Boolean) : v ? [v] : []; };
+
   /** P1 — Socle : chaque table de la norme est-elle présente et complète ? */
   function socle(d) {
     const lignes = [];
@@ -196,6 +213,12 @@
       // Module facultatif non installé (aucune de ses tables propres) : ce n'est pas un écart.
       const propres = sujet.def.tables.filter((t) => !t.extension);
       if (!sujet.obligatoire && propres.every((t) => !d.colonnesDe.get(t.tableId))) continue;
+      // Personnes et entités : remplacées par le registre propre à l'application (la norme s'y adapte)
+      if (sujet.fichier === 'utilisateurs' && !d.personnes.norme) {
+        lignes.push({ principe: 'P1', objet: 'P1 Registre des personnes', etat: OK, elements: [], outil: 'maintenance',
+          detail: `Registre de l'application : table ${d.personnes.table} (attribut user.${d.personnes.attribut}${d.personnes.multi ? ', plusieurs rôles par personne' : ''}) ; Gouv_Utilisateurs et Gouv_Entites non requises` });
+        continue;
+      }
       for (const t of sujet.def.tables) {
         const cols = d.colonnesDe.get(t.tableId);
         const objet = `P1 ${t.tableId}` + (t.extension ? ' (colonnes du sujet ' + sujet.fichier + ')' : '') + (sujet.obligatoire ? '' : ' (hors socle)');
@@ -293,19 +316,21 @@
   function droits(d) {
     if (!d.regles) return [{ principe: 'P5', objet: 'P5 Droits', etat: '❔', detail: 'Règles illisibles : seul un propriétaire du document peut les contrôler', elements: [], outil: 'droits' }];
     const attributs = d.regles.filter((r) => r.userAttributes).map((r) => json(r.userAttributes, {}));
-    const profil = attributs.find((a) => a.name === 'Profil');
-    const autres = attributs.filter((a) => a.name !== 'Profil').map((a) => `user.${a.name}`);
-    const roleCol = (d.colonnesDe.get('Gouv_Utilisateurs') || []).find((c) => c.colId === 'Role' || c.colId === 'role');
+    // registre des personnes : celui de la norme (user.Profil) ou celui de l'application (ex. user.Permission)
+    const R = d.personnes, profil = R.declare;
+    const autres = attributs.filter((a) => a.name !== R.attribut).map((a) => `user.${a.name}`);
+    const roleCol = (d.colonnesDe.get(R.table) || []).find((c) => c.colId === 'Role' || c.colId === 'role');
     const roles = json(roleCol?.widgetOptions || '{}', {}).choices || [];
-    const manquants = ROLES_GENERIQUES.filter((r) => !roles.includes(r));
+    // rôles génériques exigés avec le registre de la norme ; une application qui garde le sien garde ses rôles
+    const manquants = R.norme ? ROLES_GENERIQUES.filter((r) => !roles.includes(r)) : [];
     const metier = roles.filter((r) => !ROLES_GENERIQUES.includes(r));
-    const accueilSeul = d.regles.some((r) => /not user\.Profil/.test(r.aclFormula || ''));
+    const accueilSeul = d.regles.some((r) => (r.aclFormula || '').includes('not user.' + R.attribut));
     const enErreur = d.regles.filter((r) => r.aclFormula && !r.aclFormulaParsed).length;
     const points = [!!profil, !manquants.length, accueilSeul, !enErreur];
     const detail = [
-      profil ? 'attribut user.Profil ✓' : `pas d'attribut user.Profil${autres.length ? ' (utilise ' + autres.join(', ') + ')' : ''}`,
-      manquants.length ? `rôles génériques manquants : ${manquants.join(', ')}` : 'rôles génériques ✓',
-      metier.length && `rôles métier : ${metier.join(', ')}`,
+      profil ? `attribut user.${R.attribut} (table ${R.table}) ✓` : `pas d'attribut user.${R.attribut}${autres.length ? ' (utilise ' + autres.join(', ') + ')' : ''}`,
+      !R.norme ? 'rôles de l\'application' : manquants.length ? `rôles génériques manquants : ${manquants.join(', ')}` : 'rôles génériques ✓',
+      metier.length && `rôles ${R.norme ? 'métier' : ''} : ${metier.join(', ')}`,
       accueilSeul ? 'non-inscrits limités à l\'accueil ✓' : 'pas de règle « non inscrits : accueil seulement »',
       `${d.regles.length} règles`,
       enErreur && `${enErreur} règle(s) dont la formule est invalide`,
@@ -413,16 +438,17 @@
    * @param {Function} lireTable  async (tableId) → lignes { id, … } ou null
    */
   async function personnes(d, lireTable) {
-    if (!d.colonnesDe.get('Gouv_Utilisateurs')) return [];
-    const U = (await lireTable('Gouv_Utilisateurs')) || [];
-    const page = '👥 Utilisateurs';
+    const R = d.personnes;
+    if (!d.colonnesDe.get(R.table)) return [];
+    const U = (await lireTable(R.table)) || [];
+    const page = R.norme ? '👥 Utilisateurs' : `table ${R.table}`;
     // rôle(s) qui administrent l'application : « Administrateur », ou ceux du paramètre Roles_administration
     // (ex. « BSSIOM » dans Arrivées-Départs), séparés par des virgules
     const reglage = ((await lireTable('Gouv_Parametres')) || []).find((p) => p.Cle === 'Roles_administration');
     const rolesAdmin = String(reglage?.Valeur || 'Administrateur').split(',').map((r) => r.trim()).filter(Boolean);
-    const actifs = U.filter((u) => u.Actif !== false);
-    const admins = actifs.filter((u) => rolesAdmin.includes(u.Role));
-    const sansRole = actifs.filter((u) => !u.Role).map((u) => u.Courriel || `ligne ${u.id}`);
+    const actifs = U.filter((u) => u.Actif !== false);   // pas de colonne Actif : tout le monde est actif
+    const admins = actifs.filter((u) => rolesDe(u).some((r) => rolesAdmin.includes(r)));
+    const sansRole = actifs.filter((u) => !rolesDe(u).length).map((u) => u.Courriel || `ligne ${u.id}`);
     // colonnes calculées de la norme (Courriel_valide, Doublon), ou le même calcul si elles manquent
     const cle = (c) => String(c || '').trim().toLowerCase();
     const valide = (u) => ('Courriel_valide' in u ? u.Courriel_valide : /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(cle(u.Courriel)));

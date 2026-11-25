@@ -106,7 +106,7 @@ function tablesMetier() {
 /** Tables du document couvertes par la matrice des droits (hors tables à règles métier). */
 const tablesGerees = () => etat.meta.tables.map((t) => t.tableId).filter((t) => !HORS_MATRICE.includes(t) && !tablesMetier().has(t));
 /** Vrai si la garde est posée : une personne non inscrite, inactive ou sans rôle ne voit que l'accueil. */
-const gardePresente = () => (etat.acl.regles || []).some((r) => ressource(r.resource)?.tableId === '*' && /not user\.Profil\b/.test(r.aclFormula || ''));
+const gardePresente = () => (etat.acl.regles || []).some((r) => ressource(r.resource)?.tableId === '*' && (r.aclFormula || '').includes('not ' + moi()));
 /** Vrai si une règle (du panneau ou non) réserve à chacun ses propres demandes de support. */
 const supportPrivePresent = () => (etat.acl.regles || []).some((r) => /rec\.Demandeur != user\.Email/.test(r.aclFormula || ''));
 
@@ -244,7 +244,39 @@ function telecharger(nom, contenu, type = 'text/plain') {
 const aTable = (t) => !!etat.meta.parId[t];
 const colonne = (t, c) => (etat.meta.parId[t]?.colonnes || []).find((x) => x.colId === c);
 const choix = (t, c) => json(colonne(t, c)?.widgetOptions, {}).choices || [];
-const roles = () => choix('Gouv_Utilisateurs', 'Role');
+const roles = () => choix(registre().table, 'Role');
+
+/**
+ * Registre des personnes de l'application, lu dans les règles d'accès : l'attribut utilisateur qui retrouve
+ * la personne connectée par son courriel (charId « Email »). Par défaut (document neuf, Arrivées-Départs…) :
+ * la table Gouv_Utilisateurs et l'attribut user.Profil. Une application existante garde le sien
+ * (OPCOM : table Utilisateurs, attribut user.Permission, plusieurs rôles par personne) ; la norme s'y adapte.
+ * Sans attribut déclaré : la clé Table_utilisateurs des Paramètres, sinon Gouv_Utilisateurs.
+ * @returns {{table: string, attribut: string, norme: boolean, multi: boolean, actif: boolean, declare: boolean}}
+ */
+function registre() {
+  const attributs = (etat.acl?.regles || []).map((r) => json(r.userAttributes, {})).filter((a) => a.name && a.tableId && a.charId === 'Email');
+  const a = attributs.find((x) => x.tableId === 'Gouv_Utilisateurs') || attributs.find((x) => x.name === ATTRIBUT) || attributs[0];
+  const parametre = (etat.d?.Gouv_Parametres || []).find((p) => p.Cle === 'Table_utilisateurs')?.Valeur;
+  const table = a?.tableId || (parametre && aTable(parametre) ? parametre : 'Gouv_Utilisateurs');
+  return { table, attribut: a?.name || ATTRIBUT, norme: table === 'Gouv_Utilisateurs', declare: !!a,
+    multi: /^ChoiceList/.test(colonne(table, 'Role')?.type || ''), actif: !!colonne(table, 'Actif') };
+}
+/** Rôles d'une personne du registre : une liste (colonne Role à choix multiples), ou un seul rôle. */
+const rolesDe = (u) => { const v = u?.Role; return Array.isArray(v) ? (v[0] === 'L' ? v.slice(1) : v).filter(Boolean) : v ? [v] : []; };
+/** Rôle(s) qui administrent l'application : « Administrateur », ou ceux du paramètre Roles_administration. */
+const rolesAdmin = () => String((etat.d?.Gouv_Parametres || []).find((p) => p.Cle === 'Roles_administration')?.Valeur || 'Administrateur')
+  .split(',').map((r) => r.trim()).filter(Boolean);
+/** Formules Grist sur la personne connectée, écrites pour le registre de l'application. */
+const moi = () => 'user.' + registre().attribut;
+/** La personne connectée a le rôle r (test seul, sans la condition « active »). */
+const aLeRole = (r) => (registre().multi ? `${JSON.stringify(String(r))} in ${moi()}.Role` : `${moi()}.Role == ${JSON.stringify(String(r))}`);
+/** La personne connectée a le rôle r et est active (si le registre a une colonne Actif). */
+const condRole = (r) => (registre().actif ? `${moi()}.Actif and ` : '') + aLeRole(r);
+/** La personne connectée est inscrite : présente, active (si la colonne existe) et avec un rôle. */
+const condInscrit = () => `${moi()}` + (registre().actif ? ` and ${moi()}.Actif` : '') + ` and ${moi()}.Role`;
+/** Contraire de condInscrit : absente du registre, inactive ou sans rôle. */
+const condNonInscrit = () => `not ${moi()}` + (registre().actif ? ` or not ${moi()}.Actif` : '') + ` or not ${moi()}.Role`;
 
 /**
  * Lit la structure du document dans les tables techniques de Grist et la range dans etat.meta :
@@ -275,10 +307,13 @@ async function chargerStructure() {
  * Grist ne laisse lire les règles d'accès qu'aux propriétaires.
  */
 async function chargerDonnees() {
+  // les règles d'abord : elles disent quelle table est le registre des personnes (voir registre())
+  etat.acl = { ressources: (await lire('_grist_ACLResources')) || [], regles: await lire('_grist_ACLRules') };
   const utiles = ['Gouv_Utilisateurs', 'Gouv_Entites', 'Gouv_Territoires', 'Gouv_Support', 'Gouv_Support_commentaires', 'Gouv_Journal', 'Gouv_Parametres'];
   etat.d = {};
   await Promise.all(utiles.filter(aTable).map(async (t) => { etat.d[t] = (await lire(t)) || []; }));
-  etat.acl = { ressources: (await lire('_grist_ACLResources')) || [], regles: await lire('_grist_ACLRules') };
+  const reg = registre().table;
+  if (!etat.d[reg] && aTable(reg)) etat.d[reg] = (await lire(reg)) || [];
 }
 
 /**

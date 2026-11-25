@@ -16,7 +16,8 @@
   TABLES GRIST UTILISÉES (lecture seule : ce widget n'écrit rien)
     - Gouv_Accueil       : colonne Message, texte Markdown « accès réservé »
                       calculé depuis Gouv_Parametres ;
-    - Gouv_Utilisateurs  : sert de test d'inscription (voir afficher()) ;
+    - Gouv_Utilisateurs  : sert de test d'inscription (voir afficher()) ; une application qui garde
+                           son propre registre le déclare dans Parametres (clé Table_utilisateurs) ;
     - Gouv_Documentation : pages de la rubrique « Nouveauté » ;
     - Gouv_Parametres    : Nom_application, Contact_support, Logo_DGOM.
 
@@ -121,8 +122,11 @@ const { esc, lire, parametres, entete, markdown } = window.Outils;
 async function afficher() {
   // Lecture des 4 sources en parallèle (plus rapide). Une table interdite
   // par les règles d'accès donne null, sans provoquer d'erreur.
-  const [accueil, utilisateurs, docs, p, tables] = await Promise.all([
-    lire('Gouv_Accueil'), lire('Gouv_Utilisateurs'), lire('Gouv_Documentation'), parametres(),
+  // Paramètres d'abord : ils disent quelle table recense les personnes (Gouv_Utilisateurs, ou le registre
+  // propre à l'application, clé Table_utilisateurs)
+  const p = await parametres();
+  const [accueil, utilisateurs, docs, tables] = await Promise.all([
+    lire('Gouv_Accueil'), lire(p.Table_utilisateurs || 'Gouv_Utilisateurs'), lire('Gouv_Documentation'),
     // Tables du document : le module Support (hors socle) n'est cité que s'il est installé.
     grist.docApi.listTables().catch(() => []),
   ]);
