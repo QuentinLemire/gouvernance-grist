@@ -294,8 +294,10 @@ async function creerStructure(tables) {
   const info = (c) => ({ type: c.type || 'Any', label: c.label || c.id, isFormula: !!c.isFormula, formula: c.formula || '', recalcWhen: c.recalcWhen || 0,
     widgetOptions: c.widgetOptions ? (typeof c.widgetOptions === 'string' ? c.widgetOptions : JSON.stringify(c.widgetOptions)) : '',
     untieColIdFromLabel: true });   // corriger un libellé ne doit jamais renommer la colonne
+  const nouvelles = [];
   for (const t of tables) {
     if (aTable(t.tableId)) continue;
+    nouvelles.push(t.tableId);
     await agir([['AddTable', t.tableId, t.columns.filter(simple).map((c) => ({ id: c.id, ...info(c) }))]]);
     // AddTable ignore le réglage de recalcul : on le repose (sinon ModifieLe / ModifiePar ne suivraient pas les modifications).
     const aRecalculer = t.columns.filter((c) => simple(c) && c.formula && c.recalcWhen);
@@ -312,6 +314,24 @@ async function creerStructure(tables) {
   }
   if (a.length) await agir(a);
   await rangerColonnes(tables);
+  await retirerPagesBrutes(nouvelles);
+}
+
+/**
+ * Grist crée une page pour chaque nouvelle table (« Gouv_Utilisateurs »…). Le menu de la norme ne
+ * contient que ses pages : on retire celles-là (nommées comme une table qu'on vient de créer et
+ * n'affichant qu'elle). Les données restent dans « Données source ».
+ * @param {string[]} tableIds  tables tout juste créées
+ */
+async function retirerPagesBrutes(tableIds) {
+  if (!tableIds.length) return;
+  const [vues, sections] = await Promise.all([lire('_grist_Views'), lire('_grist_Views_section')]);
+  const refs = new Map(tableIds.map((t) => [etat.meta.parId[t]?.id, t]));
+  const aRetirer = (vues || []).filter((v) => {
+    const s = (sections || []).filter((x) => x.parentId === v.id);
+    return s.length && s.every((x) => refs.get(x.tableRef) === v.name);
+  });
+  if (aRetirer.length) await agir(aRetirer.map((v) => ['RemoveView', v.id]));
 }
 
 /**
