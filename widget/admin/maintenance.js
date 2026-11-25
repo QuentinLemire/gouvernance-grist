@@ -472,18 +472,20 @@ async function creerPages(bouton, seulement = null) {
       }
       creees.push(page.nom);
     }
-    // Outils posés ailleurs (ex. la page Maintenance ajoutée à la main sur « Table1 » d'un document neuf) :
-    // rattachés à la table des outils, pour hériter du même verrou et survivre à la suppression de leur table
-    const aRattacher = (await sectionsWidgets()).filter((x) => pageDeLAdresse(x.vue.url || '')?.fichier === OUTIL.fichier);
-    const tables = Object.fromEntries(((await lire('_grist_Views_section')) || []).map((x) => [x.id, x.tableRef]));
-    const rattacher = aRattacher.filter((x) => outils && tables[x.id] !== outils);
-    if (rattacher.length) await agir(rattacher.map((x) => ['UpdateRecord', '_grist_Views_section', x.id, { tableRef: outils }]));
     await rangerMenu();
     if (creees.length) await tracer('Pages standard créées', creees.join(', '));
     message(creees.length ? '✅ Pages créées : ' + esc(creees.join(', ')) : '✅ Menu remis dans l\'ordre de la norme.');
-    // En dernier : ajouter une mise en forme change la structure de la table, ce qui recharge cette page
-    if (aTable('Gouv_Utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
     etat.pages = null; await actualiser();
+    // En dernier, car ces deux opérations peuvent recharger cette page (le reste est alors déjà fait) :
+    // 1. outils posés ailleurs (ex. la page Maintenance ajoutée à la main sur « Table1 » d'un document neuf),
+    //    rattachés à la table des outils pour hériter du même verrou ; cette page-ci en dernier ;
+    const aRattacher = (await sectionsWidgets()).filter((x) => pageDeLAdresse(x.vue.url || '')?.fichier === OUTIL.fichier);
+    const tables = Object.fromEntries(((await lire('_grist_Views_section')) || []).map((x) => [x.id, x.tableRef]));
+    const moi = (x) => location.href.includes('module=' + (x.module || ''));
+    const rattacher = aRattacher.filter((x) => outils && tables[x.id] !== outils).sort((a, b) => moi(a) - moi(b));
+    if (rattacher.length) await agir(rattacher.map((x) => ['UpdateRecord', '_grist_Views_section', x.id, { tableRef: outils }]));
+    // 2. mise en forme des courriels (si elle manque encore) : elle change la structure de la table.
+    if (aTable('Gouv_Utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
   });
 }
 
@@ -635,6 +637,8 @@ async function installerTablesSujet(fichier) {
       }
     }
     await tracer('Sujet installé', [...vus].join(', '));
+    // En dernier (elle peut recharger cette page) : courriels invalides ou en double mis en forme.
+    if (vus.has('utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
     return vus;
   }
 }
