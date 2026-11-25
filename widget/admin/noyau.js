@@ -180,7 +180,9 @@ window.Console = (() => {
       const trop = [...document.querySelectorAll('#modules *')].filter((e) => e.getBoundingClientRect().right > largeur + 2)
         .map((e) => `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}${typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/).join('.') : ''} `
           + `${Math.round(e.getBoundingClientRect().width)}px (${getComputedStyle(e).display}, min-width ${getComputedStyle(e).minWidth})`);
-      console.warn('[diag] page ' + largeur + 'px, plus large : ' + (trop.slice(0, 25).join(' | ') || 'rien'));
+      const texte = '[diag] page ' + largeur + 'px, plus large : ' + (trop.slice(0, 25).join(' | ') || 'rien');
+      console.warn(texte);
+      avis(texte, 'info');   // aussi à l'écran : la console d'un widget n'est pas toujours accessible
     }, 8000);
   }
 
