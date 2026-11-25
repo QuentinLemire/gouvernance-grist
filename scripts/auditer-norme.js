@@ -330,7 +330,7 @@
     const detail = [
       profil ? `attribut user.${R.attribut} (table ${R.table}) ✓` : `pas d'attribut user.${R.attribut}${autres.length ? ' (utilise ' + autres.join(', ') + ')' : ''}`,
       !R.norme ? 'rôles de l\'application' : manquants.length ? `rôles génériques manquants : ${manquants.join(', ')}` : 'rôles génériques ✓',
-      metier.length && `rôles ${R.norme ? 'métier' : ''} : ${metier.join(', ')}`,
+      metier.length && `${R.norme ? 'rôles métier' : 'rôles'} : ${metier.join(', ')}`,
       accueilSeul ? 'non-inscrits limités à l\'accueil ✓' : 'pas de règle « non inscrits : accueil seulement »',
       `${d.regles.length} règles`,
       enErreur && `${enErreur} règle(s) dont la formule est invalide`,
