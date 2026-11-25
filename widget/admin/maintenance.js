@@ -246,7 +246,9 @@ function ongletStructure() {
   const pagesSocle = PAGES.filter((x) => !x.facultative && !pagesRetirees().has(x.cle));
   const manquent = pagesSocle.filter((x) => !presentes.has(x.cle));
   const lignesPages = pagesSocle.map((x) => `<div class="sujet"><div><b>${esc(x.nom)}</b> <small>page</small></div>${presentes.has(x.cle) ? '<span class="badge vert">présente</span>'
-    : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>' : '<span class="badge orange">manquante</span>'}</div>`).join('');
+    // table absente : un seul bouton installe la table (son sujet du socle) puis crée la page (Quentin, 25/11/2026)
+    : x.table && !aTable(x.table) ? `<button class="bouton petit primaire" data-action="page-installer" data-valeur="${x.cle}" title="Installe la table puis crée la page">Installer</button>`
+    : '<span class="badge orange">manquante</span>'}</div>`).join('');
 
   // Modules facultatifs : une ligne par module (ses tables et, s'il en a une, sa page)
   const modules = SUJETS.filter((s) => !s.obligatoire).map((s) => {
@@ -270,7 +272,8 @@ function ongletStructure() {
       <p class="aide">Présent dans toute application. Lu en direct sur le <a href="${PAGE_DEPOT}" target="_blank" rel="noopener">dépôt Git</a> ; « Réparer » ajoute ce qui manque et range les colonnes dans l'ordre de la norme : rien n'est jamais supprimé.</p>
       ${socle}${lignesPages}
       ${ligneVersion()}
-      <p><button class="bouton primaire" data-action="pages">${manquent.length ? '➕ Créer les pages du socle et ranger le menu' : '↕️ Ranger le menu'}</button></p>
+      <p><button class="bouton primaire" data-action="pages">${manquent.length || SUJETS.some((x) => x.obligatoire && ['absent', 'partiel'].includes(etat.sujets?.[x.fichier]?.etat))
+        ? '➕ Installer tout le socle et ranger le menu' : '↕️ Ranger le menu'}</button></p>
     </section>
     <section class="carte"><h2>🧩 Modules facultatifs</h2>
       <p class="aide">À installer si l'application en a besoin : « Installer » ajoute les tables, leurs données de référence et la page du menu.</p>
@@ -374,6 +377,9 @@ async function rangerColonnes(tables) {
  *   du plus récent au plus ancien), fiche liée à droite ou non, colonnes techniques cachées de la fiche.
  */
 const OUTIL = { fichier: 'console.html', table: 'Gouv_Parametres', sousPage: true };
+// Sujet du socle qui installe la table d'une page (les pages hors socle déclarent le leur : « sujet »)
+const SUJET_DE_TABLE = { Gouv_Accueil: 'accueil_public', Gouv_Parametres: 'parametres', Gouv_Utilisateurs: 'utilisateurs' };
+const sujetDeLaPage = (p) => p.sujet || SUJET_DE_TABLE[p.table];
 const PAGES = [
   { cle: 'accueil', nom: '🏠 Accueil', table: 'Gouv_Accueil', fichier: 'accueil.html' },
   // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
@@ -432,15 +438,18 @@ function pageDeLAdresse(url) {
  * @returns {Promise<object[]>}
  */
 async function lirePages() {
-  const [pages, vues, sections] = await Promise.all([lire('_grist_Pages'), lire('_grist_Views'), lire('_grist_Views_section')]);
+  const [pages, vues, sections, tables] = await Promise.all([lire('_grist_Pages'), lire('_grist_Views'), lire('_grist_Views_section'), lire('_grist_Tables')]);
   const vue = Object.fromEntries((vues || []).map((v) => [v.id, v]));
+  const refTable = Object.fromEntries((tables || []).map((t) => [t.tableId, t.id]));
   return (pages || []).sort((a, b) => a.pagePos - b.pagePos).map((p) => {
     const urls = (sections || []).filter((s) => s.parentId === p.viewRef).map((s) => json(json(s.options, {}).customView, {}).url || '');
     const nom = vue[p.viewRef]?.name || '';
-    // page native : reconnue par son nom (émojis ignorés), à condition de ne contenir aucun widget
+    // page native : reconnue par son nom (émojis ignorés), à condition de ne contenir aucun widget et d'afficher
+    // la table de la norme (une page « Utilisateurs » propre à l'application, sur sa table à elle, reste une page métier)
     const lettres = (t) => t.replace(/[^\p{L}]/gu, '');
+    const surTable = (x) => (sections || []).some((s) => s.parentId === p.viewRef && s.tableRef === refTable[x.table]);
     const std = urls.map(pageDeLAdresse).find(Boolean)
-      || (!urls.some(Boolean) ? PAGES.find((x) => x.native && lettres(x.nom) === lettres(nom)) : undefined);
+      || (!urls.some(Boolean) ? PAGES.find((x) => x.native && lettres(x.nom) === lettres(nom) && surTable(x)) : undefined);
     return { ...p, nom, cle: std?.cle || null };
   });
 }
@@ -458,9 +467,14 @@ async function creerPages(bouton, seulement = null) {
     const creees = [];
     // Sans précision : toutes les pages du socle qui manquent. Avec « seulement » : la page hors socle demandée.
     const voulue = (x) => (seulement ? seulement.includes(x.cle) : !x.facultative && !pagesRetirees().has(x.cle));
-    // Page hors socle demandée dont la table manque : on installe d'abord son sujet (tables, dépendances, données).
-    for (const x of PAGES.filter((p) => seulement && seulement.includes(p.cle) && p.sujet && (!aTable(p.table) || etat.sujets?.[p.sujet]?.etat !== 'present'))) {
-      await installerTablesSujet(x.sujet);
+    // Tables qui manquent, installées d'abord (tables, dépendances, données de départ) :
+    //  - avec « seulement » : le sujet de la page demandée ;
+    //  - sans : tout le socle absent ou incomplet (un seul clic pose tout le socle).
+    const aInstaller = seulement
+      ? PAGES.filter((p) => seulement.includes(p.cle) && sujetDeLaPage(p) && (!aTable(p.table) || etat.sujets?.[sujetDeLaPage(p)]?.etat !== 'present')).map(sujetDeLaPage)
+      : SUJETS.filter((x) => x.obligatoire && ['absent', 'partiel'].includes(etat.sujets?.[x.fichier]?.etat)).map((x) => x.fichier);
+    for (const sujet of [...new Set(aInstaller)]) {
+      await installerTablesSujet(sujet);
       await chargerStructure();
     }
     const outils = await tableDesOutils(await sectionsWidgets());
