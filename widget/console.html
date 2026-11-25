@@ -32,7 +32,8 @@
   /* Console : menu à gauche, module ouvert à droite ; le module défile seul, le menu reste en place. */
   html, body { height: 100%; }
   body { display: flex; flex-direction: column; overflow: hidden; }
-  .console { flex: 1; display: grid; grid-template-columns: 230px 1fr; min-height: 0; }
+  /* minmax(0, 1fr) : la colonne du module ne s'élargit jamais à la taille d'un contenu trop large (long nom de table…) */
+  .console { flex: 1; display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 0; }
   #menu { background: #fff; border-right: 1px solid var(--bordure); padding: 14px 10px; overflow-y: auto; }
   #menu h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--texte-doux); margin: 16px 8px 6px; }
   #menu button { display: block; width: 100%; text-align: left; font: inherit; font-size: 15px; padding: 8px 10px;
@@ -41,11 +42,11 @@
   #menu button.actif { background: var(--bleu-clair); color: var(--bleu); border-left-color: var(--bleu); font-weight: 700; }
   #menu button.a-venir { color: #9a9a9a; }
   #modules { overflow: auto; min-width: 0; background: var(--fond); }
-  .module { min-height: 100%; }
+  .module { min-height: 100%; min-width: 0; }
   /* Une page par outil (?module=…) : pas de menu, le module occupe toute la page */
-  body.page-unique .console { grid-template-columns: 1fr; }
+  body.page-unique .console { grid-template-columns: minmax(0, 1fr); }
   body.page-unique #menu { display: none; }
-  @media (max-width: 760px) { .console { grid-template-columns: 1fr; } #menu { border-right: none; border-bottom: 1px solid var(--bordure); } }
+  @media (max-width: 760px) { .console { grid-template-columns: minmax(0, 1fr); } #menu { border-right: none; border-bottom: 1px solid var(--bordure); } }
 </style>
 </head>
 <body>

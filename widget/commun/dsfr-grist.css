@@ -152,6 +152,8 @@ main { padding: 24px; max-width: 1280px; margin: 0 auto; }
 .bouton.petit { padding: 4px 10px; font-size: 13px; }
 .bouton:disabled { opacity: .5; cursor: not-allowed; }
 input.champ, select.champ, textarea.champ {
+  /* jamais plus large que leur place : une liste prend sinon la largeur de son option la plus longue */
+  max-width: 100%; min-width: 0;
   font: inherit; color: var(--texte); background: #eeeeee;
   border: none; border-bottom: 2px solid #3a3a3a; border-radius: 4px 4px 0 0; padding: 8px 12px;
 }
@@ -306,3 +308,8 @@ input.champ:focus, select.champ:focus, textarea.champ:focus { outline: 2px solid
 .discret { color: var(--texte-doux); font-size: 13px; }
 .code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
 
+
+/* ---------- Grands documents ----------
+   Un tableau trop large (matrice des droits, longue liste de colonnes) défile dans sa carte
+   au lieu d'élargir toute la page et de couper le texte à droite. */
+.carte { min-width: 0; overflow-x: auto; }

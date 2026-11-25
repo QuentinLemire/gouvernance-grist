@@ -57,8 +57,9 @@
                 select.innerHTML = '<option value="__NEW__">➕ Créer une nouvelle table...</option>';
                 tablesCache = {};
                 tablesDuDocument = tablesData.tableId.filter(id => !id.startsWith('_grist_') && !id.startsWith('GristHidden')).sort();
-                tablesData.tableId.forEach((tableId) => {
-                    if (!tableId.startsWith('_grist_')) {
+                // tables de regroupement (créées par Grist, non modifiables ici) et tables internes : hors de la liste
+                tablesData.tableId.forEach((tableId, i) => {
+                    if (!tableId.startsWith('_grist_') && !tableId.startsWith('GristHidden') && !(tablesData.summarySourceTable[i] > 0)) {
                         const option = document.createElement('option');
                         option.value = tableId;
                         option.textContent = tableId;
