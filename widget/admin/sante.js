@@ -96,6 +96,28 @@ function tableauSorties() {
   </tbody></table>`;
 }
 
+/** Les sept principes contrôlés (norme/principes.md), dans l'ordre, avec ce qu'ils demandent en une phrase. */
+const PRINCIPES = [
+  ['P1', 'Socle de tables standard', 'Utilisateurs (ou le registre de l\'application), Paramètres et Accueil présents et complets.'],
+  ['P2', 'Traçabilité', 'Chaque table métier finit par CreeLe, CreePar, ModifieLe, ModifiePar.'],
+  ['P3', 'Nommage', 'Majuscule initiale, sans accent ni espace ; « Courriel », jamais « Email ».'],
+  ['P4', 'Ordre des colonnes', 'Ce qui identifie la ligne d\'abord, la traçabilité en dernier.'],
+  ['P5', 'Droits par rôle', 'Le rôle vient du registre des personnes ; un non-inscrit ne voit que l\'accueil.'],
+  ['P6', 'Un seul registre', 'Un même objet vit dans une seule table, avec une colonne d\'état.'],
+  ['P7', 'Widgets', 'Génériques chargés depuis le dépôt ; un seul code par widget métier.'],
+];
+
+/** Liste des sept principes avec l'état de chacun (le plus mauvais de ses points), toujours affichée. */
+function listePrincipes(L) {
+  const esc = Outils.esc;
+  return `<table class="tableau principes"><tbody>${PRINCIPES.map(([code, nom, phrase]) => {
+    const points = L.filter((l) => l.principe === code);
+    const etat = !points.length ? '❔' : points.some((l) => l.etat === Norme.ABSENT) ? Norme.ABSENT
+      : points.some((l) => l.etat !== Norme.OK) ? Norme.PARTIEL : Norme.OK;
+    return `<tr><td class="etat-principe">${etat}</td><td><b>${code} — ${esc(nom)}</b><br><span class="discret">${esc(phrase)}</span></td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
 /** Dessine la page ; « attente » : message pendant les contrôles. */
 function dessinerSante(attente) {
   const z = document.getElementById('sante-contenu');
@@ -115,9 +137,9 @@ function dessinerSante(attente) {
 
   const s = Norme.synthese(L);
   const visibles = (liste) => liste.filter((l) => !etatSante.masquerConformes || l.etat !== Norme.OK);
-  const bloc = (titre, intro, liste) => {
+  const bloc = (titre, intro, liste, avant = '') => {
     const v = visibles(liste);
-    return `<section class="carte"><h2>${titre}</h2><p class="discret">${intro}</p>
+    return `<section class="carte"><h2>${titre}</h2><p class="discret">${intro}</p>${avant}
       ${v.length ? v.map(pointSante).join('') : '<p class="vide">✅ Tout est conforme.</p>'}</section>`;
   };
   z.innerHTML = entete + `
@@ -127,7 +149,8 @@ function dessinerSante(attente) {
       <div class="tuile vert"><div class="valeur">${s.conformes}</div><div class="libelle">point(s) conforme(s)</div></div>
       <div class="tuile"><div class="valeur">${etatSante.analyses.length}</div><div class="libelle">widget(s) analysé(s)</div></div>
     </div>
-    ${bloc('📐 Norme DGOM', 'Les sept principes de la norme (norme/principes.md). Cliquez sur un point pour voir les éléments en cause.', L.filter((l) => /^P\d/.test(l.principe)))}
+    ${bloc('📐 Norme DGOM', 'Les sept principes de la norme (norme/principes.md), puis le détail : cliquez sur un point pour voir les éléments en cause.',
+      L.filter((l) => /^P\d/.test(l.principe)), listePrincipes(L))}
     ${L.some((l) => l.principe === 'Personnes') ? bloc('👥 Personnes', 'Qui administre l\'application, et si chaque personne a un rôle et un courriel correct. À corriger dans la page 👥 Utilisateurs.', L.filter((l) => l.principe === 'Personnes')) : ''}
     ${bloc('🧪 Qualité du document', 'Formules en erreur, colonnes qui ne servent nulle part, widgets. Une colonne « inutilisée » est à vérifier : elle peut être remplie par un import.', L.filter((l) => !/^P\d/.test(l.principe) && l.principe !== 'Personnes'))}
     <section class="carte"><h2>🌐 Sorties vers internet</h2>
