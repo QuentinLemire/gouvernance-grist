@@ -22,6 +22,13 @@ const MARQUE = '[Admin]';
  * elles passent avant celles du panneau, qui ne les touche pas.
  */
 const INTEGRITE = '[Intégrité]';
+/**
+ * Règles placées DEVANT celles du panneau et jamais touchées par lui : garde-fous [Intégrité], et règles
+ * métier [Priorité] qui ajoutent un droit à certaines personnes quel que soit leur rôle (ex. une
+ * « double casquette » : un chef de bureau qui fait aussi la RH).
+ */
+const PRIORITAIRES = [INTEGRITE, '[Priorité]'];
+const estPrioritaire = (r) => PRIORITAIRES.some((p) => String(r.memo || '').startsWith(p));
 
 /**
  * Nom de l'attribut utilisateur Grist. Une fois déclaré, user.Profil désigne la ligne de la
@@ -90,7 +97,7 @@ function tablesMetier() {
   for (const r of etat.acl.regles || []) {
     const res = ressource(r.resource), t = res?.tableId, memo = String(r.memo || '');
     // Les règles sur quelques colonnes (ex. Utilisateurs.Est_moi) passent avant celles de la table : elles ne gênent pas le panneau.
-    if (!t || t === '*' || res.colIds !== '*' || memo.startsWith(MARQUE) || memo.startsWith('[Gouvernance]') || memo.startsWith(INTEGRITE)) continue;
+    if (!t || t === '*' || res.colIds !== '*' || memo.startsWith(MARQUE) || memo.startsWith('[Gouvernance]') || estPrioritaire(r)) continue;
     if (!(r.aclFormula || r.permissionsText)) continue;
     m.set(t, (m.get(t) || 0) + 1);
   }

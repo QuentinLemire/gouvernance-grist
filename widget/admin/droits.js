@@ -222,9 +222,9 @@ async function appliquerDroits(bouton, retirer) {
   await occupe(bouton, async () => {
     const regles = retirer ? [] : construireRegles();
     const plan = planAcl();
-    // Les règles du panneau passent avant toutes les autres, sauf les règles [Intégrité] remises juste devant elles.
+    // Les règles du panneau passent avant toutes les autres, sauf les règles [Intégrité] et [Priorité] remises juste devant elles.
     let pos = Math.min(0, ...etat.acl.regles.map((r) => Number(r.rulePos) || 0)) - 1000;
-    if (!retirer) etat.acl.regles.filter((r) => String(r.memo || '').startsWith(INTEGRITE))
+    if (!retirer) etat.acl.regles.filter(estPrioritaire)
       .forEach((r, i) => plan.actions.push(['UpdateRecord', '_grist_ACLRules', r.id, { rulePos: pos - 500 + i }]));
     // L'attribut user.Profil n'est jamais retiré : d'autres règles (page d'accueil…) peuvent s'en servir.
     const anciennes = reglesDuPanneau().filter((r) => !json(r.userAttributes, {}).name);
