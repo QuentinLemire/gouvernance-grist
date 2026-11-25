@@ -47,6 +47,8 @@ Les pages filtrent selon l'état. Cela évite les doublons de colonnes et les co
 - Pages du **socle** : Accueil, Administration (santé du document › Utilisateurs, Rôles et droits, Explorateur, Atelier, Maintenance, Aide). La page Utilisateurs n'est pas créée quand l'application garde son registre (P1). Une page standard dont l'application ne veut pas se déclare dans **Paramètres** (clé `Pages_retirees`). Pages **hors socle** : Documentation et Support, rangées sous l'Accueil, et Journal, sous Administration, créées par leur bouton « Installer » (qui installe aussi leurs tables).
 - Les widgets **métier** peuvent rester collés dans le document (« Custom widget builder »), à une condition : **un seul code par widget**. Les variantes passent par un réglage (ex. `<body data-type="…">`), jamais par des copies modifiées ; toute correction est reportée à l'identique sur chaque page qui l'utilise.
 - Les héberger dans un dépôt reste possible, mais n'est pas exigé (le code métier n'a pas vocation à être public).
+- Les widgets de la **galerie Grist** (Markdown, Graphique, Tableau croisé dynamique, Vue groupée…), choisis dans la liste des widgets, sont admis : leur code est public et maintenu par leur auteur. Grist n'enregistre pas leur adresse, seulement leur identifiant (`widgetId`) : les outils les reconnaissent comme tels.
+- Tout autre widget chargé par adresse (hors dépôt de la norme et galerie) est **recensé** par la santé du document, pour savoir d'où vient le code. L'ancienne Boîte à outils (`balludgom.github.io/TableManager`) est remplacée par la console d'administration.
 
 ## P8 — Rien n'est supprimé
 La mise à la norme ajoute ce qui manque et range les colonnes ; elle ne supprime aucune donnée.

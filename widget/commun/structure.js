@@ -93,7 +93,9 @@ window.Structure = (() => {
    * une chaîne JSON : adresse du widget, niveau d'accès et, pour le « Custom widget builder »,
    * le code lui-même (widgetOptions._js et _html).
    * @param {Object} section  une section de Structure.lire()
-   * @returns {{url: string, acces: string, builder: boolean, js: string, html: string, colonnesLiees: Object}}
+   * Widget de la galerie Grist (Markdown, Graphique, TCD…) : Grist n'enregistre pas son adresse (url vide), seulement
+   * son identifiant (widgetId, ex. « @gristlabs/widget-markdown ») et sa fiche (widgetDef, avec l'adresse publique).
+   * @returns {{url: string, acces: string, builder: boolean, galerie: string, nomGalerie: string, js: string, html: string, colonnesLiees: Object}}
    */
   function widget(section) {
     let o = {};
@@ -102,8 +104,9 @@ window.Structure = (() => {
     if (typeof cv === 'string') { try { cv = JSON.parse(cv); } catch (e) { cv = {}; } }
     const wo = cv.widgetOptions || {};
     const builder = typeof wo._js === 'string' || /custom-widget-builder/.test(cv.url || '');
-    return { url: cv.url || '', acces: cv.access || '', builder, js: wo._js || '', html: wo._html || '',
-      colonnesLiees: cv.columnsMapping || {} };
+    const galerie = !cv.url && cv.widgetId ? cv.widgetId : '';
+    return { url: cv.url || cv.widgetDef?.url || '', acces: cv.access || '', builder, galerie, nomGalerie: galerie ? cv.widgetDef?.name || galerie : '',
+      js: wo._js || '', html: wo._html || '', colonnesLiees: cv.columnsMapping || {} };
   }
 
   // ===== 3. Téléchargement du code d'un widget chargé par adresse =====
@@ -215,7 +218,7 @@ window.Structure = (() => {
    * Analyse un widget : tables et colonnes utilisées, tables absentes, sorties vers internet.
    * @param {Object} section  une section « custom » de Structure.lire()
    * @param {Object} doc      résultat de Structure.lire()
-   * @returns {Promise<{url, builder, acces, illisible, tables, absentes, sorties, ecrit, jeton}>}
+   * @returns {Promise<{url, builder, galerie, nomGalerie, acces, illisible, tables, absentes, sorties, ecrit, jeton}>}
    */
   async function analyserWidget(section, doc) {
     const w = widget(section);
@@ -236,7 +239,7 @@ window.Structure = (() => {
     ];
     const absentes = [...new Set(citees)].filter((t) => !connues.has(t) && !t.startsWith('_grist_'));
     return {
-      url: w.url, builder: w.builder, acces: w.acces, illisible,
+      url: w.url, builder: w.builder, galerie: w.galerie, nomGalerie: w.nomGalerie, acces: w.acces, illisible,
       tables, absentes,
       // d'où vient le widget lui-même (sauf le « builder », hébergé par Grist et dont le code est dans le document)
       origine: w.url ? domaine(w.url) + (w.builder ? ' (Custom widget builder)' : '') : '',

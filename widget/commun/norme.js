@@ -325,7 +325,7 @@
    */
   function widgets(d) {
     const nomVue = new Map(d.vues.map((v) => [v.id, v.name]));
-    const colles = new Map(), urls = [];
+    const colles = new Map(), urls = [], galerie = new Map();
     for (const s of d.sections) {
       const cv = json(json(s.options || '{}', {}).customView || 'null', null);
       if (!cv) continue;
@@ -334,6 +334,14 @@
         const cle = code.length + ':' + code.slice(0, 200);
         colles.set(cle, [...(colles.get(cle) || []), nomVue.get(s.parentId) || `section ${s.id}`]);
       } else if (cv.url) urls.push(cv.url);
+      // widget de la galerie Grist (Markdown, Graphique…) : pas d'adresse enregistrée, un identifiant
+      else if (cv.widgetId) { const nom = cv.widgetDef?.name || cv.widgetId; galerie.set(nom, (galerie.get(nom) || 0) + 1); }
+    }
+    // widgets chargés depuis une autre adresse que le dépôt de la norme (ex. l'ancienne Boîte à outils) : à recenser
+    const autres = new Map();
+    for (const u of urls.filter((x) => !/gouvernance-grist/.test(x) && !/custom-widget-builder/.test(x))) {
+      const cle = u.replace(/^https?:\/\//, '').split('?')[0];
+      autres.set(cle, (autres.get(cle) || 0) + 1);
     }
     const depot = urls.filter((u) => /gouvernance-grist/.test(u));
     const copiesMultiples = [...colles.values()].filter((l) => l.length > 1);
@@ -342,10 +350,12 @@
     const detail = [
       `widgets génériques chargés depuis le dépôt : ${generiques.length ? generiques.join(', ') : 'aucun (pages standard à créer)'}`,
       nbColles && `widgets métier collés dans le document : ${nbColles} page(s), ${colles.size} code(s)`,
+      galerie.size && `widgets de la galerie Grist : ${[...galerie].map(([n, k]) => n + ' ×' + k).join(', ')}`,
+      autres.size && `chargés depuis d'autres adresses : ${[...autres].map(([u, k]) => u + ' ×' + k).join(', ')}`,
       copiesMultiples.length && `pages qui partagent un même code (à corriger ensemble) : ${copiesMultiples.map((l) => l.join(' / ')).join(' ; ')}`,
     ].filter(Boolean).join(' ; ');
     return [{ principe: 'P7', objet: 'P7 Widgets', etat: generiques.length ? OK : PARTIEL, detail,
-      elements: copiesMultiples.map((l) => l.join(' / ')), outil: 'maintenance' }];
+      elements: [...copiesMultiples.map((l) => l.join(' / ')), ...[...autres.keys()]], outil: 'maintenance' }];
   }
 
   /** Tous les contrôles de la norme (P1 à P7), sans lecture des données. */

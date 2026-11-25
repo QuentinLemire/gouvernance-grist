@@ -1607,7 +1607,9 @@ function afficherWidgets() {
 
   const fiche = a => {
     const badges = [
-      a.builder ? '<span class="kind-badge builder">🧱 Builder</span>' : '<span class="kind-badge url">🔗 Adresse</span>',
+      a.builder ? '<span class="kind-badge builder">🧱 Builder</span>'
+        : a.galerie ? '<span class="kind-badge url" title="Widget public de la galerie Grist, choisi dans la liste des widgets : son code est maintenu par son auteur">📦 Galerie Grist</span>'
+        : '<span class="kind-badge url">🔗 Adresse</span>',
       a.ecrit ? '<span class="kind-badge ecrit" title="Le widget modifie des données (applyUserActions…)">✏️ écrit</span>' : '<span class="kind-badge">👁 lecture</span>',
       a.jeton ? '<span class="kind-badge jeton" title="Le widget obtient un jeton d\'accès à l\'API du document (getAccessToken), ' + (a.jeton === 'lecture' ? 'en lecture seule' : 'qui permet d\'écrire') + '">🔑 jeton ' + (a.jeton === 'lecture' ? 'lecture' : 'écriture') + '</span>' : '',
       a.acces ? '<span class="kind-badge">accès : ' + escapeHtml(a.acces) + '</span>' : '',
@@ -1624,8 +1626,10 @@ function afficherWidgets() {
       s.adresses.map(x => '<li><span class="discret">' + escapeHtml(GENRES[x.genre] || x.genre) + '</span> <span class="code">' + escapeHtml(x.url) + '</span></li>').join('') +
       '</ul></details>').join('') : '<div class="discret">Aucune sortie vers internet.</div>';
     return '<div class="card fiche-widget"><h3>' + escapeHtml(a.section.titre || '(sans titre)') + ' ' + badges + '</h3>' +
-      '<div class="discret">Page : ' + escapeHtml(a.page) + (a.origine ? ' · chargé depuis <span class="code">' + escapeHtml(a.origine) + '</span>' : '') + '</div>' +
-      (a.illisible ? '<div class="status error" style="margin-top:8px;">Code illisible : le site qui héberge ce widget refuse qu\'on le télécharge, ou ne répond pas.</div>' : '') +
+      '<div class="discret">Page : ' + escapeHtml(a.page) + (a.galerie ? ' · widget de la galerie : <b>' + escapeHtml(a.nomGalerie) + '</b> <span class="code">' + escapeHtml(a.galerie) + '</span>' : '')
+        + (a.origine ? ' · chargé depuis <span class="code">' + escapeHtml(a.origine) + '</span>' : '') + '</div>' +
+      // illisible : pas d'adresse, ou un site qui refuse le téléchargement (hors galerie : son adresse est connue)
+      (a.illisible ? '<div class="status error" style="margin-top:8px;">Code illisible : ' + (a.url ? 'le site <span class="code">' + escapeHtml(a.origine || a.url) + '</span> refuse qu\'on le télécharge, ou ne répond pas.' : 'aucune adresse enregistrée pour ce widget.') + '</div>' : '') +
       '<div class="colonnes-fiche"><div><div class="section-label">Tables et colonnes utilisées</div>' + tables + absentes + '</div>' +
       '<div><div class="section-label">Sorties vers internet</div>' + sorties + '</div></div></div>';
   };
