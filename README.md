@@ -98,9 +98,10 @@ puis **« Enregistrer une copie »** dans l'espace voulu. La copie contient déj
 **À partir d'un document vierge** (ou d'une application existante) :
 1. ajouter une page → **Personnalisée** → **URL personnalisée** :
    `https://quentinlemire.github.io/gouvernance-grist/widget/console.html?module=maintenance`, accès **« Accès complet au document »** ;
-2. dans cette page Maintenance : **« Installer »** sur chaque sujet du socle (Utilisateurs & entités, Paramètres, Page d'accueil publique),
-   puis **« Créer les pages du socle et ranger le menu »** : les outils sont créés, rangés, et la page Maintenance se rattache d'elle-même à
-   la table des outils (la table « Table1 » d'un document neuf peut ensuite être supprimée) ;
+2. dans cette page Maintenance : **« Installer tout le socle et ranger le menu »** : les tables du socle (Utilisateurs & entités,
+   Paramètres, Page d'accueil publique) puis les pages sont créées, le menu est rangé, et la page Maintenance se rattache d'elle-même à
+   la table des outils (la table « Table1 » créée avec la page peut ensuite être supprimée). Chaque page manquante a aussi son
+   bouton « Installer » (sa table, puis la page) ;
 3. **« Mettre les pages à la dernière version »**, puis les étapes 1 à 5 ci-dessus. Les modules facultatifs (Support, Documentation, Journal,
    Territoires) s'installent depuis la même page.
 
