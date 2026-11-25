@@ -53,7 +53,9 @@ const ADRESSE_WIDGET = new RegExp(`(?:/${GITHUB.proprietaire}/${GITHUB.depot}/([
 const SUJETS = Norme.SUJETS;
 
 /** Données de référence livrées avec certains sujets (dossier donnees/ du dépôt), chargées à l'installation si la table est vide. */
-const DONNEES = { referentiel_territoires: 'territoires.json', documentation: 'documentation.json' };   // documentation : une page modèle « à modifier »
+// parametres et accueil_public : valeurs de départ d'un document neuf (nom, contact, message « accès réservé »)
+// documentation : une page modèle « à modifier »
+const DONNEES = { parametres: 'parametres.json', accueil_public: 'accueil.json', referentiel_territoires: 'territoires.json', documentation: 'documentation.json' };
 
 /**
  * Niveaux de droit proposés dans la matrice, et leur traduction en permissions Grist.

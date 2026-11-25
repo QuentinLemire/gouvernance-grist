@@ -452,6 +452,12 @@ async function creerPages(bouton, seulement = null) {
       }
       creees.push(page.nom);
     }
+    // Outils posés ailleurs (ex. la page Maintenance ajoutée à la main sur « Table1 » d'un document neuf) :
+    // rattachés à la table des outils, pour hériter du même verrou et survivre à la suppression de leur table
+    const aRattacher = (await sectionsWidgets()).filter((x) => pageDeLAdresse(x.vue.url || '')?.fichier === OUTIL.fichier);
+    const tables = Object.fromEntries(((await lire('_grist_Views_section')) || []).map((x) => [x.id, x.tableRef]));
+    const rattacher = aRattacher.filter((x) => outils && tables[x.id] !== outils);
+    if (rattacher.length) await agir(rattacher.map((x) => ['UpdateRecord', '_grist_Views_section', x.id, { tableRef: outils }]));
     await rangerMenu();
     if (creees.length) await tracer('Pages standard créées', creees.join(', '));
     message(creees.length ? '✅ Pages créées : ' + esc(creees.join(', ')) : '✅ Menu remis dans l\'ordre de la norme.');

@@ -85,11 +85,25 @@ le déclare dans **Parametres**, clé `Roles_administration` (plusieurs rôles s
 
 ## Créer ou mettre à la norme une application
 
-- **Nouvelle application** : ouvrir le Grist « Modèle DGOM » (document de type *Modèle* : il s'ouvre en bac à sable) puis « Enregistrer une copie ».
-- **Application existante** : poser la page Maintenance (`console.html?module=maintenance`) : « Installer » sur chaque table standard manquante
-  ou incomplète, puis « Créer les pages standard » (Accueil, Administration et ses outils) qui range aussi le menu.
-- **Par script** : console du navigateur (F12) sur le document, coller `scripts/installer-gouvernance.js` puis
-  `await installerGouvernance(['utilisateurs', 'parametres', 'accueil_public', 'support', 'journal', 'documentation'])`.
+**Nouvelle application, le plus simple** : ouvrir le Grist **« 🧩 Modèle DGOM »** (document de type *Modèle* : il s'ouvre en bac à sable),
+puis **« Enregistrer une copie »** dans l'espace voulu. La copie contient déjà le socle, les pages et les règles d'accès de base. Ensuite :
+1. 🧱 **Maintenance › Paramètres** : nom de l'application, contact, logo ;
+2. 👥 **Utilisateurs** : s'inscrire avec le rôle Administrateur (et les autres personnes) ;
+3. 🔐 **Rôles et droits** : « Proposition standard », ajuster, « Appliquer ces droits » ; puis partager le document dans Grist (colonne *Accès Grist*) ;
+4. 🏗️ **Atelier** : créer les tables métier (noms, types, traçabilité selon la norme) ;
+5. 🛡️ **Administration** : la santé du document doit être au vert.
+
+**À partir d'un document vierge** (ou d'une application existante) :
+1. ajouter une page → **Personnalisée** → **URL personnalisée** :
+   `https://quentinlemire.github.io/gouvernance-grist/widget/console.html?module=maintenance`, accès **« Accès complet au document »** ;
+2. dans cette page Maintenance : **« Installer »** sur chaque sujet du socle (Utilisateurs & entités, Paramètres, Page d'accueil publique),
+   puis **« Créer les pages du socle et ranger le menu »** : les outils sont créés, rangés, et la page Maintenance se rattache d'elle-même à
+   la table des outils (la table « Table1 » d'un document neuf peut ensuite être supprimée) ;
+3. **« Mettre les pages à la dernière version »**, puis les étapes 1 à 5 ci-dessus. Les modules facultatifs (Support, Documentation, Journal,
+   Territoires) s'installent depuis la même page.
+
+**Pour cacher les outils à certains rôles** (comme dans Arrivées-Départs) : poser le widget de la page Administration sur une table-verrou
+lisible des seuls administrateurs ; les outils créés ensuite s'y rattachent et en héritent.
 
 ## Auditer une application
 

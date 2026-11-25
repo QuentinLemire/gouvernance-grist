@@ -1,0 +1,35 @@
+{
+  "tableId": "Gouv_Parametres",
+  "records": [
+    {
+      "Cle": "Nom_application",
+      "Valeur": "Nouvelle application",
+      "Description": "Nom de l'application, affiché en haut des pages"
+    },
+    {
+      "Cle": "Direction",
+      "Valeur": "DGOM",
+      "Description": "Direction propriétaire"
+    },
+    {
+      "Cle": "Contact_support",
+      "Valeur": "applications@outre-mer.gouv.fr",
+      "Description": "Courriel de contact affiché sur la page d'accueil et pour le support"
+    },
+    {
+      "Cle": "Logo_DGOM",
+      "Valeur": "",
+      "Description": "Adresse (URL) d'une image du logo DGOM, affichée en haut des pages (facultatif)"
+    },
+    {
+      "Cle": "Roles_administration",
+      "Valeur": "Administrateur",
+      "Description": "Rôle(s) qui administrent l'application (séparés par des virgules), contrôlés par la santé du document"
+    },
+    {
+      "Cle": "Source_norme",
+      "Valeur": "non",
+      "Description": "oui : ce document est la source de la norme (seul le Grist Gouvernance)"
+    }
+  ]
+}
