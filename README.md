@@ -83,8 +83,6 @@ Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une imag
 Le rôle qui administre l'application (contrôlé par la santé du document) est « Administrateur » ; une application qui en a un autre
 le déclare dans **Parametres**, clé `Roles_administration` (plusieurs rôles séparés par des virgules ; ex. « BSSIOM » dans Arrivées-Départs).
 
-Une page standard dont l'application ne veut pas (ex. l'Aide) se déclare dans **Parametres**, clé `Pages_retirees` (ex. « aide ») :
-la Maintenance ne la signale plus manquante et ne la recrée pas.
 ## Créer ou mettre à la norme une application
 
 **Nouvelle application, le plus simple** : ouvrir le Grist **« 🧩 Modèle DGOM »** (document de type *Modèle* : il s'ouvre en bac à sable),

@@ -174,3 +174,7 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 ## Registre des personnes propre à une application (2026-11-25)
 **Décision** : une application existante qui a déjà sa table des personnes la **garde** (OPCOM : `Utilisateurs`, 226 personnes, plusieurs rôles par personne, 240 règles sur `user.Permission`). La norme s'y adapte : le registre est détecté dans les règles d'accès (attribut utilisateur par courriel) ; matrice des droits, garde, santé, simulation et page d'accueil l'utilisent ; plusieurs rôles par personne sont pris en charge (`"r" in user.X.Role`). `Gouv_Utilisateurs`, `Gouv_Entites` et la page 👥 Utilisateurs ne sont alors pas exigées.
 **Raison** : migrer 226 personnes et réécrire 240 règles en production pour seulement changer de table ferait courir un risque sans bénéfice ; un seul registre reste un seul registre (P6).
+
+## Plus de paramètre « Pages_retirees » (2026-11-25)
+**Décision** : le paramètre `Pages_retirees` est supprimé : toutes les pages du socle (dont ❓ Aide) sont présentes dans chaque application. Seule exception, automatique : l'annuaire 👥 Utilisateurs n'est pas créé quand l'application garde son propre registre des personnes.
+**Raison** : une page du socle retirée au cas par cas rend les applications différentes les unes des autres ; l'Aide sert à tous ceux qui administrent.

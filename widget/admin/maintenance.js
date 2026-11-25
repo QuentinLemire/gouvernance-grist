@@ -422,15 +422,11 @@ async function tableDesOutils(sections) {
 }
 
 /**
- * Pages standard dont l'application ne veut pas : paramètre Pages_retirees (clés séparées par des virgules,
- * ex. « aide, journal »). Elles ne sont ni signalées manquantes ni recréées.
+ * Pages du socle que la norme ne demande pas dans ce document. Toutes les pages du socle sont exigées
+ * (le paramètre Pages_retirees a été supprimé le 25/11/2026), sauf l'annuaire 👥 Utilisateurs quand
+ * l'application garde son propre registre des personnes (ex. OPCOM) : elle a déjà sa page, pas de doublon.
  */
-const pagesRetirees = () => {
-  const retirees = new Set(String(parametres().Pages_retirees || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
-  // registre des personnes propre à l'application (ex. OPCOM) : elle a déjà sa page, pas d'annuaire de la norme en double
-  if (!registre().norme) retirees.add('utilisateurs');
-  return retirees;
-};
+const pagesRetirees = () => new Set(registre().norme ? [] : ['utilisateurs']);
 /** Le sujet du socle est-il remplacé par l'application ? (registre des personnes propre : pas de Gouv_Utilisateurs) */
 const sujetRemplace = (fichier) => fichier === 'utilisateurs' && !registre().norme;
 
