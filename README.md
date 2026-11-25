@@ -64,7 +64,7 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | 🔍 Explorateur | `explorateur` | Schéma des tables (MLD), pages ↔ données, widgets (tables lues, sorties internet) |
 | 🏗️ Atelier | `atelier` | Créer et modifier tables et colonnes selon la norme |
 | 🆘 Support | `support` | Traiter les demandes (si le module Support est installé) |
-| 🧱 Maintenance | `maintenance` | Sujets de la norme, pages standard, version des pages, sauvegardes et copie du document, paramètres, publication de la norme |
+| 🧱 Maintenance | `maintenance` | Sujets de la norme, pages standard, version des pages, paramètres, publication de la norme |
 | ❓ Aide | `aide` | Mode d'emploi |
 
 La page **👥 Utilisateurs** (annuaire et fiche) et, si le journal est installé, **📒 Journal** (le plus récent en haut) ne sont pas des outils

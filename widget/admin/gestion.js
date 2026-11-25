@@ -321,7 +321,7 @@ function allerA(onglet) { Console.ouvrir(MODULE_DE[onglet] || onglet); }
 const MODULE_DE_L_ACTION = {
   standard: 'droits', 'appliquer-droits': 'droits', 'retirer-droits': 'droits', garde: 'droits',
   repondre: 'support', 'repondre-clore': 'support', clore: 'support', rouvrir: 'support',
-  installer: 'maintenance', 'telecharger-copie': 'maintenance', publier: 'maintenance', versions: 'maintenance', pages: 'maintenance', 'page-installer': 'maintenance', module: 'maintenance',
+  installer: 'maintenance', publier: 'maintenance', versions: 'maintenance', pages: 'maintenance', 'page-installer': 'maintenance', module: 'maintenance',
 };
 
 /**
@@ -395,7 +395,6 @@ document.addEventListener('click', async (e) => {
     case 'installer': return installerSujet(b, b.dataset.sujet);
     case 'publier': return publierNorme(b);
     case 'versions': return mettreAJourPages(b);
-    case 'telecharger-copie': return telechargerCopie(b);
     case 'pages': return creerPages(b);
     case 'page-installer': return creerPages(b, [b.dataset.valeur]);
     case 'module': return installerModule(b, b.dataset.sujet);
