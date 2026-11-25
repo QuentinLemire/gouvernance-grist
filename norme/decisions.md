@@ -178,3 +178,8 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 ## Plus de paramètre « Pages_retirees » (2026-11-25)
 **Décision** : le paramètre `Pages_retirees` est supprimé : toutes les pages du socle (dont ❓ Aide) sont présentes dans chaque application. Seule exception, automatique : l'annuaire 👥 Utilisateurs n'est pas créé quand l'application garde son propre registre des personnes.
 **Raison** : une page du socle retirée au cas par cas rend les applications différentes les unes des autres ; l'Aide sert à tous ceux qui administrent.
+
+## Règles d'accès orphelines retirées automatiquement (2026-11-25)
+**Constat** : dans OPCOM, « Ne leur montrer que l'accueil » échouait avec « Invalid tables in rules ». Deux règles visaient des tables qui n'existent plus (`Tests`, et une table de synthèse regroupée autrement). Grist refuse alors **tout** changement de règles d'accès, quel qu'il soit.
+**Décision** : avant chaque enregistrement de règles, la norme retire les règles dont la table n'existe plus, et le note au journal. Le panneau 🔐 Rôles et droits les signale à l'avance.
+**Raison** : ces règles ne protègent plus rien, et elles bloquent toute la gestion des droits.

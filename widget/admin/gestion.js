@@ -298,8 +298,18 @@ async function chargerStructure() {
     tables: visibles.sort((a, b) => a.tableId.localeCompare(b.tableId)),
     parId: Object.fromEntries(visibles.map((t) => [t.tableId, t])),
     colonnesParId: Object.fromEntries(colonnes.map((c) => [c.id, c])),
+    // toutes les tables, y compris les tables de synthèse (pour repérer les règles d'accès orphelines)
+    tousIds: new Set(tables.map((t) => t.tableId).filter(Boolean)),
   };
 }
+
+/**
+ * Ressources des règles d'accès dont la table n'existe plus (table supprimée ou synthèse regroupée
+ * autrement). Grist refuse TOUT changement de règles tant qu'il en reste (« Invalid tables in rules ») :
+ * ces règles ne protègent plus rien, la norme les retire avant d'écrire (vu sur OPCOM, 25/11/2026).
+ */
+const ressourcesOrphelines = () => (etat.acl.ressources || [])
+  .filter((r) => r.tableId && !r.tableId.startsWith('*') && !etat.meta.tousIds?.has(r.tableId));
 
 /**
  * Charge dans etat.d les tables utiles au panneau (celles qui existent), et dans etat.acl

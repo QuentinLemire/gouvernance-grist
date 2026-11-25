@@ -127,6 +127,7 @@ function ongletDroits() {
       <p class="aide">Pour chaque table, choisissez ce que chaque rôle peut faire. Le rôle vient de la table Utilisateurs (via le courriel de connexion). Une personne <b>inactive</b> n'a aucun rôle. Les <b>propriétaires</b> gardent toujours tous les droits.</p>
       ${metier.size ? `<div class="encadre">⚙️ ${metier.size} table(s) ont des <b>règles métier</b> (${nbMetier} règles : droits selon l'entité, le bureau, l'étape…). Le panneau ne les modifie pas ; elles se gèrent dans <i>Permissions avancées</i>.</div>` : ''}
       ${m.proposees ? `<div class="encadre">✏️ ${m.proposees} case(s) n'avaient pas de droit écrit : la proposition standard y est mise. Vérifiez, puis « Appliquer ces droits ».</div>` : ''}
+      ${ressourcesOrphelines().length ? `<div class="encadre">🧹 Règles d'accès sur des tables qui n'existent plus : ${ressourcesOrphelines().map((r) => '<code>' + esc(r.tableId) + '</code>').join(', ')}. Grist refuse tout changement de règles tant qu'elles sont là : elles seront retirées au prochain enregistrement des droits (elles ne protègent plus rien).</div>` : ''}
       ${!garde ? `<div class="encadre alerte">⚠️ Les personnes non inscrites ne sont pas bloquées. <button class="bouton petit" data-action="garde">Ne leur montrer que l'accueil</button></div>` : ''}
       <div class="barre-outils">
         <button class="bouton petit" data-action="standard">✨ Proposition standard</button>
@@ -266,6 +267,15 @@ function planAcl() {
     regle(t, c, champs) { regles.push({ resource: ressource(t, c || '*'), userAttributes: '', ...champs }); },
     async envoyer() {
       const tout = [];
+      // d'abord les règles orphelines (table supprimée) : sans ça, Grist refuse tout l'envoi
+      const orphelines = ressourcesOrphelines();
+      if (orphelines.length) {
+        const ids = new Set(orphelines.map((r) => r.id));
+        const reglesOrphelines = (etat.acl.regles || []).filter((r) => ids.has(r.resource)).map((r) => r.id);
+        if (reglesOrphelines.length) tout.push(['BulkRemoveRecord', '_grist_ACLRules', reglesOrphelines]);
+        tout.push(['BulkRemoveRecord', '_grist_ACLResources', [...ids]]);
+        await tracer('Règles orphelines retirées', orphelines.map((r) => r.tableId).join(', ') + ' (tables qui n\'existent plus)');
+      }
       if (nouvelles.length) tout.push(['BulkAddRecord', '_grist_ACLResources', nouvelles.map((r) => r.id), { tableId: nouvelles.map((r) => r.tableId), colIds: nouvelles.map((r) => r.colIds) }]);
       tout.push(...actions);
       if (regles.length) {
