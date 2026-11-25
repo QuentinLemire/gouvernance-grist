@@ -182,7 +182,7 @@ window.Console = (() => {
           + `${Math.round(e.getBoundingClientRect().width)}px (${getComputedStyle(e).display}, min-width ${getComputedStyle(e).minWidth})`);
       const texte = '[diag] page ' + largeur + 'px, plus large : ' + (trop.slice(0, 25).join(' | ') || 'rien');
       console.warn(texte);
-      avis(texte, 'info');   // aussi à l'écran : la console d'un widget n'est pas toujours accessible
+      avis(texte, 'erreur');   // aussi à l'écran (reste affiché) : la console d'un widget n'est pas toujours accessible
     }, 8000);
   }
 
