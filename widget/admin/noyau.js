@@ -172,5 +172,17 @@ window.Console = (() => {
   dessinerMenu();
   ouvrir(demande || location.hash.slice(1));
 
+  // Diagnostic de mise en page (adresse avec &diag=1) : signale dans la console du navigateur les éléments
+  // plus larges que la page, pour corriger un contenu coupé à droite. Sans effet sinon.
+  if (new URLSearchParams(location.search).get('diag')) {
+    setTimeout(() => {
+      const largeur = document.documentElement.clientWidth;
+      const trop = [...document.querySelectorAll('#modules *')].filter((e) => e.getBoundingClientRect().right > largeur + 2)
+        .map((e) => `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}${typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/).join('.') : ''} `
+          + `${Math.round(e.getBoundingClientRect().width)}px (${getComputedStyle(e).display}, min-width ${getComputedStyle(e).minWidth})`);
+      console.warn('[diag] page ' + largeur + 'px, plus large : ' + (trop.slice(0, 25).join(' | ') || 'rien'));
+    }, 8000);
+  }
+
   return { zone, ouvrir, charger, quandAffiche, ecrire, modules: MODULES };
 })();
