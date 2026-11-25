@@ -76,7 +76,7 @@ const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) 
 /**
  * Tables jamais gérées par la matrice, qui ont leurs propres règles [Gouvernance] :
  * la page d'accueil, lisible par tous, et la documentation, lisible par les inscrits et
- * modifiable par les seuls propriétaires du document (voir reglesDocumentation).
+ * modifiable par les seuls propriétaires du document (voir planDocumentation).
  */
 const HORS_MATRICE = ['Gouv_Accueil', 'Gouv_Documentation'];
 /**
