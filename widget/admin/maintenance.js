@@ -243,7 +243,7 @@ function ongletStructure() {
     return `<div class="sujet"><div><b>${esc(s.nom)}</b><br><small>${x.def ? esc(x.def.description || '') : ''}${details}</small></div>
       ${aPublier(ajouts)} ${etatSocle[x.etat]} ${x.etat === 'absent' || x.etat === 'partiel' ? `<button class="bouton petit primaire" data-action="installer" data-sujet="${s.fichier}">Réparer</button>` : ''}</div>`;
   }).join('');
-  const pagesSocle = PAGES.filter((x) => !x.facultative);
+  const pagesSocle = PAGES.filter((x) => !x.facultative && !pagesRetirees().has(x.cle));
   const manquent = pagesSocle.filter((x) => !presentes.has(x.cle));
   const lignesPages = pagesSocle.map((x) => `<div class="sujet"><div><b>${esc(x.nom)}</b> <small>page</small></div>${presentes.has(x.cle) ? '<span class="badge vert">présente</span>'
     : x.table && !aTable(x.table) ? '<span class="badge">table à installer d\'abord</span>' : '<span class="badge orange">manquante</span>'}</div>`).join('');
@@ -410,6 +410,12 @@ async function tableDesOutils(sections) {
   return etat.meta.parId.Gouv_Parametres?.id;
 }
 
+/**
+ * Pages standard dont l'application ne veut pas : paramètre Pages_retirees (clés séparées par des virgules,
+ * ex. « aide, journal »). Elles ne sont ni signalées manquantes ni recréées.
+ */
+const pagesRetirees = () => new Set(String(parametres().Pages_retirees || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
+
 /** La page standard affichée par une adresse de widget (fichier, et module pour la console), ou undefined. */
 function pageDeLAdresse(url) {
   let u;
@@ -451,7 +457,7 @@ async function creerPages(bouton, seulement = null) {
     const tableRef = (t) => etat.meta.parId[t]?.id;
     const creees = [];
     // Sans précision : toutes les pages du socle qui manquent. Avec « seulement » : la page hors socle demandée.
-    const voulue = (x) => (seulement ? seulement.includes(x.cle) : !x.facultative);
+    const voulue = (x) => (seulement ? seulement.includes(x.cle) : !x.facultative && !pagesRetirees().has(x.cle));
     // Page hors socle demandée dont la table manque : on installe d'abord son sujet (tables, dépendances, données).
     for (const x of PAGES.filter((p) => seulement && seulement.includes(p.cle) && p.sujet && (!aTable(p.table) || etat.sujets?.[p.sujet]?.etat !== 'present'))) {
       await installerTablesSujet(x.sujet);
