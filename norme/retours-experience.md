@@ -93,3 +93,8 @@ Les pièges rencontrés sur grist.numerique.gouv.fr, et la façon de les éviter
 - Le mode « Voir en tant que » s'ouvre par l'adresse du document suivie de `?aclAsUser_=<courriel>` (propriétaires seulement).
 - Ajouter une mise en forme conditionnelle (`AddEmptyRule`) change la structure de la table : le widget qui l'a demandée est
   **rechargé** et ce qu'il devait faire ensuite n'est jamais exécuté. La placer en dernier.
+- **Chaque changement de règles d'accès recharge le document**, donc le widget qui l'a demandé : tout envoyer en un seul lot
+  (ressources avec identifiants choisis d'avance + règles). Idem pour le changement de table d'un widget (le sien) et `AddEmptyRule`.
+- `AddTable` crée aussi une page dans le menu : la retirer si elle n'est pas voulue.
+- Un document de type *Modèle* s'ouvre en bac à sable, même pour son propriétaire : pour le modifier, le repasser en document
+  normal (`PATCH /api/docs/<id>` `{"type": null}`), puis le remettre en modèle (`{"type": "template"}`).

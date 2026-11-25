@@ -4,6 +4,16 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-25 — Modèle DGOM reconstruit ; créer une application sans dupliquer Gouvernance
+**Fait** : le Grist « 🧩 Modèle DGOM » (même lien) a été vidé puis remonté avec la procédure « document vierge » : page Maintenance,
+« Installer » des trois sujets du socle, « Créer les pages du socle », droits standard appliqués (25 règles, garde comprise).
+Ses tables avaient les anciens noms et ses pages pointaient vers des fichiers supprimés. Sauvegarde de l'ancien modèle : 10/11/2026.
+**Principe** : on ne duplique jamais Gouvernance (source de la norme, avec ses propres données). La norme vient du dépôt
+(publiée depuis Gouvernance) ; une application la reçoit soit par copie du Modèle, soit par la page Maintenance sur un document vierge.
+**Corrections faites en route** (un document neuf les révélait) : valeurs de départ des Paramètres et de l'Accueil (`donnees/`) ;
+pages brutes que Grist crée pour chaque nouvelle table retirées du menu ; opérations qui rechargent la page (règles d'accès,
+mise en forme, changement de table d'un widget) faites en un seul envoi ou en dernier ; matrice des droits sans case « héritée ».
+
 ### 2026-11-24 — Arrivées-Départs passe aux outils d'administration
 **Fait** : page 🧱 Maintenance ajoutée, puis « Mettre les pages à la dernière version » : Administration → santé du document,
 Boîte à outils → Explorateur, Rôles et droits, Atelier et Aide créés ; colonne `Acces_Grist` ajoutée (« Réparer »).
