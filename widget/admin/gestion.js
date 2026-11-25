@@ -312,7 +312,7 @@ function allerA(onglet) { Console.ouvrir(MODULE_DE[onglet] || onglet); }
 
 /** Module qui porte chaque action des boutons (data-action), chargé au besoin avant de l'exécuter. */
 const MODULE_DE_L_ACTION = {
-  standard: 'droits', vider: 'droits', 'appliquer-droits': 'droits', 'retirer-droits': 'droits', garde: 'droits',
+  standard: 'droits', 'appliquer-droits': 'droits', 'retirer-droits': 'droits', garde: 'droits',
   repondre: 'support', 'repondre-clore': 'support', clore: 'support', rouvrir: 'support',
   installer: 'maintenance', 'telecharger-copie': 'maintenance', publier: 'maintenance', versions: 'maintenance', pages: 'maintenance', 'page-installer': 'maintenance', module: 'maintenance',
 };
@@ -378,7 +378,6 @@ document.addEventListener('click', async (e) => {
   switch (b.dataset.action) {
     case 'actualiser': etat.sujets = null; return actualiser();
     case 'standard': etat.droits = matriceStandard(); return afficher();
-    case 'vider': etat.droits = { niveaux: {}, bloquerAutres: false, supportPrive: false }; return afficher();
     case 'appliquer-droits': return appliquerDroits(b, false);
     case 'retirer-droits': return appliquerDroits(b, true);
     case 'garde': return poserGarde(b);

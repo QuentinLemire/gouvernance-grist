@@ -7,8 +7,9 @@
 
 /**
  * Reconstitue la matrice à partir des règles « [Admin] » déjà écrites dans le document,
- * pour que l'onglet Droits montre l'état réel des droits.
- * @returns {{niveaux: object, bloquerAutres: boolean, supportPrive: boolean}}
+ * pour que l'onglet Droits montre l'état réel des droits. Pas de case « héritée » : une case sans
+ * règle écrite reçoit le droit de la proposition standard (comptée dans « proposees », à appliquer).
+ * @returns {{niveaux: object, bloquerAutres: boolean, supportPrive: boolean, proposees: number}}
  *          niveaux[table][rôle] = code de niveau (voir NIVEAUX)
  */
 function lireMatrice() {
@@ -20,6 +21,13 @@ function lireMatrice() {
     const role = /user\.Profil\.Role == "((?:[^"\\]|\\.)*)"/.exec(r.aclFormula || '');
     if (role && !/rec\./.test(r.aclFormula)) (m.niveaux[t] = m.niveaux[t] || {})[JSON.parse('"' + role[1] + '"')] = NIVEAU_DE_PERM[r.permissionsText] || '';
     if ((r.aclFormula || '').trim().startsWith('user.Access != OWNER')) m.bloquerAutres = true;
+  }
+  const standard = matriceStandard().niveaux;
+  m.proposees = 0;
+  for (const t of tablesGerees()) for (const r of roles()) {
+    if ((m.niveaux[t] || {})[r]) continue;
+    (m.niveaux[t] = m.niveaux[t] || {})[r] = standard[t]?.[r] || 'lire';
+    m.proposees++;
   }
   return m;
 }
@@ -119,10 +127,10 @@ function ongletDroits() {
       <h2>🔐 Qui peut faire quoi ?</h2>
       <p class="aide">Pour chaque table, choisissez ce que chaque rôle peut faire. Le rôle vient de la table Utilisateurs (via le courriel de connexion). Une personne <b>inactive</b> n'a aucun rôle. Les <b>propriétaires</b> gardent toujours tous les droits.</p>
       ${metier.size ? `<div class="encadre">⚙️ ${metier.size} table(s) ont des <b>règles métier</b> (${nbMetier} règles : droits selon l'entité, le bureau, l'étape…). Le panneau ne les modifie pas ; elles se gèrent dans <i>Permissions avancées</i>.</div>` : ''}
+      ${m.proposees ? `<div class="encadre">✏️ ${m.proposees} case(s) n'avaient pas de droit écrit : la proposition standard y est mise. Vérifiez, puis « Appliquer ces droits ».</div>` : ''}
       ${!garde ? `<div class="encadre alerte">⚠️ Les personnes non inscrites ne sont pas bloquées. <button class="bouton petit" data-action="garde">Ne leur montrer que l'accueil</button></div>` : ''}
       <div class="barre-outils">
         <button class="bouton petit" data-action="standard">✨ Proposition standard</button>
-        <button class="bouton petit" data-action="vider">Tout effacer</button>
         <label><input type="checkbox" id="bloquer-autres" ${m.bloquerAutres ? 'checked' : ''}> Bloquer toute personne sans rôle reconnu</label>
         ${aTable('Gouv_Support') ? `<label title="Seuls les ${ROLE_SUPPORT}s voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
       </div>
@@ -131,7 +139,7 @@ function ongletDroits() {
         ${etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => metier.has(t.tableId)
           ? `<tr class="metier"><td class="table">${esc(t.tableId)}</td><td colspan="${roles().length}" title="${metier.get(t.tableId)} règle(s) propres à l'application, dans Permissions avancées">⚙️ règles métier (${metier.get(t.tableId)})</td></tr>`
           : `<tr><td class="table">${esc(t.tableId)}</td>
-          ${roles().map((r) => `<td><select class="champ" data-mat-table="${esc(t.tableId)}" data-mat-role="${esc(r)}">${NIVEAUX.map((n) => `<option value="${n.code}" ${(m.niveaux[t.tableId] || {})[r] === n.code || (!(m.niveaux[t.tableId] || {})[r] && !n.code) ? 'selected' : ''}>${n.libelle}</option>`).join('')}</select></td>`).join('')}
+          ${roles().map((r) => `<td><select class="champ" data-mat-table="${esc(t.tableId)}" data-mat-role="${esc(r)}">${NIVEAUX.filter((n) => n.code).map((n) => `<option value="${n.code}" ${(m.niveaux[t.tableId] || {})[r] === n.code || (!(m.niveaux[t.tableId] || {})[r] && !n.code) ? 'selected' : ''}>${n.libelle}</option>`).join('')}</select></td>`).join('')}
         </tr>`).join('')}
       </table></div>
     </section>
