@@ -41,7 +41,9 @@
   #menu button:hover { background: var(--fond); }
   #menu button.actif { background: var(--bleu-clair); color: var(--bleu); border-left-color: var(--bleu); font-weight: 700; }
   #menu button.a-venir { color: #9a9a9a; }
-  #modules { overflow: auto; min-width: 0; background: var(--fond); }
+  /* #modules est une balise <main> : on annule le « margin: 0 auto » commun à toutes les <main>, qui, dans une grille,
+     empêche la zone de s'étirer et lui fait prendre la largeur de son contenu (texte coupé à droite) */
+  #modules { overflow: auto; min-width: 0; background: var(--fond); margin: 0; max-width: none; padding: 0; }
   .module { min-height: 100%; min-width: 0; }
   /* Une page par outil (?module=…) : pas de menu, le module occupe toute la page */
   body.page-unique .console { grid-template-columns: minmax(0, 1fr); }
