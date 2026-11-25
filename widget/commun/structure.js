@@ -130,6 +130,9 @@ window.Structure = (() => {
    */
   async function codeComplet(w) {
     if (w.builder) return { code: w.html + '\n' + w.js, base: '', illisible: false };
+    // galerie Grist : code public maintenu par son auteur, pas analysé (ses bibliothèques citent des adresses
+    // qu'OPCOM n'appelle pas forcément : ce serait du bruit). Ses colonnes viennent des « colonnes liées ».
+    if (w.galerie) return { code: '', base: '', illisible: false };
     if (!w.url) return { code: '', base: '', illisible: true };
     const html = await telecharger(w.url);
     if (html === null) return { code: '', base: w.url, illisible: true };
