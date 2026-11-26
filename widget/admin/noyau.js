@@ -10,7 +10,6 @@
  *      sans menu ; la page ne charge que le socle et ce module ;
  *    - la console complète (console.html sans module) : un menu à gauche, chaque module chargé
  *      la première fois qu'on l'ouvre.
- *  Un lien d'un outil vers un autre (« Corriger → ») ouvre l'autre module sur place.
  *  Ce noyau :
  *    - déclare la liste des modules et dessine le menu ;
  *    - charge un module à la demande (son affichage admin/<cle>.html, puis son code admin/<cle>.js) ;

@@ -22,14 +22,14 @@
 
   <h2 class="section">Les outils</h2>
   <div class="outils">
-    <div class="outil"><h3>🛡️ Administration : santé du document</h3><p>La page d'entrée. Conformité à la norme DGOM, personnes (administrateurs, rôles, courriels), formules en erreur, colonnes inutilisées, sorties vers internet. Chaque point a son lien pour corriger.</p><button class="bouton petit" data-aide-outil="sante">Ouvrir →</button></div>
+    <div class="outil"><h3>🛡️ Administration : santé du document</h3><p>La page d'entrée. Conformité à la norme DGOM, personnes (administrateurs, rôles, courriels), formules en erreur, colonnes inutilisées, sorties vers internet. Chaque point a son lien pour corriger.</p></div>
     <div class="outil"><h3>👥 Utilisateurs</h3><p>Une page Grist classique (pas un outil) : l'annuaire et la fiche de la personne choisie. Courriel en rouge s'il est mal formé, en orange s'il est en double.</p></div>
-    <div class="outil"><h3>🔐 Rôles et droits</h3><p>Ce que chaque rôle peut faire, table par table. « Voir en tant que » pour vérifier.</p><button class="bouton petit" data-aide-outil="droits">Ouvrir →</button></div>
-    <div class="outil"><h3>🔍 Explorateur</h3><p>Le schéma des tables (MLD), les pages et leurs données, et ce que fait chaque widget (tables lues, appels vers internet).</p><button class="bouton petit" data-aide-outil="explorateur">Ouvrir →</button></div>
-    <div class="outil"><h3>🏗️ Atelier</h3><p>Créer ou modifier une table et ses colonnes selon la norme : noms, types, traçabilité. Aperçu avant d'appliquer.</p><button class="bouton petit" data-aide-outil="atelier">Ouvrir →</button></div>
+    <div class="outil"><h3>🔐 Rôles et droits</h3><p>Ce que chaque rôle peut faire, table par table. « Voir en tant que » pour vérifier.</p></div>
+    <div class="outil"><h3>🔍 Explorateur</h3><p>Le schéma des tables (MLD), les pages et leurs données, et ce que fait chaque widget (tables lues, appels vers internet).</p></div>
+    <div class="outil"><h3>🏗️ Atelier</h3><p>Créer ou modifier une table et ses colonnes selon la norme : noms, types, traçabilité. Aperçu avant d'appliquer.</p></div>
     <div class="outil"><h3>📒 Journal <small>(module facultatif)</small></h3><p>Une page Grist classique : tout ce que les outils ont modifié, le plus récent en haut. À installer depuis la Maintenance si l'application a besoin d'un audit.</p></div>
-    <div class="outil"><h3>🧱 Maintenance</h3><p>Tables et pages standard, version des pages, paramètres (nom, contact, logo).</p><button class="bouton petit" data-aide-outil="maintenance">Ouvrir →</button></div>
-    <div class="outil"><h3>🆘 Support</h3><p>Répondre aux demandes, les clore ou les rouvrir. Présent si le module Support est installé (Maintenance).</p><button class="bouton petit" data-aide-outil="support">Ouvrir →</button></div>
+    <div class="outil"><h3>🧱 Maintenance</h3><p>Tables et pages standard, version des pages, paramètres (nom, contact, logo).</p></div>
+    <div class="outil"><h3>🆘 Support</h3><p>Répondre aux demandes, les clore ou les rouvrir. Présent si le module Support est installé (Maintenance).</p></div>
   </div>
 
   <h2 class="section">Tâches courantes</h2>
@@ -51,47 +51,47 @@
       Pour ajouter un rôle : modifier la liste de choix de la colonne Rôle.</li>
     <li><b>Rôles et droits</b> › « ✨ Proposition standard », ajuster table par table, relire l'aperçu, puis « Appliquer ces droits ».</li>
     <li>« Voir en tant que » : choisir une personne, puis « Ouvrir le document en tant que cette personne ↗ » pour vérifier en vrai.</li>
-  </ol><button class="bouton petit" data-aide-outil="droits">Ouvrir Rôles et droits →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Créer ou modifier une table</summary><ol>
     <li><b>Atelier</b> : choisir la table (ou « Créer une nouvelle table »), puis les colonnes : libellé, type, formule.</li>
     <li>Garder la traçabilité (Créé le / par, Modifié le / par) : elle se place d'elle-même en fin de table.</li>
     <li>« Appliquer les modifications » montre d'abord un aperçu de ce qui va changer ; rien n'est écrit avant de confirmer.</li>
-  </ol><button class="bouton petit" data-aide-outil="atelier">Ouvrir l'Atelier →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Vérifier que l'application respecte la norme</summary><ol>
     <li>Page <b>🛡️ Administration</b> (santé du document) : les points rouges sont à corriger, les orange à améliorer.</li>
-    <li>Cliquer sur un point pour voir les tables ou colonnes en cause, puis « Corriger → » pour aller à l'outil qui le règle.</li>
+    <li>Cliquer sur un point pour voir les tables ou colonnes en cause, puis corriger dans l'outil qui convient (Atelier, Rôles et droits, Maintenance…).</li>
     <li>« 📋 Copier le rapport » donne le tableau à coller dans le dossier de la norme (norme/applications/).</li>
-  </ol><button class="bouton petit" data-aide-outil="sante">Ouvrir la santé du document →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Comprendre un document qu'on ne connaît pas</summary><ol>
     <li><b>Explorateur</b> › Diagramme : les tables et leurs liens. Survoler une table met ses liens en valeur.</li>
     <li>Onglet « Pages ↔ Données » : quelle page affiche quelle table.</li>
     <li>Onglet « Widgets » : pour chaque widget, les tables et colonnes qu'il lit, et les sites internet qu'il appelle.</li>
-  </ol><button class="bouton petit" data-aide-outil="explorateur">Ouvrir l'Explorateur →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Avant une grosse modification : sauvegarder</summary><ol>
     <li><b>Maintenance</b> › Sauvegardes : vérifier qu'il y a une version récente (Grist en garde automatiquement).</li>
     <li>« 📥 Télécharger une copie (.grist) » pour garder le document complet sur son poste.</li>
     <li>Pour revenir en arrière : ouvrir la version voulue (« Ouvrir ↗ »), ou <i>Historique du document</i> dans Grist.</li>
-  </ol><button class="bouton petit" data-aide-outil="maintenance">Ouvrir la Maintenance →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Mettre à jour les pages ou installer un module</summary><ol>
     <li><b>Maintenance</b> › « Mettre les pages à la dernière version » quand la Version des pages n'est plus « à jour ».</li>
     <li>« Installer » (Support, Documentation, Territoires) ajoute les tables, leurs données de référence et la page.</li>
     <li>« Créer les pages standard » remet les pages qui manquent ; « Ranger le menu » remet l'ordre de la norme.</li>
-  </ol><button class="bouton petit" data-aide-outil="maintenance">Ouvrir la Maintenance →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Traiter une demande de support</summary><ol>
     <li><b>Support</b> : les demandes qui attendent une réponse remontent en tête (point rouge).</li>
     <li>Écrire la réponse puis « Envoyer », ou « Envoyer et clore » si c'est réglé ; « Rouvrir » si le problème revient.</li>
-  </ol><button class="bouton petit" data-aide-outil="support">Ouvrir le Support →</button></details>
+  </ol></details>
 
   <details class="tache"><summary>Changer le nom, le contact ou le logo</summary><ol>
     <li><b>Maintenance</b> › Paramètres de l'application : <i>Nom_application</i>, <i>Contact_support</i>, <i>Logo_DGOM</i> (adresse d'une image).</li>
     <li>La page d'accueil et les en-têtes se mettent à jour d'eux-mêmes.</li>
-  </ol><button class="bouton petit" data-aide-outil="maintenance">Ouvrir la Maintenance →</button></details>
+  </ol></details>
 
   <h2 class="section">Bon à savoir</h2>
   <section class="carte"><ul style="margin:0;padding-left:20px">

@@ -7,7 +7,7 @@
  *   - les formules en erreur ;
  *   - les colonnes qui ne servent nulle part ;
  *   - les widgets : tables introuvables, appels vers internet, jetons d'accès.
- * Chaque écart a son bouton « Corriger → » vers l'outil qui le règle.
+ * Chaque écart est décrit (et ses éléments en cause listés) : la santé montre ce qui cloche, elle ne corrige pas.
  * Les règles elles-mêmes sont dans commun/norme.js (partagées avec scripts/auditer-norme.js).
  */
 
@@ -54,14 +54,11 @@ async function controlerSante() {
   dessinerSante();
 }
 
-/** Une ligne de contrôle : état, intitulé, détail, éléments en cause et bouton « Corriger → ». */
+/** Une ligne de contrôle : état, intitulé, détail et éléments en cause (pas de bouton : on montre ce qui cloche). */
 function pointSante(l) {
   const esc = Outils.esc;
   const ok = l.etat === Norme.OK;
-  const titreOutil = (Console.modules.find((m) => m.cle === l.outil) || {}).titre || '';
-  const bouton = !ok && l.outil && titreOutil
-    ? `<button class="bouton petit" data-sante-outil="${esc(l.outil)}" title="Ouvrir ${esc(titreOutil)}">Corriger →</button>`
-    : !ok && l.page ? `<span class="discret" title="Page Grist du menu de gauche">page ${esc(l.page)}</span>` : '';
+  const bouton = !ok && l.page ? `<span class="discret" title="Page Grist du menu de gauche">page ${esc(l.page)}</span>` : '';
   const elements = (l.elements || []).length && !ok
     ? `<div class="elements puces">${l.elements.map((e) => `<span class="puce">${esc(e)}</span>`).join('')}</div>` : '';
   return `<details class="point ${elements ? '' : 'sans-detail'}">
@@ -160,8 +157,6 @@ function dessinerSante(attente) {
 
 // Boutons et case à cocher du module
 document.getElementById('module-sante').addEventListener('click', async (e) => {
-  const outil = e.target.closest('[data-sante-outil]');
-  if (outil) { e.preventDefault(); return Console.ouvrir(outil.dataset.santeOutil); }
   const b = e.target.closest('[data-sante-action]');
   if (!b) return;
   if (b.dataset.santeAction === 'relancer') return controlerSante();

@@ -28,7 +28,7 @@ function aTraiter(t) {
  * @returns {string} HTML de l'onglet
  */
 function ongletSupport() {
-  if (!aTable('Gouv_Support')) return `<div class="encadre alerte">Pas de table Support. <button class="bouton petit" data-onglet-aller="structure">Installer →</button></div>`;
+  if (!aTable('Gouv_Support')) return `<div class="encadre alerte">Pas de table Support : à installer dans 🧱 Maintenance (module Support).</div>`;
   const f = etat.filtres.support;
   const T = (etat.d.Gouv_Support || []).filter((t) => f === 'tous' || (f === 'ouverts') === ticketOuvert(t))
     .sort((a, b) => aTraiter(b) - aTraiter(a) || (b.Dernier_retour || b.CreeLe || 0) - (a.Dernier_retour || a.CreeLe || 0));
@@ -68,7 +68,7 @@ function ficheTicket(t) {
       ${ouvert ? `<button class="bouton petit primaire" data-action="clore" data-id="${t.id}">✅ Clore la demande</button>`
                : `<button class="bouton petit" data-action="rouvrir" data-id="${t.id}">↩️ Rouvrir</button>`}</header>
     <div class="meta">${esc(t.Demandeur || t.CreePar || '')} · ${dateFr(t.CreeLe)}${t.Categorie ? ' · ' + esc(t.Categorie) : ''}${t.Url_page ? ` · <a href="${esc(t.Url_page)}" target="_blank" rel="noopener">page concernée ↗</a>` : ''}</div>
-    ${avecFil ? Outils.conversation(t, echanges(t.id), 'support') : `<div class="encadre alerte">Installez la version 1.2 du sujet Support pour converser. <button class="bouton petit" data-onglet-aller="structure">Structure →</button></div>`}
+    ${avecFil ? Outils.conversation(t, echanges(t.id), 'support') : `<div class="encadre alerte">Installez la version 1.2 du sujet Support pour converser (🧱 Maintenance).</div>`}
     ${avecFil ? `<div class="repondre">
       <textarea class="champ" id="rep-${t.id}" placeholder="${ouvert ? 'Votre réponse… (Ctrl+Entrée pour envoyer)' : 'Écrire rouvrira la demande…'}"></textarea>
       <div style="display:flex;flex-direction:column;gap:6px">
