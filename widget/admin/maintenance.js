@@ -138,9 +138,35 @@ const remplacante = (fichier) => PAGES.find((x) => (x.anciens || []).includes(fi
  * l'ancien panneau devient la Santé du document et la Boîte à outils l'Explorateur (même page, même place).
  * @param {HTMLElement} bouton
  */
+/**
+ * Actions qui rattachent des sections de widget à une autre table, en retirant leurs champs : un champ
+ * désigne une colonne de l'ANCIENNE table ; gardé, il pointe sur rien dès que cette table est supprimée,
+ * et Grist affiche « Unexpected error » à chaque chargement (vu dans Gouvernance le 26/11/2026, après le
+ * départ de Gouv_Journal). Un widget en accès complet n'a pas besoin de ces champs.
+ * @param {number[]} ids  sections à rattacher
+ * @param {number} tableRef  nouvelle table
+ */
+async function actionsRattacher(ids, tableRef) {
+  const champs = ((await lire('_grist_Views_section_field')) || []).filter((f) => ids.includes(f.parentId)).map((f) => f.id);
+  return [...(champs.length ? [['BulkRemoveRecord', '_grist_Views_section_field', champs]] : []),
+    ...ids.map((id) => ['UpdateRecord', '_grist_Views_section', id, { tableRef }])];
+}
+
+/** Retire les champs de section qui désignent une colonne disparue (cause des « Unexpected error » de Grist). */
+async function retirerChampsOrphelins() {
+  const [champs, colonnes] = await Promise.all([lire('_grist_Views_section_field'), lire('_grist_Tables_column')]);
+  const existe = new Set((colonnes || []).map((c) => c.id));
+  const orphelins = (champs || []).filter((f) => !existe.has(f.colRef)).map((f) => f.id);
+  if (orphelins.length) {
+    await agir([['BulkRemoveRecord', '_grist_Views_section_field', orphelins]]);
+    await tracer('Champs orphelins retirés', orphelins.length + ' champ(s) de page sur des colonnes supprimées');
+  }
+}
+
 async function mettreAJourPages(bouton) {
   await occupe(bouton, async () => {
     const version = await derniereVersion();
+    await retirerChampsOrphelins();
     let sections = await sectionsWidgets();
     const anciennes = sections.filter((s) => remplacante(s.fichier));
     if (anciennes.length) {
@@ -158,6 +184,9 @@ async function mettreAJourPages(bouton) {
       + [...new Set(aFaire.map((s) => s.fichier + (remplacante(s.fichier) ? ' → ' + cible(s).module : '')))].join(', '));
     // En dernier : cette page-ci se recharge aussitôt sa propre adresse changée.
     const moi = (s) => location.href.includes('/widget/' + s.fichier);
+    // sections qui changent de table : leurs champs (colonnes de l'ancienne table) partent d'abord
+    const changent = aFaire.filter((s) => table(s).tableRef).map((s) => s.id);
+    if (changent.length) await agir((await actionsRattacher(changent, outils)).filter((a) => a[0] === 'BulkRemoveRecord'));
     await agir([...aFaire.filter((s) => !moi(s)), ...aFaire.filter(moi)].map((s) => ['UpdateRecord', '_grist_Views_section', s.id, { ...table(s), options: JSON.stringify({ ...s.options,
       customView: JSON.stringify({ ...s.vue, url: URL_WIDGET(version, cible(s).fichier, cible(s).module) }) }) }]));
     message('✅ ' + aFaire.length + ' page(s) mises à la version ' + version.slice(0, 7) + '.');
@@ -502,6 +531,7 @@ async function creerPages(bouton, seulement = null) {
       }
       creees.push(page.nom);
     }
+    await retirerChampsOrphelins();
     await rangerMenu();
     if (creees.length) await tracer('Pages standard créées', creees.join(', '));
     message(creees.length ? '✅ Pages créées : ' + esc(creees.join(', ')) : '✅ Menu remis dans l\'ordre de la norme.');
@@ -513,7 +543,7 @@ async function creerPages(bouton, seulement = null) {
     const tables = Object.fromEntries(((await lire('_grist_Views_section')) || []).map((x) => [x.id, x.tableRef]));
     const moi = (x) => location.href.includes('module=' + (x.module || ''));
     const rattacher = aRattacher.filter((x) => outils && tables[x.id] !== outils).sort((a, b) => moi(a) - moi(b));
-    if (rattacher.length) await agir(rattacher.map((x) => ['UpdateRecord', '_grist_Views_section', x.id, { tableRef: outils }]));
+    if (rattacher.length) await agir(await actionsRattacher(rattacher.map((x) => x.id), outils));
     // 2. registre propre à l'application : déclaré dans les Paramètres, pour la page d'accueil (qui ne lit pas les règles)
     const R = registre();
     if (!R.norme && aTable('Gouv_Parametres') && parametres().Table_utilisateurs !== R.table) {
