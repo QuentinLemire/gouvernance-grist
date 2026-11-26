@@ -176,7 +176,9 @@
     const l = n.ligne, fond = n.couleur || '#e3e3fd', vue = document.getElementById('vue').value;
     const inactifs = document.getElementById('inactifs').checked;
     const actifs = n.personnes.filter((p) => p.Actif !== false);
-    const montrees = (inactifs ? n.personnes : actifs).filter((p) => vue === 'detaillee' || (vue === 'responsables' && rang(p) < 2));
+    // selon la vue ; une personne trouvée par la recherche est toujours montrée
+    const montrees = (inactifs ? n.personnes : actifs).filter((p) => vue === 'detaillee' || (vue === 'responsables' && rang(p) < 2)
+      || (recherche && String(p.Nom || '').toLowerCase().includes(recherche)));
     const trouvee = recherche && (String(l.Nom || '').toLowerCase().includes(recherche) || n.personnes.some((p) => String(p.Nom || '').toLowerCase().includes(recherche)));
     const triangle = n.enfants.length ? `<button class="replier" data-replier="${l.id}" title="${replies.has(l.id) ? 'Déplier' : 'Replier'}">${replies.has(l.id) ? '▸' : '▾'}</button>` : '';
     const personne = (p) => `<li class="${['chef', 'adjoint', ''][rang(p)]}${p.Actif === false ? ' inactif' : ''}${recherche && String(p.Nom || '').toLowerCase().includes(recherche) ? ' trouve' : ''}"` +
