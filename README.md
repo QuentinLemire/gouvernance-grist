@@ -111,7 +111,7 @@ lisible des seuls administrateurs ; les outils créés ensuite s'y rattachent et
 
 Le dossier [`synchro/`](synchro/README.md) contient un workflow n8n qui remplit chaque matin la table Gouv_Utilisateurs des
 applications à partir de l'annuaire d'Arrivées-Départs : nouveaux agents ajoutés sans rôle, noms et entités tenus à jour,
-agents partis désactivés. Elle ne touche qu'aux fiches qu'elle a créées (case « Ajouté par le maître » de Gouv_Utilisateurs) ;
+fiches des agents partis supprimées. Elle ne touche qu'aux fiches qu'elle a créées (case « Ajouté par le maître » de Gouv_Utilisateurs) ;
 le rôle reste toujours géré dans l'application.
 
 ## Auditer une application
