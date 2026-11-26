@@ -419,13 +419,14 @@ const PAGES = [
   // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
   { cle: 'documentation', nom: '📖 Documentation', table: 'Gouv_Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
   { cle: 'support', nom: '🆘 Support', table: 'Gouv_Support', fichier: 'support.html', facultative: true, sujet: 'support' },
-  { cle: 'organigramme', nom: '🏢 Organigramme', table: 'Gouv_Entites', fichier: 'organigramme.html', facultative: true, sujet: 'bureaux_dgom' },
   // Administration : la Santé du document, puis un outil par page en dessous
   { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'sante', sousPage: false, anciens: ['administration.html'] },
   // Utilisateurs et Journal : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
   { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: {
     titre: 'Annuaire', colonnes: ['Nom', 'Courriel', 'Entite', 'Role', 'Actif', 'Acces_Grist'], tri: 'Nom', fiche: true,
     cachees: ['Courriel_cle', 'Courriel_valide', 'Doublon'] } },
+  // sous l'annuaire : qui est dans quel bureau, d'un coup d'œil (demande de Quentin, 26/11/2026)
+  { cle: 'organigramme', nom: '🏢 Organigramme', table: 'Gouv_Entites', fichier: 'organigramme.html', sousPage: true, facultative: true, sujet: 'bureaux_dgom' },
   { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
@@ -620,7 +621,7 @@ async function rangerMenu() {
   const ordre = [
     // Accueil en tête, avec Documentation et Support rangées dessous (pages d'aide et de contact).
     ...de('accueil').map((p) => [p, 0]),
-    ...['documentation', 'support', 'organigramme'].flatMap(de).map((p) => [p, 1]),
+    ...['documentation', 'support'].flatMap(de).map((p) => [p, 1]),
     ...metier.map((p) => [p, p.indentation]),
     ...de('administration').map((p) => [p, 0]),
     // les outils d'administration, puis les pages métier déjà rangées sous Administration

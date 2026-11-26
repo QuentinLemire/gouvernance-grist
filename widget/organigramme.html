@@ -19,7 +19,7 @@
   TROIS VUES
     - Entités seules : les noms des entités et leur effectif ;
     - Responsables   : en plus, le chef et l'adjoint de chaque entité ;
-    - Détaillée      : toutes les personnes.
+    - Détaillée      : toutes les personnes (vue par défaut : qui est dans quel bureau).
   Un clic sur le triangle d'une case replie ce qui en dépend ; la recherche met en avant les entités
   ou les personnes trouvées.
 
@@ -121,7 +121,7 @@
   // Réglage propre à chaque personne, gardé dans son navigateur (sans conséquence s'il est indisponible)
   const memoire = { lire: (k, d) => { try { return localStorage.getItem('organigramme.' + k) || d; } catch (e) { return d; } },
     ecrire: (k, v) => { try { localStorage.setItem('organigramme.' + k, v); } catch (e) { /* navigateur sans stockage */ } } };
-  document.getElementById('vue').value = memoire.lire('vue', 'responsables');
+  document.getElementById('vue').value = memoire.lire('vue', 'detaillee');
 
   /** Une table entière en lignes { colonne: valeur } (références = numéro de la ligne visée) ; [] si elle n'existe pas. */
   async function lireTable(table) {

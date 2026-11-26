@@ -193,3 +193,7 @@ Les lignes techniques de la source (« Tous », « · », « Direction ») et le
 **Constat** : Gouvernance affichait « Unexpected error » (lastIndexOf / startsWith) à chaque chargement. 19 champs des pages d'outils (Administration, Rôles et droits, Maintenance, Aide) désignaient les colonnes de `Gouv_Journal`. Les outils avaient été rattachés à cette table, puis remis sur `Gouv_Parametres` quand le journal est sorti du socle ; leurs champs avaient été gardés, et ils ne pointaient plus sur rien une fois la table supprimée. Même cas dans la copie DEV d'OPCOM (3 champs).
 **Décision** : quand la Maintenance change la table d'une section, elle retire d'abord ses champs (un widget en accès complet n'en a pas besoin). « Installer / Ranger le menu » et « Mettre les pages à la dernière version » retirent aussi tout champ qui désigne une colonne disparue, et le notent au journal.
 **Raison** : un champ orphelin ne sert à rien et fait planter l'affichage de Grist ; on le corrige à la source et on répare l'existant sans rien demander.
+
+## Organigramme rangé sous 👥 Utilisateurs, dans Administration (2026-11-26)
+**Décision** : la page 🏢 Organigramme est placée en retrait sous 👥 Utilisateurs (et non plus sous l'Accueil) et s'ouvre sur la vue détaillée.
+**Raison** : elle sert d'abord à voir, d'un coup d'œil, quelles personnes sont dans quel bureau ; c'est le complément de l'annuaire.
