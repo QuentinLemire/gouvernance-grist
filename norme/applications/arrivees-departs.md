@@ -111,3 +111,10 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
 ## Rôles métier propres à l'application
 - **Chef de bureau / Adjoint au chef de bureau** : signent les fiches des agents de leurs bureaux.
 - **BSSIOM** : coche l'ouverture de chaque application après la signature de l'arrivée, et la fermeture des comptes au départ.
+
+## Annuaire du personnel présent, exporté par n8n (2026-11-26)
+- **Table** : `Personnel_summary_Annuaire` (« Personnel [Annuaire] », page 📇 Annuaire). Calculée par Grist : une ligne par agent présent, rien à saisir. Clé de regroupement : `Personnel.Annuaire` = courriel en minuscules si l'agent est présent, vide sinon.
+- **Colonnes exportées** (texte, pour pouvoir sortir du document) : Courriel (clé de mise à jour), Nom, Prenom, Entite, Sous_direction, Bureau (code), Bureau_libelle, Fonction (poste), Encadrement (Chef de bureau / Adjoint au chef de bureau / vide = agent), Telephone, Piece.
+- **Jamais exportées** : RIO, grade, statut, dates de fin de contrat et de départ, situation, matériel, accès informatiques, observations, signatures.
+- **Droits** : lisible par toute personne inscrite et active ; les comptes de service (`…@serviceaccounts.invalid`, n8n) ne lisent que cette table (sans la colonne technique `group`), rien d'autre du document.
+- **Pour n8n** : lire `GET /api/docs/<doc>/tables/Personnel_summary_Annuaire/records`, faire correspondre par Courriel ; un agent absent de la table est parti : le désactiver dans les autres Grist, ne pas le supprimer.
