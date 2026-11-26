@@ -242,6 +242,7 @@ async function appliquerDroits(bouton, retirer) {
     if (!retirer && etat.droits.bloquerAutres && !gardePresente()) planGarde(plan);
     if (!retirer) planDocumentation(plan);
     if (!retirer && aTable('Gouv_Administration') && !verrouAdminPresent()) REGLES_VERROU_ADMIN.forEach((r) => plan.regle('Gouv_Administration', '*', r));
+    if (!retirer && aTable('Gouv_Annuaire') && !annuairePresent()) reglesAnnuaire().forEach((r) => plan.regle('Gouv_Annuaire', '*', r));
     await tracer(retirer ? 'Droits retirés' : 'Droits appliqués', retirer ? anciennes.length + ' règle(s) retirée(s)' : regles.length + ' règle(s) sur ' + new Set(regles.map((r) => r.table)).size + ' table(s)');
     message(retirer ? '✅ Règles du panneau retirées.' : '✅ ' + regles.length + ' règles appliquées.');
     // En un seul envoi : changer les règles recharge le document, et donc cette page

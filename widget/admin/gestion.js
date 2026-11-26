@@ -87,7 +87,7 @@ const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) 
  * la page d'accueil, lisible par tous, et la documentation, lisible par les inscrits et
  * modifiable par les seuls propriétaires du document (voir planDocumentation).
  */
-const HORS_MATRICE = ['Gouv_Accueil', 'Gouv_Documentation', 'Gouv_Administration'];
+const HORS_MATRICE = ['Gouv_Accueil', 'Gouv_Documentation', 'Gouv_Administration', 'Gouv_Annuaire'];
 /**
  * Tables qui ont des règles propres à l'application (ni [Admin] ni [Gouvernance]), par exemple les fiches
  * d'Arrivées-Départs (droits par entité, bureau, étape). Le panneau ne les modifie pas : ses règles passent
@@ -119,16 +119,40 @@ const REGLES_VERROU_ADMIN = [
 ];
 const verrouAdminPresent = () => (etat.acl.regles || []).some((r) => String(r.memo || '').startsWith('[Gouvernance] Administration'));
 
-/** Pose le verrou de l'administration s'il manque (un seul envoi : changer les règles recharge la page). */
+/**
+ * Annuaire (module facultatif, décision du 26/11/2026) : écrit par le seul compte de service (n8n), lu par les
+ * personnes inscrites ; rien pour les autres. Les propriétaires passent par les règles générales. Conditions qui
+ * s'excluent : l'ordre des règles ne compte pas. Pas de méthode (.endswith) dans une règle : « in » sur le texte.
+ */
+const COMPTE_DE_SERVICE = '"@serviceaccounts.invalid" in user.Email';
+const reglesAnnuaire = () => [
+  { aclFormula: COMPTE_DE_SERVICE, permissionsText: '+CRUD', rulePos: 9, memo: "[Gouvernance] Annuaire : écrit par le compte de service (synchronisation n8n)" },
+  { aclFormula: `user.Access != OWNER and not (${COMPTE_DE_SERVICE}) and (${condInscrit()})`, permissionsText: '+R-CUD', rulePos: 10, memo: "[Gouvernance] Annuaire : lecture pour les personnes inscrites" },
+  { aclFormula: `user.Access != OWNER and not (${COMPTE_DE_SERVICE}) and not (${condInscrit()})`, permissionsText: '-CRUD', rulePos: 11, memo: "[Gouvernance] Annuaire : rien pour les autres" },
+];
+const annuairePresent = () => (etat.acl.regles || []).some((r) => String(r.memo || '').startsWith('[Gouvernance] Annuaire'));
+
+/** Pose les règles [Gouvernance] d'une table si elles manquent (un seul envoi : changer les règles recharge la page). */
+async function poserRegles(tableId, regles, trace) {
+  const res = (etat.acl.ressources || []).find((r) => r.tableId === tableId && r.colIds === '*');
+  const id = res ? res.id : -1;
+  await tracer('Règles posées', trace);
+  await agir([...(res ? [] : [['AddRecord', '_grist_ACLResources', -1, { tableId, colIds: '*' }]]),
+    ['BulkAddRecord', '_grist_ACLRules', regles.map(() => null), { resource: regles.map(() => id),
+      aclFormula: regles.map((r) => r.aclFormula), permissionsText: regles.map((r) => r.permissionsText),
+      rulePos: regles.map((r) => r.rulePos), memo: regles.map((r) => r.memo) }]]);
+}
+
+/** Pose le verrou de l'administration s'il manque. */
 async function poserVerrouAdmin() {
   if (!aTable('Gouv_Administration') || verrouAdminPresent()) return;
-  const res = (etat.acl.ressources || []).find((r) => r.tableId === 'Gouv_Administration' && r.colIds === '*');
-  const id = res ? res.id : -1;
-  await tracer('Verrou posé', 'Administration visible des seuls propriétaires');
-  await agir([...(res ? [] : [['AddRecord', '_grist_ACLResources', -1, { tableId: 'Gouv_Administration', colIds: '*' }]]),
-    ['BulkAddRecord', '_grist_ACLRules', REGLES_VERROU_ADMIN.map(() => null), { resource: REGLES_VERROU_ADMIN.map(() => id),
-      aclFormula: REGLES_VERROU_ADMIN.map((r) => r.aclFormula), permissionsText: REGLES_VERROU_ADMIN.map((r) => r.permissionsText),
-      rulePos: REGLES_VERROU_ADMIN.map((r) => r.rulePos), memo: REGLES_VERROU_ADMIN.map((r) => r.memo) }]]);
+  await poserRegles('Gouv_Administration', REGLES_VERROU_ADMIN, 'Administration visible des seuls propriétaires');
+}
+
+/** Pose les règles de l'annuaire si elles manquent. */
+async function poserReglesAnnuaire() {
+  if (!aTable('Gouv_Annuaire') || annuairePresent()) return;
+  await poserRegles('Gouv_Annuaire', reglesAnnuaire(), 'Annuaire : lecture pour les inscrits, écriture pour le compte de service');
 }
 
 /** Vrai si la garde est posée : une personne non inscrite, inactive ou sans rôle ne voit que l'accueil. */
