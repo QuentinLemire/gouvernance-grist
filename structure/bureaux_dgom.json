@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "2.1",
+  "version": "2.2",
   "sujet": "BUREAUX_DGOM",
   "description": "Remplit les Entités avec les directions, sous-directions et bureaux de la DGOM (rattachement, courriel du secrétariat, couleur) et leur donne un identifiant DGOM : 1, 2, 3… sans trou, dans l'ordre de l'organigramme. Ajoute la page 🏢 Organigramme, dessinée à partir des Entités et des Utilisateurs (chef, adjoint, membres : d'après Utilisateurs.Fonction, ex. « Chef de bureau », « Adjoint au chef de bureau »). Une entité déjà présente (même nom) est complétée, jamais remplacée.",
   "tables": [
@@ -29,7 +29,8 @@
           "id": "Organigramme",
           "label": "Dans l'organigramme",
           "type": "Bool",
-          "formula": "True"
+          "formula": "True",
+          "recalcWhen": 0
         }
       ]
     },
