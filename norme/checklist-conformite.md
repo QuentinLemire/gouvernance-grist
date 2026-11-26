@@ -4,7 +4,7 @@
 
 ## Socle (P1)
 - [ ] Entites : `Nom`, `Parent`, `Nom_complet`, `Actif`, `Membres`, `Nbre`
-- [ ] Utilisateurs : `Nom`, `Courriel`, `Entite`, `Perimetre`, `Entites_vues`, `Role`, `Actif`, `Courriel_cle`, `Courriel_valide`, `Doublon`
+- [ ] Utilisateurs : `Nom`, `Courriel`, `Entite`, `Entites_vues`, `Role`, `Actif`, `Courriel_cle`, `Courriel_valide`, `Doublon`
 - [ ] Bureaux et services rangés comme sous-entités (`Entites.Parent`), pas dans une table à part
 - [ ] Parametres (avec `Nom_application`, `Contact_support`, `Logo_DGOM`) et Accueil
 - [ ] Pages : Accueil, Administration › Utilisateurs, Rôles et droits, Explorateur, Atelier, Maintenance, Aide (et Journal si l'application a besoin d'un audit)

@@ -217,3 +217,7 @@ Les lignes techniques de la source (« Tous », « · », « Direction ») et le
 ## Annuaire d'Arrivées-Départs regroupé par courriel (2026-11-26)
 **Décision** : la table de l'annuaire est regroupée directement par `Personnel.Courriel` (`Personnel_summary_Courriel`) ; une colonne `Present` ne garde que les agents présents (filtre de la page et règles d'accès). Plus de colonne technique « Annuaire ».
 **Raison** : la clé de regroupement d'une table de synthèse prend le nom de la colonne source et ne se renomme pas ; regrouper par le courriel lui-même évite une colonne en double.
+
+## Plus de colonne Périmètre dans Utilisateurs (2026-11-26)
+**Décision** : `Gouv_Utilisateurs.Perimetre` est retirée de la norme (remplace la décision du 2026-11-23 « Entité + Périmètre »). `Entites_vues` = l'entité de la personne et toutes ses sous-entités. Quand quelqu'un doit voir d'autres entités, on le donne directement dans les règles d'accès (🔐 Rôles et droits).
+**Raison** : demande de Quentin : une colonne de plus à remplir pour un cas rare, alors que les droits se règlent déjà dans le panneau des droits. Arrivées-Départs l'utilise encore (compte BSSIOM : DGOM + SMA + CABMOM) : à basculer sur une règle d'accès avant de la retirer.

@@ -36,7 +36,7 @@ D'abord ce qui identifie la ligne, puis le contenu, les liens, l'état, et en de
 - **Un ou plusieurs rôles par personne** : colonne `Role` en choix simple (règle `user.Profil.Role == "Gestionnaire"`) ou en choix multiples (règle `"Gestionnaire" in user.Profil.Role`). Les outils d'administration écrivent la bonne forme d'eux-mêmes.
 - **Rôles métier** : une application peut en ajouter (ex. Chef de bureau, BSSIOM) dans la même liste `Role`. Ils sont officiels dès qu'ils sont décrits dans son fichier `applications/…` (qui fait quoi, sur quel périmètre).
 - Une personne non inscrite ou inactive ne voit **que la page d'accueil**.
-- **Périmètre** : `Entite` = rattachement principal ; `Perimetre` = autres entités gérées (facultatif) ; `Entites_vues` (calculée) = les deux avec toutes leurs sous-entités. Un bureau est une sous-entité (`Parent`). Règle d'accès type : `rec.Entite in user.Profil.Entites_vues`.
+- **Périmètre** : `Entite` = rattachement de la personne ; `Entites_vues` (calculée) = cette entité avec toutes ses sous-entités. Voir d'autres entités se donne dans les règles d'accès (🔐 Rôles et droits), pas par une colonne. Un bureau est une sous-entité (`Parent`). Règle d'accès type : `rec.Entite in user.Profil.Entites_vues`.
 
 ## P6 — Un seul registre, des états
 Un même objet (un agent, un dossier…) vit dans **une seule table**, avec une colonne d'état (`Parti`, `Archive`…), plutôt que d'être recopié d'une table à l'autre.

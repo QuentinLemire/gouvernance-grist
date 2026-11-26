@@ -97,17 +97,11 @@
           "visibleCol": "Nom"
         },
         {
-          "id": "Perimetre",
-          "label": "Périmètre (autres entités)",
-          "type": "RefList:Gouv_Entites",
-          "visibleCol": "Nom"
-        },
-        {
           "id": "Entites_vues",
           "label": "Entités vues",
           "type": "RefList:Gouv_Entites",
           "isFormula": true,
-          "formula": "# Entité principale + périmètre, avec toutes leurs sous-entités (hiérarchie Parent)\nvues = set()\na_voir = [e for e in [$Entite] + list($Perimetre) if e]\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Gouv_Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
+          "formula": "# Entité de la personne avec toutes ses sous-entités (hiérarchie Parent). Les droits plus larges\n# (voir d'autres entités) se donnent dans les règles d'accès (🔐 Rôles et droits), pas ici.\nvues = set()\na_voir = [$Entite] if $Entite else []\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Gouv_Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
           "visibleCol": "Nom"
         },
         {
