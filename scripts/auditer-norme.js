@@ -83,6 +83,8 @@
     { fichier: 'utilisateurs', nom: 'Utilisateurs & entités', obligatoire: true },
     { fichier: 'parametres', nom: "Paramètres (nom, contact, logo : lus par la page d'accueil)", obligatoire: true },
     { fichier: 'accueil_public', nom: "Page d'accueil publique", obligatoire: true },
+    // verrou : les pages d'administration ne sont visibles que des propriétaires du document (Quentin, 26/11/2026)
+    { fichier: 'administration', nom: "Administration réservée aux propriétaires (verrou)", obligatoire: true },
     // Hors socle : à installer si l'application en a besoin.
     { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins (ajoute aussi Entites.Territoire)', obligatoire: false },
     { fichier: 'support', nom: 'Support', obligatoire: false },

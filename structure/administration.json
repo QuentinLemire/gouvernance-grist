@@ -1,0 +1,47 @@
+{
+  "format": "grist-structure",
+  "version": "2.1",
+  "sujet": "ADMINISTRATION",
+  "description": "Verrou de l'administration : table vide, lisible par les seuls propriétaires du document. Les pages d'administration (Santé, Rôles et droits, Explorateur, Atelier, Maintenance, Aide) y sont rattachées : Grist les cache à tous les autres.",
+  "tables": [
+    {
+      "tableId": "Gouv_Administration",
+      "columns": [
+        {
+          "id": "Note",
+          "label": "Note",
+          "type": "Text"
+        },
+        {
+          "id": "CreeLe",
+          "label": "Créé le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 0
+        },
+        {
+          "id": "CreePar",
+          "label": "Créé par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "ModifieLe",
+          "label": "Modifié le",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 2
+        },
+        {
+          "id": "ModifiePar",
+          "label": "Modifié par",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 2
+        }
+      ]
+    }
+  ],
+  "dependances": []
+}

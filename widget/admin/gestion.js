@@ -87,7 +87,7 @@ const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) 
  * la page d'accueil, lisible par tous, et la documentation, lisible par les inscrits et
  * modifiable par les seuls propriétaires du document (voir planDocumentation).
  */
-const HORS_MATRICE = ['Gouv_Accueil', 'Gouv_Documentation'];
+const HORS_MATRICE = ['Gouv_Accueil', 'Gouv_Documentation', 'Gouv_Administration'];
 /**
  * Tables qui ont des règles propres à l'application (ni [Admin] ni [Gouvernance]), par exemple les fiches
  * d'Arrivées-Départs (droits par entité, bureau, étape). Le panneau ne les modifie pas : ses règles passent
@@ -107,6 +107,30 @@ function tablesMetier() {
 }
 /** Tables du document couvertes par la matrice des droits (hors tables à règles métier). */
 const tablesGerees = () => etat.meta.tables.map((t) => t.tableId).filter((t) => !HORS_MATRICE.includes(t) && !tablesMetier().has(t));
+/**
+ * Verrou de l'administration (décision du 26/11/2026) : la table Gouv_Administration, vide, n'est lisible que
+ * par les propriétaires du document ; les pages d'administration y sont rattachées, Grist les cache donc à
+ * tous les autres. Deux règles [Gouvernance] dont les conditions s'excluent : leur ordre ne compte pas
+ * (un propriétaire ne peut jamais se retrouver bloqué si Grist renumérote les règles).
+ */
+const REGLES_VERROU_ADMIN = [
+  { aclFormula: 'user.Access == OWNER', permissionsText: '+R-CUD', rulePos: 7, memo: "[Gouvernance] Administration : pages visibles des propriétaires du document" },
+  { aclFormula: 'user.Access != OWNER', permissionsText: '-CRUD', rulePos: 8, memo: "[Gouvernance] Administration : cachées à tous les autres" },
+];
+const verrouAdminPresent = () => (etat.acl.regles || []).some((r) => String(r.memo || '').startsWith('[Gouvernance] Administration'));
+
+/** Pose le verrou de l'administration s'il manque (un seul envoi : changer les règles recharge la page). */
+async function poserVerrouAdmin() {
+  if (!aTable('Gouv_Administration') || verrouAdminPresent()) return;
+  const res = (etat.acl.ressources || []).find((r) => r.tableId === 'Gouv_Administration' && r.colIds === '*');
+  const id = res ? res.id : -1;
+  await tracer('Verrou posé', 'Administration visible des seuls propriétaires');
+  await agir([...(res ? [] : [['AddRecord', '_grist_ACLResources', -1, { tableId: 'Gouv_Administration', colIds: '*' }]]),
+    ['BulkAddRecord', '_grist_ACLRules', REGLES_VERROU_ADMIN.map(() => null), { resource: REGLES_VERROU_ADMIN.map(() => id),
+      aclFormula: REGLES_VERROU_ADMIN.map((r) => r.aclFormula), permissionsText: REGLES_VERROU_ADMIN.map((r) => r.permissionsText),
+      rulePos: REGLES_VERROU_ADMIN.map((r) => r.rulePos), memo: REGLES_VERROU_ADMIN.map((r) => r.memo) }]]);
+}
+
 /** Vrai si la garde est posée : une personne non inscrite, inactive ou sans rôle ne voit que l'accueil. */
 const gardePresente = () => (etat.acl.regles || []).some((r) => ressource(r.resource)?.tableId === '*' && (r.aclFormula || '').includes('not ' + moi()));
 /** Vrai si une règle (du panneau ou non) réserve à chacun ses propres demandes de support. */

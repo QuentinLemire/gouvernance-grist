@@ -414,9 +414,9 @@ async function rangerColonnes(tables) {
  * « native » : page Grist classique, sans widget (reconnue par son nom) : colonnes de la liste, tri (« -Date » :
  *   du plus récent au plus ancien), fiche liée à droite ou non, colonnes techniques cachées de la fiche.
  */
-const OUTIL = { fichier: 'console.html', table: 'Gouv_Parametres', sousPage: true };
+const OUTIL = { fichier: 'console.html', table: 'Gouv_Administration', sousPage: true };   // verrou : propriétaires seuls
 // Sujet du socle qui installe la table d'une page (les pages hors socle déclarent le leur : « sujet »)
-const SUJET_DE_TABLE = { Gouv_Accueil: 'accueil_public', Gouv_Parametres: 'parametres', Gouv_Utilisateurs: 'utilisateurs' };
+const SUJET_DE_TABLE = { Gouv_Accueil: 'accueil_public', Gouv_Parametres: 'parametres', Gouv_Utilisateurs: 'utilisateurs', Gouv_Administration: 'administration' };
 const sujetDeLaPage = (p) => p.sujet || SUJET_DE_TABLE[p.table];
 const PAGES = [
   { cle: 'accueil', nom: '🏠 Accueil', table: 'Gouv_Accueil', fichier: 'accueil.html' },
@@ -448,6 +448,8 @@ const PAGES = [
  * @returns {Promise<number|undefined>} identifiant interne de la table
  */
 async function tableDesOutils(sections) {
+  // la norme : le verrou Gouv_Administration (propriétaires seuls), dès qu'il existe
+  if (aTable('Gouv_Administration')) return etat.meta.parId.Gouv_Administration.id;
   const admin = sections.find((s) => { const p = pageDeLAdresse(s.vue.url || ''); return p && p.cle === 'administration'; });
   if (admin) {
     const sec = ((await lire('_grist_Views_section')) || []).find((x) => x.id === admin.id);
@@ -557,7 +559,10 @@ async function creerPages(bouton, seulement = null) {
         : ['AddRecord', 'Gouv_Parametres', null, { Cle: 'Table_utilisateurs', Valeur: R.table,
           Description: "Table des personnes de l'application (registre propre, lu par la page d'accueil)" }]]);
     }
-    // 3. mise en forme des courriels (si elle manque encore) : elle change la structure de la table.
+    // 3. verrou de l'administration (règles d'accès : recharge la page ; « Ranger le menu » une seconde fois finit le reste)
+    await chargerDonnees();
+    await poserVerrouAdmin();
+    // 4. mise en forme des courriels (si elle manque encore) : elle change la structure de la table.
     if (R.norme && aTable('Gouv_Utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
   });
 }
