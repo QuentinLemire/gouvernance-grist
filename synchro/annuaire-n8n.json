@@ -34,7 +34,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ⚙️ RÉGLAGES : le seul endroit à modifier.\n// maitre : le document Arrivées-Départs (annuaire du personnel présent).\n// cibles : les Grist « esclaves » à tenir à jour (table Gouv_Utilisateurs de la norme). Ajouter une ligne par document.\n// essai : true = calcule et affiche les changements (nœud « Résumé ») SANS rien écrire.\n//         Passer à false après avoir vérifié un premier lancement à la main.\n// desactivationsMax : au-delà, on ne désactive personne (une lecture ratée du maître ne vide pas l'annuaire).\n// L'adresse du Grist (https://grist.numerique.gouv.fr) se règle dans l'identifiant « Grist API » de n8n.\nreturn [{ json: {\n  maitre: { nom: 'Arrivées-Départs MOM', docId: '7vFZ964YgDgJ', table: 'Personnel_summary_Courriel' },\n  cibles: [\n    { nom: 'Gouvernance', docId: 'jQ3omn87Zkei' },\n    // { nom: 'Autre application', docId: 'xxxxxxxxxxxx' },\n  ],\n  essai: true,\n  desactivationsMax: 10,\n} }];"
+        "jsCode": "// ⚙️ RÉGLAGES : le seul endroit à modifier.\n// maitre : le document Arrivées-Départs (annuaire du personnel présent).\n// cibles : les Grist « esclaves » à tenir à jour (table Gouv_Utilisateurs de la norme). Ajouter une ligne par document.\n// essai : true = calcule et affiche les changements (nœud « Résumé ») SANS rien écrire.\n//         Passer à false après avoir vérifié un premier lancement à la main.\n// suppressionsMax : au-delà, on ne supprime personne (une lecture ratée du maître ne vide pas l'annuaire).\n// L'adresse du Grist (https://grist.numerique.gouv.fr) se règle dans l'identifiant « Grist API » de n8n.\nreturn [{ json: {\n  maitre: { nom: 'Arrivées-Départs MOM', docId: '7vFZ964YgDgJ', table: 'Personnel_summary_Courriel' },\n  cibles: [\n    { nom: 'Gouvernance', docId: 'jQ3omn87Zkei' },\n    // { nom: 'Autre application', docId: 'xxxxxxxxxxxx' },\n  ],\n  essai: true,\n  suppressionsMax: 10,\n} }];"
       },
       "id": "784e1cbc-5b94-53b5-8f41-c09c8b6388a9",
       "name": "Réglages",
@@ -64,7 +64,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Agents présents lus dans l'annuaire du maître (une ligne par agent), mis au format des Grist esclaves.\n// Nom affiché : « Prénom NOM » ; entité : le bureau (ex. BSSIOM), sinon la direction (ex. DGOM).\n// Seuls les agents dont la colonne Present est cochée sont gardés (le filtre du nœud Grist ne sait pas lire un booléen).\n// Un courriel n'apparaît qu'une fois (le premier trouvé), même s'il est écrit avec des majuscules différentes.\nconst parCourriel = new Map();\nfor (const { json: f } of $input.all()) {\n  if (f.Present !== true || !f.Courriel) continue;\n  const courriel = String(f.Courriel).trim().toLowerCase();\n  if (parCourriel.has(courriel)) continue;\n  parCourriel.set(courriel, {\n    courriel,\n    nom: [f.Prenom, f.Nom].filter(Boolean).join(' ').trim(),\n    bureau: f.Bureau || '',\n    direction: f.Entite || '',\n    fonction: f.Fonction || '',\n  });\n}\nconst agents = [...parCourriel.values()];\nif (!agents.length) throw new Error(\"Aucun agent présent dans l'annuaire : la synchronisation s'arrête (sécurité : on ne désactive personne sur une lecture ratée).\");\nreturn [{ json: { agents } }];"
+        "jsCode": "// Agents présents lus dans l'annuaire du maître (une ligne par agent), mis au format des Grist esclaves.\n// Nom affiché : « Prénom NOM » ; entité : le bureau (ex. BSSIOM), sinon la direction (ex. DGOM).\n// Seuls les agents dont la colonne Present est cochée sont gardés (le filtre du nœud Grist ne sait pas lire un booléen).\n// Un courriel n'apparaît qu'une fois (le premier trouvé), même s'il est écrit avec des majuscules différentes.\nconst parCourriel = new Map();\nfor (const { json: f } of $input.all()) {\n  if (f.Present !== true || !f.Courriel) continue;\n  const courriel = String(f.Courriel).trim().toLowerCase();\n  if (parCourriel.has(courriel)) continue;\n  parCourriel.set(courriel, {\n    courriel,\n    nom: [f.Prenom, f.Nom].filter(Boolean).join(' ').trim(),\n    bureau: f.Bureau || '',\n    direction: f.Entite || '',\n    fonction: f.Fonction || '',\n  });\n}\nconst agents = [...parCourriel.values()];\nif (!agents.length) throw new Error(\"Aucun agent présent dans l'annuaire : la synchronisation s'arrête (sécurité : on ne supprime personne sur une lecture ratée).\");\nreturn [{ json: { agents } }];"
       },
       "id": "d5a922d3-b000-57f3-a37e-ca3c253efa19",
       "name": "Préparer les agents",
@@ -77,7 +77,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Une ligne par Grist esclave, avec la liste des agents du maître et les réglages utiles plus loin.\nconst r = $('Réglages').first().json;\nconst agents = $('Préparer les agents').first().json.agents;\nreturn r.cibles.map((c) => ({ json: { ...c, essai: r.essai, desactivationsMax: r.desactivationsMax, agents } }));"
+        "jsCode": "// Une ligne par Grist esclave, avec la liste des agents du maître et les réglages utiles plus loin.\nconst r = $('Réglages').first().json;\nconst agents = $('Préparer les agents').first().json.agents;\nreturn r.cibles.map((c) => ({ json: { ...c, essai: r.essai, suppressionsMax: r.suppressionsMax, agents } }));"
       },
       "id": "98cb760e-df3c-5c84-a814-0b86299d420d",
       "name": "Cibles",
@@ -99,7 +99,7 @@
       "typeVersion": 3,
       "position": [
         1100,
-        500
+        700
       ]
     },
     {
@@ -154,7 +154,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Ce qu'il faut changer dans un Grist esclave (Gouv_Utilisateurs), en comparant au maître par courriel.\n// La colonne « Ajouté par le maître » (Ajoute_par_maitre) marque les fiches créées par cette synchro :\n// ce sont les SEULES qu'elle met à jour ou désactive. Une personne ajoutée à la main n'est jamais touchée.\n// Règles :\n//  - agent du maître absent de l'esclave : ajouté (Nom, Courriel, Entité, Fonction, Actif, Ajouté par le maître) ;\n//    SANS rôle : il ne voit que l'accueil tant qu'un administrateur de l'application ne lui en a pas donné un ;\n//  - fiche marquée d'un agent présent : Nom, Entité et Fonction mis à jour, réactivée si besoin ; le Rôle n'est JAMAIS touché ;\n//  - fiche marquée d'un agent absent du maître (agent parti) : désactivée (jamais supprimée) ;\n//  - fiche non marquée (ajoutée à la main) : rien, même si l'agent est dans le maître.\nconst cible = $('Cible en cours').first().json;\nconst entites = $('Lire les entités').all().map((i) => i.json).filter((e) => e.id);   // table vide : un élément vide\nconst users = $input.all().map((i) => i.json).filter((u) => u.id);\nif (users.length && !('Ajoute_par_maitre' in users[0])) {\n  throw new Error(`${cible.nom} : colonne « Ajouté par le maître » absente de Gouv_Utilisateurs. L'installer : Administration › Maintenance › Utilisateurs.`);\n}\nconst norm = (s) => String(s || '').trim().toLowerCase();\nconst idEntite = (nom) => (nom ? (entites.find((e) => norm(e.Nom) === norm(nom)) || {}).id : undefined);\nconst aFonction = users.some((u) => 'Fonction' in u);   // colonne facultative (hors norme)\n\nconst parCourriel = new Map(users.map((u) => [norm(u.Courriel), u]));\nconst ajouts = [], majs = [];\nfor (const a of cible.agents) {\n  const entite = idEntite(a.bureau) || idEntite(a.direction);   // introuvable : on ne touche pas à l'entité\n  const champs = { Nom: a.nom, ...(entite ? { Entite: entite } : {}), ...(aFonction ? { Fonction: a.fonction } : {}) };\n  const u = parCourriel.get(a.courriel);\n  if (!u) { ajouts.push({ Courriel: a.courriel, Actif: true, Ajoute_par_maitre: true, ...champs }); continue; }\n  if (u.Ajoute_par_maitre !== true) continue;   // fiche faite à la main : on n'y touche pas\n  const diff = Object.fromEntries(Object.entries(champs).filter(([k, v]) => (u[k] ?? '') !== v));\n  if (u.Actif === false) diff.Actif = true;      // agent revenu\n  if (Object.keys(diff).length) majs.push({ id: u.id, champs: diff });\n}\nconst presents = new Set(cible.agents.map((a) => a.courriel));\nconst departs = users.filter((u) => u.Ajoute_par_maitre === true && u.Actif !== false && !presents.has(norm(u.Courriel)));\n// garde-fou : trop de départs d'un coup = sans doute une lecture incomplète du maître ; on ne désactive personne\nconst departsBloques = departs.length > cible.desactivationsMax;\nif (!departsBloques) for (const u of departs) majs.push({ id: u.id, champs: { Actif: false } });\n\nreturn [{ json: { nom: cible.nom, docId: cible.docId, essai: cible.essai, ajouts, majs,\n  resume: `${cible.essai ? '[ESSAI, rien écrit] ' : ''}${cible.nom} : ${ajouts.length} ajout(s), ${majs.length} mise(s) à jour`\n    + (departsBloques ? ` ; ${departs.length} départs NON appliqués (plus de ${cible.desactivationsMax} : vérifier l'annuaire)` : '') } }];"
+        "jsCode": "// Ce qu'il faut changer dans un Grist esclave (Gouv_Utilisateurs), en comparant au maître par courriel.\n// La colonne « Ajouté par le maître » (Ajoute_par_maitre) marque les fiches créées par cette synchro :\n// ce sont les SEULES qu'elle met à jour ou supprime. Une personne ajoutée à la main n'est jamais touchée.\n// Règles :\n//  - agent du maître absent de l'esclave : ajouté (Nom, Courriel, Entité, Fonction, Actif, Ajouté par le maître) ;\n//    SANS rôle : il ne voit que l'accueil tant qu'un administrateur de l'application ne lui en a pas donné un ;\n//  - fiche marquée d'un agent présent : Nom, Entité et Fonction mis à jour ; le Rôle et la case Actif ne sont JAMAIS touchés ;\n//  - fiche marquée d'un agent absent du maître (agent parti) : SUPPRIMÉE ;\n//  - fiche non marquée (ajoutée à la main) : rien, même si l'agent est dans le maître.\nconst cible = $('Cible en cours').first().json;\nconst entites = $('Lire les entités').all().map((i) => i.json).filter((e) => e.id);   // table vide : un élément vide\nconst users = $input.all().map((i) => i.json).filter((u) => u.id);\nif (users.length && !('Ajoute_par_maitre' in users[0])) {\n  throw new Error(`${cible.nom} : colonne « Ajouté par le maître » absente de Gouv_Utilisateurs. L'installer : Administration › Maintenance › Utilisateurs.`);\n}\nconst norm = (s) => String(s || '').trim().toLowerCase();\nconst idEntite = (nom) => (nom ? (entites.find((e) => norm(e.Nom) === norm(nom)) || {}).id : undefined);\nconst aFonction = users.some((u) => 'Fonction' in u);   // colonne facultative (hors norme)\n\nconst parCourriel = new Map(users.map((u) => [norm(u.Courriel), u]));\nconst ajouts = [], majs = [], suppressions = [];\nfor (const a of cible.agents) {\n  const entite = idEntite(a.bureau) || idEntite(a.direction);   // introuvable : on ne touche pas à l'entité\n  const champs = { Nom: a.nom, ...(entite ? { Entite: entite } : {}), ...(aFonction ? { Fonction: a.fonction } : {}) };\n  const u = parCourriel.get(a.courriel);\n  if (!u) { ajouts.push({ Courriel: a.courriel, Actif: true, Ajoute_par_maitre: true, ...champs }); continue; }\n  if (u.Ajoute_par_maitre !== true) continue;   // fiche faite à la main : on n'y touche pas\n  const diff = Object.fromEntries(Object.entries(champs).filter(([k, v]) => (u[k] ?? '') !== v));\n  if (Object.keys(diff).length) majs.push({ id: u.id, champs: diff });\n}\nconst presents = new Set(cible.agents.map((a) => a.courriel));\nconst departs = users.filter((u) => u.Ajoute_par_maitre === true && !presents.has(norm(u.Courriel)));\n// garde-fou : trop de départs d'un coup = sans doute une lecture incomplète du maître ; on ne supprime personne\nconst departsBloques = departs.length > cible.suppressionsMax;\nif (!departsBloques) for (const u of departs) suppressions.push(u.id);\n\nreturn [{ json: { nom: cible.nom, docId: cible.docId, essai: cible.essai, ajouts, majs, suppressions,\n  resume: `${cible.essai ? '[ESSAI, rien écrit] ' : ''}${cible.nom} : ${ajouts.length} ajout(s), ${majs.length} mise(s) à jour, ${suppressions.length} suppression(s)`\n    + (departsBloques ? ` ; ${departs.length} départs NON supprimés (plus de ${cible.suppressionsMax} : vérifier l'annuaire)` : '') } }];"
       },
       "id": "b4e5d7e5-fec3-53fe-b2be-2c8d1ccfc7bd",
       "name": "Calculer les changements",
@@ -197,7 +197,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Une ligne par fiche à mettre à jour ou à désactiver (aucune en mode essai).\n// docId et _ligne servent au nœud suivant et ne sont pas écrits dans Grist.\nconst c = $input.first().json;\nreturn c.essai ? [] : c.majs.map((m) => ({ json: { docId: c.docId, _ligne: m.id, ...m.champs } }));"
+        "jsCode": "// Une ligne par fiche à mettre à jour (aucune en mode essai).\n// docId et _ligne servent au nœud suivant et ne sont pas écrits dans Grist.\nconst c = $input.first().json;\nreturn c.essai ? [] : c.majs.map((m) => ({ json: { docId: c.docId, _ligne: m.id, ...m.champs } }));"
       },
       "id": "4c4b6857-67fa-565a-8865-0a664f4b6a0f",
       "name": "Mises à jour à faire",
@@ -228,6 +228,35 @@
     },
     {
       "parameters": {
+        "jsCode": "// Une ligne par fiche d'agent parti à supprimer (aucune en mode essai). Seules les fiches « Ajouté par le maître » y figurent.\nconst c = $input.first().json;\nreturn c.essai ? [] : c.suppressions.map((id) => ({ json: { docId: c.docId, _ligne: id } }));"
+      },
+      "id": "113dc76b-b44f-54a0-ac35-ba022e5a852d",
+      "name": "Départs à supprimer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Gouv_Utilisateurs",
+        "rowId": "={{ $json._ligne }}"
+      },
+      "id": "edff6499-8e17-5f13-ad3d-8134bfbbe97b",
+      "name": "Supprimer les fiches",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        2420,
+        500
+      ]
+    },
+    {
+      "parameters": {
         "jsCode": "// Fin : une ligne par Grist esclave traité, avec ce qui a été fait (ou serait fait en mode essai).\nreturn $input.all().map((i) => ({ json: { resume: i.json.resume } }));"
       },
       "id": "95dc824c-24c1-5140-933e-c787c136d363",
@@ -236,7 +265,7 @@
       "typeVersion": 2,
       "position": [
         1320,
-        700
+        900
       ]
     }
   ],
@@ -372,6 +401,11 @@
             "index": 0
           },
           {
+            "node": "Départs à supprimer",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Une cible à la fois",
             "type": "main",
             "index": 0
@@ -395,6 +429,17 @@
         [
           {
             "node": "Mettre à jour les fiches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Départs à supprimer": {
+      "main": [
+        [
+          {
+            "node": "Supprimer les fiches",
             "type": "main",
             "index": 0
           }
