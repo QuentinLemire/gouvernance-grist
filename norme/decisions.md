@@ -197,3 +197,7 @@ Les lignes techniques de la source (« Tous », « · », « Direction ») et le
 ## Organigramme rangé sous 👥 Utilisateurs, dans Administration (2026-11-26)
 **Décision** : la page 🏢 Organigramme est placée en retrait sous 👥 Utilisateurs (et non plus sous l'Accueil) et s'ouvre sur la vue détaillée.
 **Raison** : elle sert d'abord à voir, d'un coup d'œil, quelles personnes sont dans quel bureau ; c'est le complément de l'annuaire.
+
+## Organigramme : chef et adjoint bien distingués (2026-11-26)
+**Décision** : dans chaque case, le chef vient en tête avec une étiquette pleine (couleur du bureau), l'adjoint ensuite avec une étiquette en contour, puis un filet avant les autres membres. `Utilisateurs.Fonction` devient une liste de choix (Directeur, Sous-directeur, Chef de bureau, Adjoint au chef de bureau, Chef de mission…, et leurs adjoints).
+**Raison** : en gras et demi-gras, chef et adjoint se confondaient ; une liste de choix évite les fautes de frappe qui empêcheraient de reconnaître le chef ou l'adjoint.

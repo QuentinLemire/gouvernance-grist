@@ -14,7 +14,8 @@
   COLONNES LUES
     Gouv_Entites      : Nom, Parent (l'entité au-dessus), Courriel (secrétariat), Couleur (vide = celle de
                         l'entité au-dessus), Organigramme (décochée : pas dessinée), Actif ;
-    Gouv_Utilisateurs : Nom, Entite, Fonction (« Chef de bureau », « Adjoint »… : place la personne en tête), Actif.
+    Gouv_Utilisateurs : Nom, Entite, Fonction (liste de choix : « Chef de bureau », « Adjoint au chef de bureau »… placent
+                        la personne en tête avec une étiquette ; « Agent » ou vide : membre, listé dessous), Actif.
 
   TROIS VUES
     - Entités seules : les noms des entités et leur effectif ;
@@ -70,8 +71,14 @@
     .boite .courriel { display: block; padding: 3px 10px 0; font-size: 11px; color: var(--texte-doux); word-break: break-all; }
     .boite ul { list-style: none; margin: 0; padding: 4px 6px 7px; font-size: 12.5px; }
     .boite li { padding: 1px 4px 1px 18px; }
-    .boite li.chef { padding-left: 4px; font-weight: 700; background: #f0f0f0; border-radius: 3px; margin-bottom: 1px; }
-    .boite li.adjoint { padding-left: 4px; font-weight: 600; }
+    /* Chef et adjoint en tête de la case, chacun avec son étiquette : pleine (couleur du bureau) pour le chef,
+       contour seul pour l'adjoint ; un filet les sépare des autres membres */
+    .boite li.chef, .boite li.adjoint { padding: 3px 4px; }
+    .boite li.chef { font-weight: 700; }
+    .boite li.adjoint { font-weight: 600; }
+    .boite li.dernier-resp { border-bottom: 1px solid #e0e0e0; padding-bottom: 5px; margin-bottom: 3px; }
+    .fonction { display: inline-block; margin-top: 2px; padding: 0 6px; border-radius: 9px; font-size: 10.5px; font-weight: 700; line-height: 17px; }
+    .fonction.adjoint { background: #fff; border: 1.5px solid; line-height: 14px; }
     .boite li.inactif { color: #9a9a9a; text-decoration: line-through; }
     .boite li small { font-weight: 400; color: var(--texte-doux); }
     .racine > .boite { width: 230px; } .racine > .boite .tete b { font-size: 17px; }
@@ -181,8 +188,15 @@
       || (recherche && String(p.Nom || '').toLowerCase().includes(recherche)));
     const trouvee = recherche && (String(l.Nom || '').toLowerCase().includes(recherche) || n.personnes.some((p) => String(p.Nom || '').toLowerCase().includes(recherche)));
     const triangle = n.enfants.length ? `<button class="replier" data-replier="${l.id}" title="${replies.has(l.id) ? 'Déplier' : 'Replier'}">${replies.has(l.id) ? '▸' : '▾'}</button>` : '';
-    const personne = (p) => `<li class="${['chef', 'adjoint', ''][rang(p)]}${p.Actif === false ? ' inactif' : ''}${recherche && String(p.Nom || '').toLowerCase().includes(recherche) ? ' trouve' : ''}"` +
-      ` title="${esc(p.Fonction || '')}">${esc(p.Nom || '')}${rang(p) < 2 && p.Fonction ? ` <small>${esc(p.Fonction)}</small>` : ''}</li>`;
+    // étiquette de fonction : pleine pour le chef, contour pour l'adjoint (couleur du bureau, lisible sur blanc)
+    const encre = texteSur(fond) === '#ffffff' ? fond : '#3a3a3a';
+    const etiquette = (p) => rang(p) === 0
+      ? `<br><span class="fonction" style="background:${esc(fond)};color:${texteSur(fond)}">${esc(p.Fonction)}</span>`
+      : rang(p) === 1 ? `<br><span class="fonction adjoint" style="border-color:${esc(encre)};color:${esc(encre)}">${esc(p.Fonction)}</span>` : '';
+    const derniereResp = montrees.filter((p) => rang(p) < 2).pop();
+    const autres = montrees.some((p) => rang(p) === 2);
+    const personne = (p) => `<li class="${['chef', 'adjoint', ''][rang(p)]}${p === derniereResp && autres ? ' dernier-resp' : ''}${p.Actif === false ? ' inactif' : ''}` +
+      `${recherche && String(p.Nom || '').toLowerCase().includes(recherche) ? ' trouve' : ''}" title="${esc(p.Fonction || '')}">${esc(p.Nom || '')}${etiquette(p)}</li>`;
     return `<div class="boite${recherche ? (trouvee ? ' trouvee' : ' estompee') : ''}" data-id="${l.id}" title="${esc(l.Nom_complet || l.Nom || '')}">` +
       `<div class="tete" style="background:${esc(fond)};color:${texteSur(fond)}">${triangle}<b>${esc(l.Nom || '(sans nom)')}</b>` +
       `${actifs.length ? `<small>${actifs.length} pers.</small>` : ''}</div>` +

@@ -38,7 +38,21 @@
         {
           "id": "Fonction",
           "label": "Fonction",
-          "type": "Text"
+          "type": "Choice",
+          "widgetOptions": {
+            "choices": [
+              "Directeur",
+              "Directeur adjoint",
+              "Sous-directeur",
+              "Sous-directeur adjoint",
+              "Chef de bureau",
+              "Adjoint au chef de bureau",
+              "Chef de mission",
+              "Adjoint au chef de mission",
+              "Chargé de mission",
+              "Agent"
+            ]
+          }
         }
       ]
     }
