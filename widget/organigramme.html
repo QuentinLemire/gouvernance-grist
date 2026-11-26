@@ -87,7 +87,7 @@
 
 <script>
   const esc = (t) => Outils.esc(t);
-  grist.ready({ requiredAccess: 'read table' });
+  grist.ready({ requiredAccess: 'full' });   // lecture de la table entière (fetchTable) ; ce widget n'écrit rien
 
   let LIGNES = [];
 
@@ -217,7 +217,13 @@
   window.addEventListener('resize', () => requestAnimationFrame(tracer));
   window.addEventListener('beforeprint', tracer);
 
-  grist.onRecords((lignes) => { LIGNES = lignes || []; afficher(); });
+  // onRecords prévient à chaque changement de la table ; on relit alors la table entière (valeurs brutes :
+  // une référence y est toujours le numéro de la ligne visée)
+  grist.onRecords(async () => {
+    const t = await grist.docApi.fetchTable('Gouv_Bureaux');
+    LIGNES = (t.id || []).map((id, i) => Object.fromEntries(Object.keys(t).map((c) => [c, t[c][i]])));
+    afficher();
+  });
 </script>
 </body>
 </html>
