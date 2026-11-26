@@ -2,7 +2,7 @@
   "format": "grist-structure",
   "version": "2.1",
   "sujet": "BUREAUX_DGOM",
-  "description": "Remplit les Entités avec les directions, sous-directions et bureaux de la DGOM (rattachement, courriel du secrétariat, couleur, identifiant de l'Outil cabDG) et ajoute la page 🏢 Organigramme, dessinée à partir des Entités et des Utilisateurs (chef, adjoint, membres). Une entité déjà présente (même nom) est complétée, jamais remplacée.",
+  "description": "Remplit les Entités avec les directions, sous-directions et bureaux de la DGOM (rattachement, courriel du secrétariat, couleur, identifiant de l'Outil cabDG) et ajoute la page 🏢 Organigramme, dessinée à partir des Entités et des Utilisateurs (chef, adjoint, membres : colonne Utilisateurs.Encadrement, vide = agent). Une entité déjà présente (même nom) est complétée, jamais remplacée.",
   "tables": [
     {
       "tableId": "Gouv_Entites",
@@ -36,8 +36,8 @@
       "extension": true,
       "columns": [
         {
-          "id": "Fonction",
-          "label": "Fonction",
+          "id": "Encadrement",
+          "label": "Encadrement",
           "type": "Choice",
           "widgetOptions": {
             "choices": [
@@ -48,9 +48,7 @@
               "Chef de bureau",
               "Adjoint au chef de bureau",
               "Chef de mission",
-              "Adjoint au chef de mission",
-              "Chargé de mission",
-              "Agent"
+              "Adjoint au chef de mission"
             ]
           }
         }
