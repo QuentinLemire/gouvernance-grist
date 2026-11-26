@@ -390,7 +390,7 @@ const PAGES = [
   // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
   { cle: 'documentation', nom: '📖 Documentation', table: 'Gouv_Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
   { cle: 'support', nom: '🆘 Support', table: 'Gouv_Support', fichier: 'support.html', facultative: true, sujet: 'support' },
-  { cle: 'organigramme', nom: '🏢 Organigramme', table: 'Gouv_Bureaux', fichier: 'organigramme.html', facultative: true, sujet: 'bureaux_dgom' },
+  { cle: 'organigramme', nom: '🏢 Organigramme', table: 'Gouv_Entites', fichier: 'organigramme.html', facultative: true, sujet: 'bureaux_dgom' },
   // Administration : la Santé du document, puis un outil par page en dessous
   { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'sante', sousPage: false, anciens: ['administration.html'] },
   // Utilisateurs et Journal : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
@@ -652,6 +652,40 @@ async function etiqueterTables(fichiers) {
   if (actions.length) await agir(actions);
 }
 
+/**
+ * Jeu de données « à fusionner » (bureaux de la DGOM dans les Entités) : la table a souvent déjà des lignes.
+ * Une ligne de même nom (clé jeu.fusion, sans tenir compte de la casse) est complétée : seules ses cases vides
+ * sont remplies ; les autres lignes sont ajoutées. Rien n'est supprimé ni écrasé.
+ * Le rattachement (Parent) est donné par l'Id_DGOM de la ligne au-dessus : il est posé une fois toutes les lignes présentes.
+ */
+async function fusionnerJeu(jeu) {
+  const cle = jeu.fusion, norm = (v) => String(v || '').trim().toLowerCase();
+  const vide = (v) => v === null || v === undefined || v === '' || v === 0;
+  const lignes = (await lire(jeu.tableId)) || [];
+  const parCle = new Map(lignes.map((l) => [norm(l[cle]), l]));
+  const ajouts = [], maj = [];
+  for (const r of jeu.records) {
+    const { Parent, ...champs } = r;
+    const ici = parCle.get(norm(r[cle]));
+    if (!ici) { ajouts.push(champs); continue; }
+    const aRemplir = Object.fromEntries(Object.entries(champs).filter(([k]) => colonne(jeu.tableId, k) && vide(ici[k])));
+    if (Object.keys(aRemplir).length) maj.push(['UpdateRecord', jeu.tableId, ici.id, aRemplir]);
+  }
+  const cles = [...new Set(ajouts.flatMap(Object.keys))].filter((k) => colonne(jeu.tableId, k));
+  if (ajouts.length) maj.push(['BulkAddRecord', jeu.tableId, ajouts.map(() => null), Object.fromEntries(cles.map((k) => [k, ajouts.map((r) => r[k] ?? null)]))]);
+  if (maj.length) await agir(maj);
+  // rattachements : Id_DGOM du parent → ligne du document ; seulement là où « Parent » est vide
+  const apres = (await lire(jeu.tableId)) || [];
+  const parId = new Map(apres.filter((l) => l.Id_DGOM).map((l) => [l.Id_DGOM, l.id]));
+  const liens = [];
+  for (const r of jeu.records) {
+    const ici = apres.find((l) => norm(l[cle]) === norm(r[cle]));
+    const parent = parId.get(r.Parent);
+    if (ici && parent && parent !== ici.id && vide(ici.Parent)) liens.push(['UpdateRecord', jeu.tableId, ici.id, { Parent: parent }]);
+  }
+  if (liens.length) await agir(liens);
+}
+
 async function installerTablesSujet(fichier) {
   {
     // On installe aussi les sujets dont celui-ci dépend.
@@ -668,6 +702,7 @@ async function installerTablesSujet(fichier) {
     for (const f of vus) {
       if (!DONNEES[f]) continue;
       const jeu = await lireDepot('donnees/' + DONNEES[f]);
+      if (jeu.fusion) { await fusionnerJeu(jeu); continue; }
       if (!((await lire(jeu.tableId)) || []).length) {
         // un jeu peut fixer les identifiants (« id ») : ses lignes se citent entre elles (Parent) et gardent
         // les numéros de leur source (bureaux de la DGOM : ceux de l'Outil cabDG)

@@ -2,35 +2,16 @@
   "format": "grist-structure",
   "version": "2.1",
   "sujet": "BUREAUX_DGOM",
-  "description": "Les directions, sous-directions et bureaux de la DGOM (sigle, rattachement, courriel du secrétariat, couleur), avec la page 🏢 Organigramme qui se dessine toute seule à partir de cette table. Données de départ reprises de l'Outil cabDG, avec les mêmes identifiants.",
+  "description": "Remplit les Entités avec les directions, sous-directions et bureaux de la DGOM (rattachement, courriel du secrétariat, couleur, identifiant de l'Outil cabDG) et ajoute la page 🏢 Organigramme, dessinée à partir des Entités et des Utilisateurs (chef, adjoint, membres). Une entité déjà présente (même nom) est complétée, jamais remplacée.",
   "tables": [
     {
-      "tableId": "Gouv_Bureaux",
+      "tableId": "Gouv_Entites",
+      "extension": true,
       "columns": [
         {
-          "id": "Identifiant",
-          "label": "Identifiant",
-          "type": "Int",
-          "isFormula": true,
-          "formula": "# Numéro stable de la ligne (le même que dans l'Outil cabDG) : à utiliser pour relier un autre document\nreturn $id"
-        },
-        {
-          "id": "Nom",
-          "label": "Nom",
-          "type": "Text"
-        },
-        {
-          "id": "Parent",
-          "label": "Rattaché à",
-          "type": "Ref:Gouv_Bureaux",
-          "visibleCol": "Nom"
-        },
-        {
-          "id": "Nom_complet",
-          "label": "Nom complet",
-          "type": "Text",
-          "isFormula": true,
-          "formula": "# Chemin depuis la direction : « DGOM/SDEPDE/BSSIOM »\nnom = $Nom\nparent = $Parent\nwhile parent:\n    nom = parent.Nom + \"/\" + nom\n    parent = parent.Parent\nreturn nom"
+          "id": "Id_DGOM",
+          "label": "Identifiant DGOM",
+          "type": "Int"
         },
         {
           "id": "Courriel",
@@ -47,43 +28,22 @@
           "label": "Dans l'organigramme",
           "type": "Bool",
           "formula": "True"
-        },
+        }
+      ]
+    },
+    {
+      "tableId": "Gouv_Utilisateurs",
+      "extension": true,
+      "columns": [
         {
-          "id": "Actif",
-          "label": "Actif",
-          "type": "Bool",
-          "formula": "True"
-        },
-        {
-          "id": "CreeLe",
-          "label": "Créé le",
-          "type": "DateTime:Europe/Paris",
-          "formula": "NOW()",
-          "recalcWhen": 0
-        },
-        {
-          "id": "CreePar",
-          "label": "Créé par",
-          "type": "Text",
-          "formula": "user.Email",
-          "recalcWhen": 0
-        },
-        {
-          "id": "ModifieLe",
-          "label": "Modifié le",
-          "type": "DateTime:Europe/Paris",
-          "formula": "NOW()",
-          "recalcWhen": 2
-        },
-        {
-          "id": "ModifiePar",
-          "label": "Modifié par",
-          "type": "Text",
-          "formula": "user.Email",
-          "recalcWhen": 2
+          "id": "Fonction",
+          "label": "Fonction",
+          "type": "Text"
         }
       ]
     }
   ],
-  "dependances": []
+  "dependances": [
+    "UTILISATEURS"
+  ]
 }
