@@ -114,7 +114,15 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
 
 ## Annuaire du personnel présent, exporté par n8n (2026-11-26)
 - **Table** : `Personnel_summary_Annuaire` (« Personnel [Annuaire] », page 📇 Annuaire). Calculée par Grist : une ligne par agent présent, rien à saisir. Clé de regroupement : `Personnel.Annuaire` = courriel en minuscules si l'agent est présent, vide sinon.
-- **Colonnes exportées** (texte, pour pouvoir sortir du document) : Courriel (clé de mise à jour), Nom, Prenom, Entite, Sous_direction, Bureau (code), Bureau_libelle, Fonction (poste), Encadrement (Chef de bureau / Adjoint au chef de bureau / vide = agent), Telephone, Piece.
+- **Colonnes exportées** (texte, pour pouvoir sortir du document) : Courriel (clé de mise à jour), Nom, Prenom, Entite, Sous_direction, Bureau (nom de l'entité, ex. BSSIOM), Fonction (poste), Encadrement (Chef de bureau / Adjoint au chef de bureau / vide = agent), Telephone, Piece.
 - **Jamais exportées** : RIO, grade, statut, dates de fin de contrat et de départ, situation, matériel, accès informatiques, observations, signatures.
 - **Droits** : lisible par toute personne inscrite et active ; les comptes de service (`…@serviceaccounts.invalid`, n8n) ne lisent que cette table (sans la colonne technique `group`), rien d'autre du document.
 - **Pour n8n** : lire `GET /api/docs/<doc>/tables/Personnel_summary_Annuaire/records`, faire correspondre par Courriel ; un agent absent de la table est parti : le désactiver dans les autres Grist, ne pas le supprimer.
+
+## Plus de table Bureaux : les bureaux sont des entités (2026-11-26)
+- `Gouv_Entites` d'Arrivées-Départs reprend la table de Gouvernance (directions, sous-directions, bureaux ; Id_DGOM, Courriel, Couleur, « Dans l'organigramme »), avec en plus ses colonnes propres (Libelle, Emetteur, Etape_bureau).
+- `Personnel.Bureau`, `Arrivee.Bureau`, `Depart.Bureau` et `Gouv_Utilisateurs.Bureaux` désignent maintenant des entités. Ancienne table sauvegardée dans `arrivees-departs-widgets/sauvegardes/bureaux-avant-migration-2026-11-26.json`.
+- **Différence voulue avec Gouvernance** : SMA (et son EM SMA) et CABMOM (et son Cabinet) restent des entités de tête, pas sous la DGOM : chacun a sa RH, et une RH de la DGOM voit toutes les sous-entités de la DGOM.
+- Règle d'accès « Pilotage pour le chef et l'adjoint du BRC » : le BRC est l'entité n° 4 (`4 in user.Profil.Bureaux`).
+- La RH (Gestionnaire, « Fait aussi la RH ») peut créer une entité depuis la fiche (bureau tapé à la main, rangé sous la direction de l'agent), comme avant avec les bureaux.
+- Vérifié en « Voir en tant que » : chef BCL (voit son agent), chef BRC (Pilotage, tous les agents), RH SMA (ne voit pas l'agent DGOM).
