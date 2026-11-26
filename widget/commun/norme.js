@@ -57,8 +57,6 @@
     { fichier: 'journal', nom: "Journal d'administration", obligatoire: false },
     // directions, sous-directions et bureaux de la DGOM, et l'organigramme qui en est tiré
     { fichier: 'bureaux_dgom', nom: 'Bureaux de la DGOM et organigramme', obligatoire: false },
-    // annuaire du personnel, tenu à jour par n8n depuis Arrivées-Départs (lecture seule pour tous)
-    { fichier: 'annuaire', nom: 'Annuaire du personnel (synchronisé par n8n)', obligatoire: false },
   ];
 
   /** Les 4 colonnes de traçabilité (P2) et leur recalcul : 0 = à la création, 2 = à chaque modification. */

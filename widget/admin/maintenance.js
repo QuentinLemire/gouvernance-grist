@@ -443,9 +443,6 @@ const PAGES = [
   // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
   { cle: 'documentation', nom: '📖 Documentation', table: 'Gouv_Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
   { cle: 'support', nom: '🆘 Support', table: 'Gouv_Support', fichier: 'support.html', facultative: true, sujet: 'support' },
-  // annuaire du personnel (n8n) : une liste Grist classique, en lecture
-  { cle: 'annuaire', nom: '📇 Annuaire', table: 'Gouv_Annuaire', facultative: true, sujet: 'annuaire', native: {
-    titre: 'Annuaire du personnel', colonnes: ['Nom', 'Prenom', 'Courriel', 'Telephone', 'Entite', 'Fonction', 'Piece', 'Present'], tri: 'Nom', fiche: false } },
   // Administration : la Santé du document, puis un outil par page en dessous
   { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'sante', sousPage: false, anciens: ['administration.html'] },
   // Utilisateurs et Journal : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
@@ -584,8 +581,6 @@ async function creerPages(bouton, seulement = null) {
     }
     // 3. verrou de l'administration (règles d'accès : recharge la page ; « Ranger le menu » une seconde fois finit le reste)
     await chargerDonnees();
-    await poserReglesAnnuaire();   // seulement si le module Annuaire est installé et ses règles manquent
-    await chargerDonnees();
     await poserVerrouAdmin();
     // 4. mise en forme des courriels (si elle manque encore) : elle change la structure de la table.
     if (R.norme && aTable('Gouv_Utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
@@ -655,7 +650,7 @@ async function rangerMenu() {
   const ordre = [
     // Accueil en tête, avec Documentation et Support rangées dessous (pages d'aide et de contact).
     ...de('accueil').map((p) => [p, 0]),
-    ...['documentation', 'support', 'annuaire'].flatMap(de).map((p) => [p, 1]),
+    ...['documentation', 'support'].flatMap(de).map((p) => [p, 1]),
     ...metier.map((p) => [p, p.indentation]),
     ...de('administration').map((p) => [p, 0]),
     // les outils d'administration, puis les pages métier déjà rangées sous Administration

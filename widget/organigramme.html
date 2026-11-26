@@ -14,8 +14,6 @@
   COLONNES LUES
     Gouv_Entites      : Nom, Parent (l'entité au-dessus), Courriel (secrétariat), Couleur (vide = celle de
                         l'entité au-dessus), Organigramme (décochée : pas dessinée), Actif ;
-    Gouv_Annuaire     : si le module Annuaire est installé, ses agents (Prénom, Nom, Entite, Fonction, Présent) remplacent
-                        les utilisateurs ci-dessous : l'organigramme montre alors tout le personnel.
     Gouv_Utilisateurs : Nom, Entite, Fonction (texte libre : une fonction qui contient « chef », « directeur »… place la
                         personne en tête avec une étiquette pleine, « adjoint » juste dessous avec une étiquette en contour ;
                         les autres sont listés dessous), Actif.
@@ -278,14 +276,9 @@
     requestAnimationFrame(tracer);
   }
 
-  // Les personnes : l'annuaire du personnel s'il est installé (tous les agents, tenu à jour par n8n),
-  // sinon les utilisateurs de l'application. Un agent parti (Présent décoché) compte comme inactif.
+  // Les personnes : les utilisateurs de l'application (qui est dans quel bureau).
   async function recharger() {
-    const [entites, annuaire] = await Promise.all([lireTable('Gouv_Entites'), lireTable('Gouv_Annuaire')]);
-    ENTITES = entites;
-    PERSONNES = annuaire.length
-      ? annuaire.map((a) => ({ ...a, Nom: [a.Prenom, a.Nom].filter(Boolean).join(' '), Actif: a.Present !== false }))
-      : await lireTable('Gouv_Utilisateurs');
+    [ENTITES, PERSONNES] = await Promise.all([lireTable('Gouv_Entites'), lireTable('Gouv_Utilisateurs')]);
     afficher();
   }
 
