@@ -290,9 +290,19 @@ function registre() {
 }
 /** Rôles d'une personne du registre : une liste (colonne Role à choix multiples), ou un seul rôle. */
 const rolesDe = (u) => { const v = u?.Role; return Array.isArray(v) ? (v[0] === 'L' ? v.slice(1) : v).filter(Boolean) : v ? [v] : []; };
-/** Rôle(s) qui administrent l'application : « Administrateur », ou ceux du paramètre Roles_administration. */
-const rolesAdmin = () => String((etat.d?.Gouv_Parametres || []).find((p) => p.Cle === 'Roles_administration')?.Valeur || 'Administrateur')
-  .split(',').map((r) => r.trim()).filter(Boolean);
+/** Rôle générique qui reçoit tous les droits dans la proposition standard de la matrice. */
+const rolesAdmin = () => ['Administrateur'];
+/**
+ * Administrateurs de l'application (décision du 26/11/2026, remplace le paramètre Roles_administration) :
+ * jusqu'à 3 personnes choisies dans Maintenance › Paramètres (clé « Administrateurs », courriels séparés par des
+ * virgules). Elles ont tous les droits sur les données et le support ; l'administration reste aux propriétaires.
+ */
+const MAX_ADMINISTRATEURS = 3;
+const DESCRIPTION_ADMINISTRATEURS = "Jusqu'à 3 personnes qui ont tous les droits sur les données et le support (l'administration reste aux propriétaires du document)";
+const administrateurs = () => String((etat.d?.Gouv_Parametres || []).find((p) => p.Cle === 'Administrateurs')?.Valeur || '')
+  .split(',').map((c) => c.trim().toLowerCase()).filter(Boolean).slice(0, MAX_ADMINISTRATEURS);
+/** Condition Grist « la personne connectée est l'un des administrateurs » ('' s'il n'y en a aucun). */
+const condAdministrateurs = () => (administrateurs().length ? `user.Email in ${JSON.stringify(administrateurs())}` : '');
 /** Formules Grist sur la personne connectée, écrites pour le registre de l'application. */
 const moi = () => 'user.' + registre().attribut;
 /** La personne connectée a le rôle r (test seul, sans la condition « active »). */
@@ -418,6 +428,16 @@ async function enregistrerChamp(el) {
     } else if (el.dataset.p) {
       await agir([['UpdateRecord', 'Gouv_Parametres', Number(el.dataset.p), { Valeur: val }]]);
       etat.d.Gouv_Parametres.find((x) => x.id === Number(el.dataset.p)).Valeur = val;
+    } else if (el.dataset.admin !== undefined) {
+      // un des 3 menus « Administrateurs » : on réécrit la liste entière (sans doublon), la ligne est créée au besoin
+      const liste = [...new Set([...document.querySelectorAll('[data-admin]')].map((x) => x.value.trim().toLowerCase()).filter(Boolean))].join(', ');
+      const ligne = (etat.d.Gouv_Parametres || []).find((p) => p.Cle === 'Administrateurs');
+      if (ligne) { await agir([['UpdateRecord', 'Gouv_Parametres', ligne.id, { Valeur: liste }]]); ligne.Valeur = liste; }
+      else {
+        const r = await agir([['AddRecord', 'Gouv_Parametres', null, { Cle: 'Administrateurs', Valeur: liste, Description: DESCRIPTION_ADMINISTRATEURS }]]);
+        etat.d.Gouv_Parametres.push({ id: r.retValues[0], Cle: 'Administrateurs', Valeur: liste, Description: DESCRIPTION_ADMINISTRATEURS });
+      }
+      await tracer('Administrateurs', liste || 'aucun');
     }
     message('✅ Enregistré.');
   } catch (e) { message('❌ ' + esc(e.message), true); }
@@ -427,7 +447,7 @@ async function enregistrerChamp(el) {
 // matrice des droits. La matrice n'est pas écrite ici : seul l'aperçu est mis à jour.
 document.addEventListener('change', async (e) => {
   const el = e.target;
-  if (el.dataset.t || el.dataset.p) return enregistrerChamp(el);
+  if (el.dataset.t || el.dataset.p || el.dataset.admin !== undefined) return enregistrerChamp(el);
   if (el.id === 'simu-personne') { etat.simulation = el.value; return afficher(); }
   if (el.dataset.matTable) { const t = el.dataset.matTable; (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {})[el.dataset.matRole] = el.value; return majApercu(); }
   if (el.id === 'bloquer-autres') { etat.droits.bloquerAutres = el.checked; return majApercu(); }

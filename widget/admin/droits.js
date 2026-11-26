@@ -63,7 +63,8 @@ function matriceStandard() {
 const chaine = (s) => JSON.stringify(String(s));
 
 /** Condition Grist « la personne n'administre pas l'application (rôles du support) et n'est pas propriétaire ». */
-const pasSupport = () => rolesAdmin().map((r) => `not (${aLeRole(r)})`).join(' and ') + ' and user.Access != OWNER';
+const pasSupport = () => rolesAdmin().map((r) => `not (${aLeRole(r)})`).join(' and ') + ' and user.Access != OWNER'
+  + (condAdministrateurs() ? ` and not (${condAdministrateurs()})` : '');
 /**
  * Règles de confidentialité du support, par table (toutes colonnes, sauf mention « cols »).
  * Support : chacun ne voit que ses propres demandes ; seul le support change statut, priorité, assignation.
@@ -98,6 +99,8 @@ function construireRegles() {
     // Les jetons d'accès (clés « …_jeton ») ne sont visibles que des propriétaires du document.
     // Liste explicite : les règles d'accès Grist n'évaluent pas les méthodes comme .endswith() (la règle bloquerait toute la table).
     if (t === 'Gouv_Parametres' && colonne(t, 'Cle')) out.push({ table: t, formule: 'rec.Cle in ["Github_jeton", "Gitlab_jeton"] and user.Access != OWNER', perm: '-CRUD' });
+    // Les administrateurs choisis dans les Paramètres : tous les droits sur la table (après les jetons, qu'ils ne voient pas)
+    if (condAdministrateurs()) out.push({ table: t, formule: condAdministrateurs(), perm: '+CRUD' });
     // Support : chacun ne voit que ses propres demandes et seuls les administrateurs changent statut, priorité, assignation.
     if (m.supportPrive && prive[t]) for (const r of prive[t]) out.push({ table: t, ...r });
     for (const [r, n] of lignes) out.push({ table: t, formule: condRole(r), perm: NIVEAUX.find((x) => x.code === n).perm });
@@ -128,6 +131,7 @@ function ongletDroits() {
       ${metier.size ? `<div class="encadre">⚙️ ${metier.size} table(s) ont des <b>règles métier</b> (${nbMetier} règles : droits selon l'entité, le bureau, l'étape…). Le panneau ne les modifie pas ; elles se gèrent dans <i>Permissions avancées</i>.</div>` : ''}
       ${m.proposees ? `<div class="encadre">✏️ ${m.proposees} case(s) n'avaient pas de droit écrit : la proposition standard y est mise. Vérifiez, puis « Appliquer ces droits ».</div>` : ''}
       ${ressourcesOrphelines().length ? `<div class="encadre">🧹 Règles d'accès sur des tables qui n'existent plus : ${ressourcesOrphelines().map((r) => '<code>' + esc(r.tableId) + '</code>').join(', ')}. Grist refuse tout changement de règles tant qu'elles sont là : elles seront retirées au prochain enregistrement des droits (elles ne protègent plus rien).</div>` : ''}
+      <div class="encadre">👤 <b>Administrateurs</b> (Maintenance › Paramètres) : ${administrateurs().length ? esc(administrateurs().join(', ')) + ' : tous les droits sur ces tables.' : 'aucun choisi.'}</div>
       ${!garde ? `<div class="encadre alerte">⚠️ Les personnes non inscrites ne sont pas bloquées. <button class="bouton petit" data-action="garde">Ne leur montrer que l'accueil</button></div>` : ''}
       <div class="barre-outils">
         <button class="bouton petit" data-action="standard">✨ Proposition standard</button>

@@ -32,7 +32,7 @@ D'abord ce qui identifie la ligne, puis le contenu, les liens, l'état, et en de
 
 ## P5 — Droits par rôle
 - Le rôle vient de la table Utilisateurs, via l'attribut utilisateur **`user.Profil`** (ou celui du registre propre à l'application, voir P1).
-- Rôles génériques : **Administrateur, Gestionnaire, Contributeur, Lecteur**, présents dans toute application qui utilise le registre de la norme. Une application qui garde son registre garde aussi ses rôles ; le ou les rôles qui l'administrent sont déclarés dans **Paramètres** (clé `Roles_administration`, ex. « AdminDGOM »).
+- Rôles génériques : **Administrateur, Gestionnaire, Contributeur, Lecteur**, présents dans toute application qui utilise le registre de la norme. Une application qui garde son registre garde aussi ses rôles . Les **administrateurs** sont jusqu'à 3 personnes choisies dans Maintenance › Paramètres (clé `Administrateurs`) : tous les droits sur les données et le support, mais pas l'administration (réservée aux propriétaires).
 - **Un ou plusieurs rôles par personne** : colonne `Role` en choix simple (règle `user.Profil.Role == "Gestionnaire"`) ou en choix multiples (règle `"Gestionnaire" in user.Profil.Role`). Les outils d'administration écrivent la bonne forme d'eux-mêmes.
 - **Rôles métier** : une application peut en ajouter (ex. Chef de bureau, BSSIOM) dans la même liste `Role`. Ils sont officiels dès qu'ils sont décrits dans son fichier `applications/…` (qui fait quoi, sur quel périmètre).
 - Une personne non inscrite ou inactive ne voit **que la page d'accueil**.

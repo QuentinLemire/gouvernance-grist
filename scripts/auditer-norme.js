@@ -456,12 +456,11 @@
     if (!d.colonnesDe.get(R.table)) return [];
     const U = (await lireTable(R.table)) || [];
     const page = R.norme ? '👥 Utilisateurs' : `table ${R.table}`;
-    // rôle(s) qui administrent l'application : « Administrateur », ou ceux du paramètre Roles_administration
-    // (ex. « BSSIOM » dans Arrivées-Départs), séparés par des virgules
-    const reglage = ((await lireTable('Gouv_Parametres')) || []).find((p) => p.Cle === 'Roles_administration');
-    const rolesAdmin = String(reglage?.Valeur || 'Administrateur').split(',').map((r) => r.trim()).filter(Boolean);
+    // administrateurs : jusqu'à 3 personnes choisies dans les Paramètres (clé Administrateurs, courriels)
+    const reglage = ((await lireTable('Gouv_Parametres')) || []).find((p) => p.Cle === 'Administrateurs');
+    const choisis = String(reglage?.Valeur || '').split(',').map((c) => c.trim().toLowerCase()).filter(Boolean);
     const actifs = U.filter((u) => u.Actif !== false);   // pas de colonne Actif : tout le monde est actif
-    const admins = actifs.filter((u) => rolesDe(u).some((r) => rolesAdmin.includes(r)));
+    const admins = actifs.filter((u) => choisis.includes(String(u.Courriel || '').trim().toLowerCase()));
     const sansRole = actifs.filter((u) => !rolesDe(u).length).map((u) => u.Courriel || `ligne ${u.id}`);
     // colonnes calculées de la norme (Courriel_valide, Doublon), ou le même calcul si elles manquent
     const cle = (c) => String(c || '').trim().toLowerCase();
@@ -471,8 +470,8 @@
     const doublons = [...new Set(U.filter(doublon).map((u) => cle(u.Courriel)))];
     return [
       { principe: 'Personnes', objet: 'Administrateurs actifs', etat: admins.length ? OK : ABSENT, page,
-        detail: admins.length ? `${admins.length} personne(s) active(s) au rôle ${rolesAdmin.join(' ou ')}`
-          : `Aucune personne active au rôle ${rolesAdmin.join(' ou ')} : personne ne peut gérer l'application en dehors des propriétaires (rôle d'administration : paramètre Roles_administration)`, elements: [] },
+        detail: admins.length ? `${admins.length} administrateur(s) actif(s) : ${admins.map((u) => u.Nom || u.Courriel).join(', ')}`
+          : `Aucun administrateur actif : à choisir dans Maintenance › Paramètres (jusqu'à 3 personnes)`, elements: [] },
       { principe: 'Personnes', objet: 'Personnes actives sans rôle', etat: sansRole.length ? PARTIEL : OK, page,
         detail: sansRole.length ? `${sansRole.length} personne(s) active(s) sans rôle : elles ne voient que l'accueil` : 'Chaque personne active a un rôle', elements: sansRole },
       { principe: 'Personnes', objet: 'Courriels', etat: malFormes.length || doublons.length ? PARTIEL : OK, page,

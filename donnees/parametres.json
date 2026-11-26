@@ -22,9 +22,9 @@
       "Description": "Adresse (URL) d'une image du logo DGOM, affichée en haut des pages (facultatif)"
     },
     {
-      "Cle": "Roles_administration",
-      "Valeur": "Administrateur",
-      "Description": "Rôle(s) qui administrent l'application (séparés par des virgules), contrôlés par la santé du document"
+      "Cle": "Administrateurs",
+      "Valeur": "",
+      "Description": "Jusqu'à 3 personnes qui ont tous les droits sur les données et le support (l'administration reste aux propriétaires du document)"
     },
     {
       "Cle": "Source_norme",

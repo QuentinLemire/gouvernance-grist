@@ -230,3 +230,7 @@ Les lignes techniques de la source (« Tous », « · », « Direction ») et le
 ## Plus de boutons de renvoi dans l'administration (2026-11-26)
 **Décision** : les boutons « Corriger → » de la santé du document, « Ouvrir l'Atelier → », « Installer → » et les « Ouvrir … → » de l'Aide sont retirés ; la carte Traçabilité de la Maintenance (un simple renvoi vers l'Atelier) aussi. Les outils montrent ce qui cloche ; on ouvre soi-même l'outil voulu dans le menu.
 **Raison** : demande de Quentin : ces boutons ne corrigeaient rien, ils changeaient seulement de page ; l'important est de voir clairement le problème.
+
+## Administrateurs : 3 personnes choisies, plus de Roles_administration (2026-11-26)
+**Décision** : le paramètre `Roles_administration` (un ou plusieurs rôles) est remplacé par `Administrateurs` : jusqu'à 3 personnes, choisies dans 3 menus déroulants de Maintenance › Paramètres parmi les personnes actives du registre. Ils ont tous les droits sur les tables gérées par la matrice (règle `user.Email in [...]`, posée par « Appliquer ces droits », après la règle qui cache les jetons) et gèrent toutes les demandes de support. Les pages d'administration restent réservées aux propriétaires du document. La santé du document vérifie qu'au moins un administrateur choisi est actif.
+**Raison** : demande de Quentin : désigner nommément qui administre, plutôt qu'un rôle que n'importe qui peut recevoir.

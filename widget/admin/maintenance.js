@@ -775,11 +775,27 @@ async function installerTablesSujet(fichier) {
  * comme des mots de passe). Le journal, s'il est installé, a sa propre page (📒 Journal).
  * @returns {string} HTML de l'onglet
  */
+/**
+ * Les 3 menus « Administrateurs » : chacun propose les personnes actives du registre (nom et courriel).
+ * La valeur enregistrée est la liste des courriels choisis (enregistrerChamp, data-admin).
+ */
+function lignesAdministrateurs() {
+  const R = registre(), choisis = administrateurs();
+  const personnes = (etat.d[R.table] || []).filter((u) => u.Actif !== false && u.Courriel)
+    .sort((a, b) => String(a.Nom || a.Courriel).localeCompare(String(b.Nom || b.Courriel), 'fr'));
+  const menu = (i) => `<select class="champ" data-admin="${i}" style="min-width:260px"><option value="">— personne —</option>` +
+    personnes.map((u) => { const c = String(u.Courriel).trim().toLowerCase();
+      return `<option value="${esc(c)}"${choisis[i] === c ? ' selected' : ''}>${esc(u.Nom || c)} · ${esc(c)}</option>`; }).join('') + '</select>';
+  return `<tr><td style="width:220px"><b>Administrateurs</b><br><small class="vide">${esc(DESCRIPTION_ADMINISTRATEURS)}</small></td>
+    <td style="display:flex;flex-direction:column;gap:6px">${[...Array(MAX_ADMINISTRATEURS).keys()].map(menu).join('')}</td></tr>`;
+}
+
 function ongletParametres() {
-  const P = (etat.d.Gouv_Parametres || []);
+  // Administrateurs : 3 menus à part ; l'ancien paramètre Roles_administration n'est plus affiché (remplacé le 26/11/2026)
+  const P = (etat.d.Gouv_Parametres || []).filter((p) => !['Administrateurs', 'Roles_administration'].includes(p.Cle));
   return `
     <section class="carte"><h2>⚙️ Paramètres de l'application</h2>
-      ${aTable('Gouv_Parametres') ? `<table class="tableau">${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
+      ${aTable('Gouv_Parametres') ? `<table class="tableau">${lignesAdministrateurs()}${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
         <td><input class="champ" style="width:100%;max-width:none" data-p="${p.id}" value="${esc(p.Valeur)}" ${/_jeton$/.test(p.Cle) ? 'type="password" autocomplete="off"' : ''}>${p.Cle === 'Logo_DGOM' && p.Valeur ? `<img class="apercu-logo" src="${esc(p.Valeur)}" alt="">` : ''}</td></tr>`).join('')}</table>`
         : `<div class="encadre alerte">Pas de table Parametres : « Installer tout le socle » ci-dessus.</div>`}
     </section>`;
