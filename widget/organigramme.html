@@ -105,6 +105,9 @@
    * @returns {object[]} les structures du haut (en général une seule : la direction)
    */
   function construireArbre(lignes) {
+    // une référence arrive en nombre, ou décodée par l'API des widgets (objet avec rowId, ou ['R', table, id])
+    const idDe = (v) => (typeof v === 'number' ? v : v && (v.rowId ?? (Array.isArray(v) ? v[2] : 0))) || 0;
+    lignes = lignes.map((l) => ({ ...l, Parent: idDe(l.Parent) }));
     const parId = new Map(lignes.map((l) => [l.id, l]));
     const visible = (l) => l.Actif !== false && l.Organigramme !== false;
     const noeuds = new Map(lignes.filter(visible).map((l) => [l.id, { ligne: l, enfants: [] }]));
