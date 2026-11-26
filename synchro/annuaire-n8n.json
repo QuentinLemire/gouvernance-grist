@@ -1,0 +1,376 @@
+{
+  "name": "Annuaire : Arrivées-Départs (maître) → Grist de la norme (esclaves)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "bce30a65-e845-495e-828a-a0569c39e04f",
+      "name": "Chaque matin (6 h, jours ouvrés)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "e8cc85b0-5c21-4263-a71f-5b00e42fa1a0",
+      "name": "Lancer à la main",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ⚙️ RÉGLAGES : le seul endroit à modifier.\n// maitre : le document Arrivées-Départs (annuaire du personnel présent).\n// cibles : les Grist « esclaves » à tenir à jour (table Gouv_Utilisateurs de la norme). Ajouter une ligne par document.\n// essai : true = calcule et affiche les changements (nœud « Calculer les changements ») SANS rien écrire.\n//         Passer à false après avoir vérifié un premier lancement à la main.\n// desactivationsMax : au-delà, on ne désactive personne (une lecture ratée du maître ne vide pas l'annuaire).\nreturn [{ json: {\n  grist: 'https://grist.numerique.gouv.fr',\n  maitre: { nom: 'Arrivées-Départs MOM', docId: '7vFZ964YgDgJ', table: 'Personnel_summary_Courriel' },\n  cibles: [\n    { nom: 'Gouvernance', docId: 'jQ3omn87Zkei' },\n    // { nom: 'Autre application', docId: 'xxxxxxxxxxxx' },\n  ],\n  essai: true,\n  desactivationsMax: 10,\n} }];"
+      },
+      "id": "474e6d1f-660b-40f6-ba74-b94608be3587",
+      "name": "Réglages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.grist }}/api/docs/{{ $json.maitre.docId }}/tables/{{ $json.maitre.table }}/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter",
+              "value": "{\"Present\":[true]}"
+            }
+          ]
+        }
+      },
+      "id": "5a4dc733-0599-4daf-8674-142e43b54a13",
+      "name": "Lire l'annuaire (maître)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agents présents lus dans l'annuaire du maître, mis au format des Grist esclaves.\n// Nom affiché : « Prénom NOM » ; entité : le bureau (ex. BSSIOM), sinon la direction (ex. DGOM).\n// Un courriel n'apparaît qu'une fois (le premier trouvé), même s'il est écrit avec des majuscules différentes.\nconst parCourriel = new Map();\nfor (const r of $input.first().json.records || []) {\n  const f = r.fields;\n  if (f.Present === false || !f.Courriel) continue;\n  const courriel = String(f.Courriel).trim().toLowerCase();\n  if (parCourriel.has(courriel)) continue;\n  parCourriel.set(courriel, {\n    courriel,\n    nom: [f.Prenom, f.Nom].filter(Boolean).join(' ').trim(),\n    bureau: f.Bureau || '',\n    direction: f.Entite || '',\n    fonction: f.Fonction || '',\n  });\n}\nconst agents = [...parCourriel.values()];\nif (!agents.length) throw new Error(\"Annuaire vide : la synchronisation s'arrête (sécurité : on ne désactive personne sur une lecture ratée).\");\nreturn [{ json: { agents } }];"
+      },
+      "id": "b9be8e5e-4c5c-4ed2-a8f1-934b7a6e2a31",
+      "name": "Préparer les agents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Une ligne par Grist esclave, avec la liste des agents du maître et les réglages utiles plus loin.\nconst r = $('Réglages').first().json;\nconst agents = $('Préparer les agents').first().json.agents;\nreturn r.cibles.map((c) => ({ json: { ...c, grist: r.grist, essai: r.essai, desactivationsMax: r.desactivationsMax, agents } }));"
+      },
+      "id": "73038a21-29bb-42b1-8cd8-60cc0ffdebb2",
+      "name": "Cibles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.grist }}/api/docs/{{ $json.docId }}/tables/Gouv_Entites/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "2cb4c769-1a1d-4794-b200-2786f6411420",
+      "name": "Lire les entités",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Cibles').item.json.grist }}/api/docs/{{ $('Cibles').item.json.docId }}/tables/Gouv_Utilisateurs/columns",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "337033d2-906d-4e98-97b9-14ebbb11f6dd",
+      "name": "Lire les colonnes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Cibles').item.json.grist }}/api/docs/{{ $('Cibles').item.json.docId }}/tables/Gouv_Utilisateurs/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "0ca68b60-d897-4cf9-bac2-b482922de199",
+      "name": "Lire les utilisateurs (esclave)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ce qu'il faut changer dans un Grist esclave (Gouv_Utilisateurs), en comparant au maître par courriel.\n// Règles :\n//  - agent du maître absent de l'esclave : ajouté (Nom, Courriel, Entité, Fonction, Actif) ; SANS rôle :\n//    il ne voit que l'accueil tant qu'un administrateur de l'application ne lui en a pas donné un ;\n//  - agent déjà présent : Nom, Entité et Fonction mis à jour depuis le maître ; le Rôle n'est JAMAIS touché ;\n//  - personne de l'esclave absente du maître (agent parti) : désactivée, SEULEMENT si c'est la synchro qui l'a\n//    créée (Créé par = un compte de service) ; les personnes ajoutées à la main ne sont jamais désactivées.\nconst cible = $('Cibles').item.json;\nconst entites = ($('Lire les entités').item.json.records || []);\nconst colonnes = ($('Lire les colonnes').item.json.columns || []).map((c) => c.id);\nconst users = $json.records || [];\nconst norm = (s) => String(s || '').trim().toLowerCase();\nconst compteDeService = (c) => /@serviceaccounts\\.invalid$/.test(norm(c));\nconst idEntite = (nom) => (nom ? (entites.find((e) => norm(e.fields.Nom) === norm(nom)) || {}).id : undefined);\nconst aFonction = colonnes.includes('Fonction');\n\nconst parCourriel = new Map(users.map((u) => [norm(u.fields.Courriel), u]));\nconst ajouts = [], majs = [];\nfor (const a of cible.agents) {\n  const entite = idEntite(a.bureau) || idEntite(a.direction);   // introuvable : on ne touche pas à l'entité\n  const champs = { Nom: a.nom, ...(entite ? { Entite: entite } : {}), ...(aFonction ? { Fonction: a.fonction } : {}) };\n  const u = parCourriel.get(a.courriel);\n  if (!u) { ajouts.push({ fields: { Courriel: a.courriel, Actif: true, ...champs } }); continue; }\n  const diff = Object.fromEntries(Object.entries(champs).filter(([k, v]) => (u.fields[k] ?? '') !== v));\n  // une fiche créée par la synchro et désactivée revient quand l'agent est de nouveau présent\n  if (u.fields.Actif === false && compteDeService(u.fields.CreePar)) diff.Actif = true;\n  if (Object.keys(diff).length) majs.push({ id: u.id, fields: diff });\n}\nconst presents = new Set(cible.agents.map((a) => a.courriel));\nconst departs = users.filter((u) => {\n  const c = norm(u.fields.Courriel);\n  return u.fields.Actif !== false && c && !presents.has(c) && !compteDeService(c) && compteDeService(u.fields.CreePar);\n});\n// garde-fou : trop de départs d'un coup = sans doute une lecture incomplète du maître ; on ne désactive personne\nconst departsBloques = departs.length > cible.desactivationsMax;\nif (!departsBloques) for (const u of departs) majs.push({ id: u.id, fields: { Actif: false } });\nreturn { json: { nom: cible.nom, docId: cible.docId, grist: cible.grist, essai: cible.essai, ajouts, majs,\n  resume: `${cible.essai ? '[ESSAI, rien écrit] ' : ''}${cible.nom} : ${ajouts.length} ajout(s), ${majs.length} mise(s) à jour`\n    + (departsBloques ? ` ; ${departs.length} départs NON appliqués (plus de ${cible.desactivationsMax} : vérifier l'annuaire)` : '') } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "c27c1006-fe3e-4182-8dcd-e044f87a3e52",
+      "name": "Calculer les changements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Seulement les Grist où il y a des agents à ajouter (rien en mode essai)\nreturn $input.all().filter((i) => !i.json.essai && i.json.ajouts.length);"
+      },
+      "id": "493cd914-1431-4efd-9936-9d981d41baf3",
+      "name": "Ajouts à faire",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Seulement les Grist où il y a des fiches à mettre à jour ou à désactiver (rien en mode essai)\nreturn $input.all().filter((i) => !i.json.essai && i.json.majs.length);"
+      },
+      "id": "57a084d2-a3d1-409a-935d-94f8d68b6227",
+      "name": "Mises à jour à faire",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.grist }}/api/docs/{{ $json.docId }}/tables/Gouv_Utilisateurs/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ records: $json.ajouts }) }}"
+      },
+      "id": "2a4d11a0-b0ba-4bcf-9c10-a7fe682479bd",
+      "name": "Ajouter les agents",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.grist }}/api/docs/{{ $json.docId }}/tables/Gouv_Utilisateurs/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ records: $json.majs }) }}"
+      },
+      "id": "ccf8dcfc-5805-4f9f-a26a-0eb7b7540db1",
+      "name": "Mettre à jour les fiches",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Chaque matin (6 h, jours ouvrés)": {
+      "main": [
+        [
+          {
+            "node": "Réglages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lancer à la main": {
+      "main": [
+        [
+          {
+            "node": "Réglages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Réglages": {
+      "main": [
+        [
+          {
+            "node": "Lire l'annuaire (maître)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire l'annuaire (maître)": {
+      "main": [
+        [
+          {
+            "node": "Préparer les agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer les agents": {
+      "main": [
+        [
+          {
+            "node": "Cibles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cibles": {
+      "main": [
+        [
+          {
+            "node": "Lire les entités",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les entités": {
+      "main": [
+        [
+          {
+            "node": "Lire les colonnes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les colonnes": {
+      "main": [
+        [
+          {
+            "node": "Lire les utilisateurs (esclave)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les utilisateurs (esclave)": {
+      "main": [
+        [
+          {
+            "node": "Calculer les changements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ajouts à faire": {
+      "main": [
+        [
+          {
+            "node": "Ajouter les agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mises à jour à faire": {
+      "main": [
+        [
+          {
+            "node": "Mettre à jour les fiches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculer les changements": {
+      "main": [
+        [
+          {
+            "node": "Ajouts à faire",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mises à jour à faire",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris"
+  },
+  "pinData": {}
+}
