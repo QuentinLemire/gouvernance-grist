@@ -46,12 +46,12 @@
   <style>
     body { background: #fff; }
     /* Barre du haut : titre, chiffres, puis les réglages de la vue */
-    .barre { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; border-bottom: 1px solid var(--bordure); }
-    .barre h1 { font-size: 20px; margin: 0; }
-    .barre .chiffres { color: var(--texte-doux); font-size: 13.5px; flex: 1; }
-    .barre select, .barre input[type=search] { font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid var(--bordure); border-radius: 4px; }
-    .barre input[type=search] { width: 220px; }
-    .barre label { font-size: 13.5px; display: flex; align-items: center; gap: 4px; }
+    .entete-orga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; border-bottom: 1px solid var(--bordure); }
+    .entete-orga h1 { font-size: 20px; margin: 0; }
+    .entete-orga .chiffres { color: var(--texte-doux); font-size: 13.5px; flex: 1; }
+    .entete-orga select, .entete-orga input[type=search] { font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid var(--bordure); border-radius: 4px; }
+    .entete-orga input[type=search] { width: 220px; }
+    .entete-orga label { font-size: 13.5px; display: flex; align-items: center; gap: 4px; }
 
     .zone { overflow: auto; padding: 24px 16px 40px; }
     #arbre { position: relative; display: inline-block; min-width: 100%; }
@@ -88,7 +88,7 @@
 
     .vide { padding: 40px 16px; color: var(--texte-doux); }
     @media print {
-      .barre select, .barre input, .barre label, .barre button { display: none; }
+      .entete-orga select, .entete-orga input, .entete-orga label, .entete-orga button { display: none; }
       .zone { overflow: visible; padding: 0; }
       .boite.estompee { opacity: 1; }
       @page { size: landscape; margin: 8mm; }
@@ -96,7 +96,7 @@
   </style>
 </head>
 <body>
-  <div class="barre">
+  <div class="entete-orga">
     <h1>🏢 Organigramme</h1>
     <span class="chiffres" id="chiffres"></span>
     <select id="vue" aria-label="Vue">
