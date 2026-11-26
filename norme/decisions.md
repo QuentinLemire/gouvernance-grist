@@ -209,3 +209,11 @@ Les lignes techniques de la source (« Tous », « · », « Direction ») et le
 ## Identifiant DGOM : des numéros qui se suivent (2026-11-26)
 **Décision** : `Gouv_Entites.Id_DGOM` est calculé : 1, 2, 3… sans trou, dans l'ordre de l'organigramme (la direction, puis chaque entité suivie de ses sous-entités, par ordre alphabétique). Ajouter ou supprimer une entité renumérote les suivantes. La table est triée par cet identifiant dans « Données source ». Les données de départ désignent le parent par son nom, et non plus par l'identifiant de l'Outil cabDG.
 **Raison** : demande de Quentin : une liste rangée et numérotée sans trou se lit d'un coup d'œil. Pour relier une entité depuis un autre document, utiliser son nom ; le numéro, lui, peut bouger.
+
+## Plus de colonne Encadrement : c'est la Fonction (2026-11-26)
+**Décision** : la colonne `Encadrement` est retirée (Utilisateurs dans la norme, Personnel dans Arrivées-Départs). L'organigramme lit `Fonction` : « Chef de bureau », « Sous-directeur »… en tête, « Adjoint au chef de bureau »… juste dessous. Dans la fiche d'arrivée, le champ FONCTION propose ces fonctions (on peut en taper une autre).
+**Raison** : remarque de Quentin : « chef de bureau » est une fonction ; deux cases pour la même information se contredisent un jour ou l'autre.
+
+## Annuaire d'Arrivées-Départs regroupé par courriel (2026-11-26)
+**Décision** : la table de l'annuaire est regroupée directement par `Personnel.Courriel` (`Personnel_summary_Courriel`) ; une colonne `Present` ne garde que les agents présents (filtre de la page et règles d'accès). Plus de colonne technique « Annuaire ».
+**Raison** : la clé de regroupement d'une table de synthèse prend le nom de la colonne source et ne se renomme pas ; regrouper par le courriel lui-même évite une colonne en double.
