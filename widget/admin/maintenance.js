@@ -690,8 +690,10 @@ async function etiqueterTables(fichiers) {
  * sont remplies ; les autres lignes sont ajoutées. Rien n'est supprimé ni écrasé.
  * Le rattachement (Parent) est donné par l'Id_DGOM de la ligne au-dessus : il est posé une fois toutes les lignes présentes.
  */
-async function fusionnerJeu(jeu) {
+async function fusionnerJeu(jeu, nouvelles = new Set()) {
   const cle = jeu.fusion, norm = (v) => String(v || '').trim().toLowerCase();
+  // colonnes qu'on peut écrire : présentes et non calculées (l'identifiant DGOM, lui, est une formule)
+  const ecrivable = (k) => { const c = colonne(jeu.tableId, k); return c && !c.isFormula; };
   const vide = (v) => v === null || v === undefined || v === '' || v === 0;
   const lignes = (await lire(jeu.tableId)) || [];
   const parCle = new Map(lignes.map((l) => [norm(l[cle]), l]));
@@ -700,25 +702,31 @@ async function fusionnerJeu(jeu) {
     const { Parent, ...champs } = r;
     const ici = parCle.get(norm(r[cle]));
     if (!ici) { ajouts.push(champs); continue; }
-    // première fusion de cette ligne (pas encore d'Id_DGOM) : une case à cocher tout juste ajoutée vaut « non »
-    // sur les lignes déjà là, elle compte donc comme vide ; aux fusions suivantes, un choix fait à la main est gardé
-    const premiere = vide(ici.Id_DGOM);
-    const aRemplir = Object.fromEntries(Object.entries(champs).filter(([k]) => colonne(jeu.tableId, k) && (vide(ici[k]) || (premiere && ici[k] === false))));
+    // une case à cocher tout juste ajoutée (colonne créée par cette installation) vaut « non » sur les lignes déjà là :
+    // elle compte comme vide ; ensuite, un choix fait à la main est gardé
+    const neuve = (k) => nouvelles.has(jeu.tableId + '.' + k) && ici[k] === false;
+    const aRemplir = Object.fromEntries(Object.entries(champs).filter(([k]) => ecrivable(k) && (vide(ici[k]) || neuve(k))));
     if (Object.keys(aRemplir).length) maj.push(['UpdateRecord', jeu.tableId, ici.id, aRemplir]);
   }
-  const cles = [...new Set(ajouts.flatMap(Object.keys))].filter((k) => colonne(jeu.tableId, k));
+  const cles = [...new Set(ajouts.flatMap(Object.keys))].filter(ecrivable);
   if (ajouts.length) maj.push(['BulkAddRecord', jeu.tableId, ajouts.map(() => null), Object.fromEntries(cles.map((k) => [k, ajouts.map((r) => r[k] ?? null)]))]);
   if (maj.length) await agir(maj);
-  // rattachements : Id_DGOM du parent → ligne du document ; seulement là où « Parent » est vide
+  // rattachements : le jeu donne le nom de l'entité au-dessus ; seulement là où « Parent » est vide
   const apres = (await lire(jeu.tableId)) || [];
-  const parId = new Map(apres.filter((l) => l.Id_DGOM).map((l) => [l.Id_DGOM, l.id]));
+  const parNom = new Map(apres.map((l) => [norm(l[cle]), l.id]));
   const liens = [];
   for (const r of jeu.records) {
     const ici = apres.find((l) => norm(l[cle]) === norm(r[cle]));
-    const parent = parId.get(r.Parent);
+    const parent = r.Parent ? parNom.get(norm(r.Parent)) : null;
     if (ici && parent && parent !== ici.id && vide(ici.Parent)) liens.push(['UpdateRecord', jeu.tableId, ici.id, { Parent: parent }]);
   }
   if (liens.length) await agir(liens);
+}
+
+/** Trie la table dans « Données source » (ex. les Entités par identifiant DGOM). */
+async function trierTableBrute(tableId, colId) {
+  const t = etat.meta.parId[tableId], c = colId && colonne(tableId, colId);
+  if (t && c && t.rawViewSectionRef) await agir([['UpdateRecord', '_grist_Views_section', t.rawViewSectionRef, { sortColRefs: JSON.stringify([c.id]) }]]);
 }
 
 async function installerTablesSujet(fichier) {
@@ -731,13 +739,15 @@ async function installerTablesSujet(fichier) {
       tables.push(...def.tables);
       (def.dependances || []).forEach((d) => aFaire.push(d.toLowerCase()));
     }
+    // colonnes créées par cette installation (pour la fusion des données : voir fusionnerJeu)
+    const nouvelles = new Set(tables.flatMap((t) => t.columns.filter((c) => !colonne(t.tableId, c.id)).map((c) => t.tableId + '.' + c.id)));
     await creerStructure(tables);
     await etiqueterTables(vus);
     // Données de référence publiques (territoires) si la table est encore vide.
     for (const f of vus) {
       if (!DONNEES[f]) continue;
       const jeu = await lireDepot('donnees/' + DONNEES[f]);
-      if (jeu.fusion) { await fusionnerJeu(jeu); continue; }
+      if (jeu.fusion) { await fusionnerJeu(jeu, nouvelles); await trierTableBrute(jeu.tableId, jeu.tri); continue; }
       if (!((await lire(jeu.tableId)) || []).length) {
         // un jeu peut fixer les identifiants (« id ») : ses lignes se citent entre elles (Parent) et gardent
         // les numéros de leur source (bureaux de la DGOM : ceux de l'Outil cabDG)

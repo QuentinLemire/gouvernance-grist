@@ -1,260 +1,233 @@
 {
   "tableId": "Gouv_Entites",
   "fusion": "Nom",
-  "explication": "Fusion par le nom : une entité déjà présente est complétée (identifiant DGOM, rattachement, courriel, couleur s'ils sont vides), les autres sont ajoutées. Parent = Id_DGOM de l'entité au-dessus (0 : aucune).",
+  "explication": "Fusion par le nom : une entité déjà présente est complétée (rattachement, courriel, couleur s'ils sont vides), les autres sont ajoutées. Parent = nom de l'entité au-dessus (vide : aucune). L'identifiant DGOM est calculé par le document (numéros qui se suivent).",
   "source": "Outil cabDG (dgom/3UNheB3r3ycW), table Entites, 26/11/2026",
   "records": [
     {
-      "Id_DGOM": 1,
       "Nom": "DGOM",
-      "Parent": 0,
+      "Parent": "",
       "Courriel": "",
       "Couleur": "#27EBF5",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 2,
       "Nom": "BRC",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 3,
       "Nom": "CABDG",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "dir-cab-dgom@outre-mer.gouv.fr",
       "Couleur": "#90F0FA",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 4,
       "Nom": "Chlordécone",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 6,
       "Nom": "SDAJI",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "sec-sdaji@outre-mer.gouv.fr",
       "Couleur": "#00A95F",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 7,
       "Nom": "BCL",
-      "Parent": 6,
+      "Parent": "SDAJI",
       "Courriel": "",
       "Couleur": "#80D1A8",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 8,
       "Nom": "BDPAES",
-      "Parent": 6,
+      "Parent": "SDAJI",
       "Courriel": "",
       "Couleur": "#80D1A8",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 9,
       "Nom": "BDPAI",
-      "Parent": 6,
+      "Parent": "SDAJI",
       "Courriel": "",
       "Couleur": "#80D1A8",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 10,
       "Nom": "SDEPDE",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "momsecsepde@outre-mer.gouv.fr",
       "Couleur": "#FFCA00",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 11,
       "Nom": "BEPPP",
-      "Parent": 10,
+      "Parent": "SDEPDE",
       "Courriel": "",
       "Couleur": "#FFE080",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 12,
       "Nom": "BFPOM",
-      "Parent": 10,
+      "Parent": "SDEPDE",
       "Courriel": "",
       "Couleur": "#FFE080",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 13,
       "Nom": "BSSIOM",
-      "Parent": 10,
+      "Parent": "SDEPDE",
       "Courriel": "",
       "Couleur": "#FFE080",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 15,
       "Nom": "SDPEEDD",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "secpeedd@outre-mer.gouv.fr",
       "Couleur": "#FF7477",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 16,
       "Nom": "BELDAD",
-      "Parent": 15,
+      "Parent": "SDPEEDD",
       "Courriel": "",
       "Couleur": "#FFB3B5",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 17,
       "Nom": "BREF",
-      "Parent": 15,
+      "Parent": "SDPEEDD",
       "Courriel": "",
       "Couleur": "#FFB3B5",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 18,
       "Nom": "BVEEF",
-      "Parent": 15,
+      "Parent": "SDPEEDD",
       "Courriel": "",
       "Couleur": "#FFB3B5",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 19,
       "Nom": "SDPISA",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "secpisa@outre-mer.gouv.fr",
       "Couleur": "#A558A0",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 20,
       "Nom": "BAEI",
-      "Parent": 19,
+      "Parent": "SDPISA",
       "Courriel": "",
       "Couleur": "#C79BC9",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 21,
       "Nom": "BCSSEC",
-      "Parent": 19,
+      "Parent": "SDPISA",
       "Courriel": "",
       "Couleur": "#C79BC9",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 22,
       "Nom": "BPARM",
-      "Parent": 19,
+      "Parent": "SDPISA",
       "Courriel": "",
       "Couleur": "#C79BC9",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 23,
       "Nom": "SMA",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "",
       "Couleur": "#BD987A",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 24,
       "Nom": "EM SMA",
-      "Parent": 23,
+      "Parent": "SMA",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": false,
       "Actif": true
     },
     {
-      "Id_DGOM": 28,
       "Nom": "CICVFOM",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 29,
       "Nom": "MIRMM",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 30,
       "Nom": "MINC",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": true,
       "Actif": true
     },
     {
-      "Id_DGOM": 31,
       "Nom": "AMBASSADEURS",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": false,
       "Actif": true
     },
     {
-      "Id_DGOM": 32,
       "Nom": "DGA",
-      "Parent": 1,
+      "Parent": "DGOM",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": false,
       "Actif": true
     },
     {
-      "Id_DGOM": 33,
       "Nom": "Communication",
-      "Parent": 3,
+      "Parent": "CABDG",
       "Courriel": "",
       "Couleur": "",
       "Organigramme": false,
       "Actif": true
     }
-  ]
+  ],
+  "tri": "Id_DGOM"
 }
