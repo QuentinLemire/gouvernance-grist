@@ -116,7 +116,7 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
 - **Table** : `Personnel_summary_Annuaire` (« Personnel [Annuaire] », page 📇 Annuaire). Calculée par Grist : une ligne par agent présent, rien à saisir. Clé de regroupement : `Personnel.Annuaire` = courriel en minuscules si l'agent est présent, vide sinon.
 - **Colonnes exportées** (texte, pour pouvoir sortir du document) : Courriel (clé de mise à jour), Nom, Prenom, Entite, Sous_direction, Bureau (nom de l'entité, ex. BSSIOM), Fonction (poste), Encadrement (Chef de bureau / Adjoint au chef de bureau / vide = agent), Telephone, Piece.
 - **Jamais exportées** : RIO, grade, statut, dates de fin de contrat et de départ, situation, matériel, accès informatiques, observations, signatures.
-- **Droits** : lisible par toute personne inscrite et active ; les comptes de service (`…@serviceaccounts.invalid`, n8n) ne lisent que cette table (sans la colonne technique `group`), rien d'autre du document.
+- **Droits** : lisible par toute personne inscrite et active ; les comptes de service (`…@serviceaccounts.invalid`, n8n) ne lisent que cette table, sans ses deux colonnes techniques : `group` (lignes de Personnel) et `Annuaire` (clé de regroupement de Grist, doublon du courriel, qu'on ne peut ni renommer ni supprimer), rien d'autre du document.
 - **Pour n8n** : lire `GET /api/docs/<doc>/tables/Personnel_summary_Annuaire/records`, faire correspondre par Courriel ; un agent absent de la table est parti : le désactiver dans les autres Grist, ne pas le supprimer.
 
 ## Plus de table Bureaux : les bureaux sont des entités (2026-11-26)
