@@ -1,0 +1,258 @@
+{
+  "tableId": "Gouv_Bureaux",
+  "source": "Outil cabDG (dgom/3UNheB3r3ycW), table Entites, 26/11/2026 : mêmes identifiants",
+  "records": [
+    {
+      "id": 1,
+      "Nom": "DGOM",
+      "Parent": 0,
+      "Courriel": "",
+      "Couleur": "#27EBF5",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 2,
+      "Nom": "BRC",
+      "Parent": 1,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 3,
+      "Nom": "CABDG",
+      "Parent": 1,
+      "Courriel": "dir-cab-dgom@outre-mer.gouv.fr",
+      "Couleur": "#90F0FA",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 4,
+      "Nom": "Chlordécone",
+      "Parent": 1,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 6,
+      "Nom": "SDAJI",
+      "Parent": 1,
+      "Courriel": "sec-sdaji@outre-mer.gouv.fr",
+      "Couleur": "#00A95F",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 7,
+      "Nom": "BCL",
+      "Parent": 6,
+      "Courriel": "",
+      "Couleur": "#80D1A8",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 8,
+      "Nom": "BDPAES",
+      "Parent": 6,
+      "Courriel": "",
+      "Couleur": "#80D1A8",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 9,
+      "Nom": "BDPAI",
+      "Parent": 6,
+      "Courriel": "",
+      "Couleur": "#80D1A8",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 10,
+      "Nom": "SDEPDE",
+      "Parent": 1,
+      "Courriel": "momsecsepde@outre-mer.gouv.fr",
+      "Couleur": "#FFCA00",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 11,
+      "Nom": "BEPPP",
+      "Parent": 10,
+      "Courriel": "",
+      "Couleur": "#FFE080",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 12,
+      "Nom": "BFPOM",
+      "Parent": 10,
+      "Courriel": "",
+      "Couleur": "#FFE080",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 13,
+      "Nom": "BSSIOM",
+      "Parent": 10,
+      "Courriel": "",
+      "Couleur": "#FFE080",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 15,
+      "Nom": "SDPEEDD",
+      "Parent": 1,
+      "Courriel": "secpeedd@outre-mer.gouv.fr",
+      "Couleur": "#FF7477",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 16,
+      "Nom": "BELDAD",
+      "Parent": 15,
+      "Courriel": "",
+      "Couleur": "#FFB3B5",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 17,
+      "Nom": "BREF",
+      "Parent": 15,
+      "Courriel": "",
+      "Couleur": "#FFB3B5",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 18,
+      "Nom": "BVEEF",
+      "Parent": 15,
+      "Courriel": "",
+      "Couleur": "#FFB3B5",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 19,
+      "Nom": "SDPISA",
+      "Parent": 1,
+      "Courriel": "secpisa@outre-mer.gouv.fr",
+      "Couleur": "#A558A0",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 20,
+      "Nom": "BAEI",
+      "Parent": 19,
+      "Courriel": "",
+      "Couleur": "#C79BC9",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 21,
+      "Nom": "BCSSEC",
+      "Parent": 19,
+      "Courriel": "",
+      "Couleur": "#C79BC9",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 22,
+      "Nom": "BPARM",
+      "Parent": 19,
+      "Courriel": "",
+      "Couleur": "#C79BC9",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 23,
+      "Nom": "SMA",
+      "Parent": 1,
+      "Courriel": "",
+      "Couleur": "#BD987A",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 24,
+      "Nom": "EM SMA",
+      "Parent": 23,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": false,
+      "Actif": true
+    },
+    {
+      "id": 28,
+      "Nom": "CICVFOM",
+      "Parent": 1,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 29,
+      "Nom": "MIRMM",
+      "Parent": 1,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 30,
+      "Nom": "MINC",
+      "Parent": 1,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": true,
+      "Actif": true
+    },
+    {
+      "id": 31,
+      "Nom": "AMBASSADEURS",
+      "Parent": 1,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": false,
+      "Actif": true
+    },
+    {
+      "id": 32,
+      "Nom": "DGA",
+      "Parent": 1,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": false,
+      "Actif": true
+    },
+    {
+      "id": 33,
+      "Nom": "Communication",
+      "Parent": 3,
+      "Courriel": "",
+      "Couleur": "",
+      "Organigramme": false,
+      "Actif": true
+    }
+  ]
+}

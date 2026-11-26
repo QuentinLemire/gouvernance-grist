@@ -390,6 +390,7 @@ const PAGES = [
   // Hors socle : créées par leur bouton « Installer », qui installe aussi leurs tables (sujet du même nom).
   { cle: 'documentation', nom: '📖 Documentation', table: 'Gouv_Documentation', fichier: 'documentation.html', facultative: true, sujet: 'documentation' },
   { cle: 'support', nom: '🆘 Support', table: 'Gouv_Support', fichier: 'support.html', facultative: true, sujet: 'support' },
+  { cle: 'organigramme', nom: '🏢 Organigramme', table: 'Gouv_Bureaux', fichier: 'organigramme.html', facultative: true, sujet: 'bureaux_dgom' },
   // Administration : la Santé du document, puis un outil par page en dessous
   { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'sante', sousPage: false, anciens: ['administration.html'] },
   // Utilisateurs et Journal : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
@@ -588,7 +589,7 @@ async function rangerMenu() {
   const ordre = [
     // Accueil en tête, avec Documentation et Support rangées dessous (pages d'aide et de contact).
     ...de('accueil').map((p) => [p, 0]),
-    ...['documentation', 'support'].flatMap(de).map((p) => [p, 1]),
+    ...['documentation', 'support', 'organigramme'].flatMap(de).map((p) => [p, 1]),
     ...metier.map((p) => [p, p.indentation]),
     ...de('administration').map((p) => [p, 0]),
     // les outils d'administration, puis les pages métier déjà rangées sous Administration
@@ -668,8 +669,10 @@ async function installerTablesSujet(fichier) {
       if (!DONNEES[f]) continue;
       const jeu = await lireDepot('donnees/' + DONNEES[f]);
       if (!((await lire(jeu.tableId)) || []).length) {
-        const cles = Object.keys(jeu.records[0]);
-        await agir([['BulkAddRecord', jeu.tableId, jeu.records.map(() => null), Object.fromEntries(cles.map((k) => [k, jeu.records.map((r) => r[k])]))]]);
+        // un jeu peut fixer les identifiants (« id ») : ses lignes se citent entre elles (Parent) et gardent
+        // les numéros de leur source (bureaux de la DGOM : ceux de l'Outil cabDG)
+        const cles = [...new Set(jeu.records.flatMap(Object.keys))].filter((k) => k !== 'id');
+        await agir([['BulkAddRecord', jeu.tableId, jeu.records.map((r) => r.id || null), Object.fromEntries(cles.map((k) => [k, jeu.records.map((r) => r[k] ?? null)]))]]);
       }
     }
     await tracer('Sujet installé', [...vus].join(', '));

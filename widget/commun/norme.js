@@ -53,6 +53,8 @@
     { fichier: 'documentation', nom: 'Documentation', obligatoire: false },
     // trace des actions des outils d'administration, pour une application qui a besoin d'un audit (ex. changements de droits)
     { fichier: 'journal', nom: "Journal d'administration", obligatoire: false },
+    // directions, sous-directions et bureaux de la DGOM, et l'organigramme qui en est tiré
+    { fichier: 'bureaux_dgom', nom: 'Bureaux de la DGOM et organigramme', obligatoire: false },
   ];
 
   /** Les 4 colonnes de traçabilité (P2) et leur recalcul : 0 = à la création, 2 = à chaque modification. */
@@ -62,7 +64,7 @@
   const ROLES_GENERIQUES = ['Administrateur', 'Gestionnaire', 'Contributeur', 'Lecteur'];
 
   /** Pages génériques chargées par adresse depuis le dépôt (P7) ; les deux dernières : avant la console. */
-  const WIDGETS_GENERIQUES = ['accueil.html', 'documentation.html', 'support.html', 'console.html', 'administration.html', 'boite-a-outils.html'];
+  const WIDGETS_GENERIQUES = ['accueil.html', 'documentation.html', 'support.html', 'organigramme.html', 'console.html', 'administration.html', 'boite-a-outils.html'];
 
   /** Sites de la norme et de Grist : les appeler n'est pas une sortie à surveiller. */
   const SITES_DE_CONFIANCE = ['quentinlemire.github.io', 'raw.githubusercontent.com', 'api.github.com', 'docs.getgrist.com',

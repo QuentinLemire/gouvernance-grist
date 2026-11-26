@@ -52,6 +52,7 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Accueil | Accueil | `accueil.html` | Pour les personnes sans accès : message, étapes et bouton « Demander un accès ». Pour les autres : confirmation et nouveautés |
 | Documentation | Documentation | `documentation.html` | Sommaire, recherche, pages Markdown, édition avec aperçu |
 | Support | Support | `support.html` | Créer une demande et converser avec le support |
+| Organigramme (module « Bureaux de la DGOM ») | Gouv_Bureaux | `organigramme.html` | Organigramme dessiné à partir de la table : rien à tracer à la main |
 | Administration et ses outils | Parametres | `console.html?module=<outil>` | Une page par outil (voir ci-dessous) |
 
 **Outils d'administration** : une seule page `console.html`, qui n'affiche que l'outil demandé (`?module=…`) et ne charge que son code

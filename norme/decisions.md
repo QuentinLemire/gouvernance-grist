@@ -183,3 +183,7 @@ Un **bureau est une sous-entité** (DGOM → BRC, BCL…) : pas de table Bureaux
 **Constat** : dans OPCOM, « Ne leur montrer que l'accueil » échouait avec « Invalid tables in rules ». Deux règles visaient des tables qui n'existent plus (`Tests`, et une table de synthèse regroupée autrement). Grist refuse alors **tout** changement de règles d'accès, quel qu'il soit.
 **Décision** : avant chaque enregistrement de règles, la norme retire les règles dont la table n'existe plus, et le note au journal. Le panneau 🔐 Rôles et droits les signale à l'avance.
 **Raison** : ces règles ne protègent plus rien, et elles bloquent toute la gestion des droits.
+
+## Module facultatif « Bureaux de la DGOM » et organigramme (2026-11-26)
+**Décision** : un module facultatif installe la table `Gouv_Bureaux` (directions, sous-directions, bureaux : sigle, rattachement, courriel du secrétariat, couleur, « dans l'organigramme », actif) et la page 🏢 Organigramme qui se dessine à partir de la table. Données de départ reprises de l'Outil cabDG (table Entites) **avec les mêmes identifiants**, pour relier les documents entre eux. Les lignes techniques de la source (« Tous », « · », « Direction ») et les structures hors DGOM (MOM, Cabinet, BDC, DEPAFI) ne sont pas reprises.
+**Raison** : chaque application refaisait sa liste de bureaux ; une seule liste, à jour, avec un organigramme toujours juste. `Gouv_Entites` reste la table des droits (qui voit quoi) ; `Gouv_Bureaux` est le référentiel de l'organisation.

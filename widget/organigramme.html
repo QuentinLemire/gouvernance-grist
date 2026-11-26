@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<!--
+  Organigramme — DGOM (charte de l'État / DSFR)
+  RÔLE
+    Dessine l'organigramme de la DGOM à partir de la table Gouv_Bureaux (module « Bureaux de la DGOM »).
+    Il se met à jour tout seul : ajouter un bureau, changer son rattachement ou sa couleur dans la table
+    suffit, rien n'est à dessiner à la main.
+
+  INSTALLATION DANS GRIST
+    Créée par Maintenance › Modules facultatifs › « Bureaux de la DGOM et organigramme » › Installer.
+    Widget personnalisé lié à la table Gouv_Bureaux. Ce widget n'écrit rien.
+
+  COLONNES LUES (table Gouv_Bureaux)
+    Nom          : sigle affiché dans la case (DGOM, SDEPDE, BSSIOM…) ;
+    Parent       : la structure au-dessus (vide pour la direction) ;
+    Courriel     : boîte du secrétariat, affichée sous le sigle (lien qui ouvre un courriel) ;
+    Couleur      : couleur de la case ; vide = celle de la structure au-dessus ;
+    Organigramme : décochée, la case n'est pas dessinée (ses sous-structures se rattachent au-dessus) ;
+    Actif        : décochée, la case n'est pas dessinée.
+
+  DISPOSITION (celle d'un organigramme classique)
+    - la direction en haut ;
+    - les structures sans sous-structure (cabinet, missions…) de part et d'autre du trait vertical ;
+    - les sous-directions côte à côte en dessous, chacune avec ses bureaux en colonne.
+    Les traits sont dessinés après coup (SVG), d'après la place réelle des cases.
+    Un clic sur une case sélectionne la ligne dans la table de la page.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Organigramme</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <script>
+    // Fichiers communs chargés avec la version de la page (?v=…) : jamais d'ancienne copie en cache.
+    const VERSION_PAGE = new URLSearchParams(location.search).get('v') || '';
+    const RECHARGE = new URLSearchParams(location.search).get('r') || '';
+    const commun = (fichier) => 'commun/' + fichier + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '') + (RECHARGE ? '&r=' + RECHARGE : '');
+    document.write('<link rel="stylesheet" href="' + commun('dsfr-grist.css') + '">');
+    document.write('<script src="' + commun('outils.js') + '"><\/script>');
+  </script>
+  <style>
+    body { background: #fff; }
+    .barre { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--bordure); }
+    .barre h1 { font-size: 20px; margin: 0; flex: 1; }
+    .barre small { color: var(--texte-doux); }
+    /* La zone de dessin défile si l'organigramme est plus large que la page */
+    .zone { overflow: auto; padding: 24px 16px 40px; }
+    #arbre { position: relative; display: inline-block; min-width: 100%; }
+    #traits { position: absolute; left: 0; top: 0; pointer-events: none; }
+    #traits path { fill: none; stroke: #8a8a8a; stroke-width: 1.5; }
+
+    /* Une structure : sa case, puis ce qui en dépend */
+    .noeud { display: flex; flex-direction: column; align-items: center; }
+    .boite { position: relative; z-index: 1; min-width: 96px; max-width: 200px; padding: 8px 12px; border-radius: 4px; text-align: center;
+      border: 1px solid rgba(0,0,0,.18); background: #fff; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,18,.10); }
+    .boite b { display: block; font-size: 15px; }
+    .boite a { display: block; font-size: 11.5px; color: inherit; opacity: .85; word-break: break-all; margin-top: 2px; }
+    .boite:hover { outline: 2px solid var(--bleu); }
+    .racine > .boite { min-width: 150px; padding: 12px 18px; } .racine > .boite b { font-size: 18px; }
+
+    /* Structures sans sous-structure : de part et d'autre du trait vertical, en colonne */
+    .rattaches { display: grid; grid-template-columns: 1fr 48px 1fr; margin-top: 18px; }
+    .rattaches .cote { display: flex; flex-direction: column; gap: 10px; }
+    .rattaches .g { align-items: flex-end; } .rattaches .d { align-items: flex-start; }
+    /* Structures qui ont des sous-structures : côte à côte, sous un trait horizontal */
+    .branches { display: flex; gap: 22px; margin-top: 34px; align-items: flex-start; }
+    /* Bureaux d'une sous-direction : en colonne, reliés par la gauche */
+    .pile { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-left: 26px; align-self: stretch; }
+    .pile .boite { min-width: 0; text-align: left; }
+
+    .vide { padding: 40px 16px; color: var(--texte-doux); }
+    @media print {
+      .barre button { display: none; }
+      .zone { overflow: visible; padding: 0; }
+      @page { size: landscape; margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="barre">
+    <h1>🏢 Organigramme</h1>
+    <small id="compte"></small>
+    <button class="bouton petit" id="imprimer" title="Pour un fichier : choisir « Enregistrer au format PDF »">🖨️ Imprimer</button>
+  </div>
+  <div class="zone"><div id="arbre"><p class="vide">Chargement…</p></div></div>
+
+<script>
+  const esc = (t) => Outils.esc(t);
+  grist.ready({ requiredAccess: 'read table' });
+
+  let LIGNES = [];
+
+  /** Texte noir ou blanc selon la couleur de fond (lisibilité). */
+  function texteSur(couleur) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(couleur || '');
+    if (!m) return '#161616';
+    const n = parseInt(m[1], 16), r = n >> 16, v = (n >> 8) & 255, b = n & 255;
+    return (0.299 * r + 0.587 * v + 0.114 * b) > 150 ? '#161616' : '#ffffff';
+  }
+
+  /**
+   * Arbre des structures dessinées : chaque case garde ses enfants visibles. Une structure masquée
+   * (inactive ou décochée « Dans l'organigramme ») laisse ses sous-structures à la structure au-dessus.
+   * @returns {object[]} les structures du haut (en général une seule : la direction)
+   */
+  function construireArbre(lignes) {
+    const parId = new Map(lignes.map((l) => [l.id, l]));
+    const visible = (l) => l.Actif !== false && l.Organigramme !== false;
+    const noeuds = new Map(lignes.filter(visible).map((l) => [l.id, { ligne: l, enfants: [] }]));
+    // case au-dessus qui est dessinée (on remonte les structures masquées ; on s'arrête sur une boucle)
+    const parentVisible = (l) => {
+      const vus = new Set([l.id]);
+      let p = parId.get(l.Parent);
+      while (p && !noeuds.has(p.id) && !vus.has(p.id)) { vus.add(p.id); p = parId.get(p.Parent); }
+      return p && noeuds.has(p.id) && p.id !== l.id ? noeuds.get(p.id) : null;
+    };
+    const racines = [];
+    for (const n of noeuds.values()) {
+      const p = parentVisible(n.ligne);
+      (p ? p.enfants : racines).push(n);
+    }
+    const parNom = (a, b) => String(a.ligne.Nom || '').localeCompare(String(b.ligne.Nom || ''), 'fr');
+    for (const n of noeuds.values()) n.enfants.sort(parNom);
+    // la couleur vide prend celle de la structure au-dessus
+    const colorier = (n, heritee) => { n.couleur = n.ligne.Couleur || heritee || ''; n.enfants.forEach((e) => colorier(e, n.couleur)); };
+    racines.sort(parNom).forEach((r) => colorier(r, ''));
+    return racines;
+  }
+
+  /** La case d'une structure. */
+  function boite(n) {
+    const l = n.ligne, fond = n.couleur || '#ffffff';
+    return `<div class="boite" data-id="${l.id}" style="background:${esc(fond)};color:${texteSur(fond)}" title="${esc(l.Nom_complet || l.Nom || '')}">` +
+      `<b>${esc(l.Nom || '(sans nom)')}</b>${l.Courriel ? `<a href="mailto:${esc(l.Courriel)}">${esc(l.Courriel)}</a>` : ''}</div>`;
+  }
+
+  /** Une structure et tout ce qui en dépend (voir DISPOSITION en tête du fichier). */
+  function dessiner(n, profondeur) {
+    const feuilles = n.enfants.filter((e) => !e.enfants.length), branches = n.enfants.filter((e) => e.enfants.length);
+    let h = `<div class="noeud${profondeur === 0 ? ' racine' : ''}" data-noeud="${n.ligne.id}">${boite(n)}`;
+    if (profondeur > 0 && !branches.length) {
+      // sous-direction : ses bureaux en colonne
+      if (feuilles.length) h += `<div class="pile" data-pile="${n.ligne.id}">${feuilles.map(boite).join('')}</div>`;
+    } else {
+      if (feuilles.length) {
+        const moitie = Math.ceil(feuilles.length / 2);
+        h += `<div class="rattaches" data-rattaches="${n.ligne.id}"><div class="cote g">${feuilles.slice(0, moitie).map(boite).join('')}</div><div></div>` +
+          `<div class="cote d">${feuilles.slice(moitie).map(boite).join('')}</div></div>`;
+      }
+      if (branches.length) h += `<div class="branches" data-branches="${n.ligne.id}">${branches.map((b) => dessiner(b, profondeur + 1)).join('')}</div>`;
+    }
+    return h + '</div>';
+  }
+
+  /** Les traits, d'après la place réelle des cases (appelé après chaque dessin et à chaque redimensionnement). */
+  function tracer() {
+    const arbre = document.getElementById('arbre');
+    const ancien = document.getElementById('traits'); if (ancien) ancien.remove();
+    const o = arbre.getBoundingClientRect();
+    const r = (el) => { const b = el.getBoundingClientRect(); return { g: b.left - o.left, d: b.right - o.left, h: b.top - o.top, b: b.bottom - o.top, x: (b.left + b.right) / 2 - o.left, y: (b.top + b.bottom) / 2 - o.top }; };
+    const chemins = [];
+    for (const noeud of arbre.querySelectorAll('.noeud')) {
+      const id = noeud.dataset.noeud, p = r(noeud.querySelector(':scope > .boite'));
+      const rat = noeud.querySelector(`:scope > [data-rattaches="${id}"]`);
+      const bra = noeud.querySelector(`:scope > [data-branches="${id}"]`);
+      const pile = noeud.querySelector(`:scope > [data-pile="${id}"]`);
+      let basTronc = p.b;
+      if (rat) {
+        // trait vertical sous la case, et un trait horizontal vers chaque structure de côté
+        for (const c of rat.querySelectorAll('.boite')) {
+          const e = r(c), cote = c.closest('.g') ? e.d : e.g;
+          chemins.push(`M${p.x},${e.y}H${cote}`);
+          basTronc = Math.max(basTronc, e.y);
+        }
+      }
+      if (bra) {
+        const enfants = [...bra.children].map((x) => r(x.querySelector(':scope > .boite')));
+        const bus = Math.min(...enfants.map((e) => e.h)) - 16;
+        basTronc = bus;
+        chemins.push(`M${Math.min(p.x, ...enfants.map((e) => e.x))},${bus}H${Math.max(p.x, ...enfants.map((e) => e.x))}`);
+        for (const e of enfants) chemins.push(`M${e.x},${bus}V${e.h}`);
+      }
+      if (rat || bra) chemins.push(`M${p.x},${p.b}V${basTronc}`);
+      if (pile) {
+        // bureaux en colonne : un trait qui descend à gauche, puis vers chaque bureau
+        const x = r(pile).g + 12, cases = [...pile.children].map(r);
+        chemins.push(`M${x},${p.b}V${Math.max(...cases.map((e) => e.y))}`);
+        for (const e of cases) chemins.push(`M${x},${e.y}H${e.g}`);
+      }
+    }
+    arbre.insertAdjacentHTML('afterbegin', `<svg id="traits" width="${arbre.scrollWidth}" height="${arbre.scrollHeight}"><path d="${chemins.join('')}"/></svg>`);
+  }
+
+  function afficher() {
+    const arbre = document.getElementById('arbre');
+    const racines = construireArbre(LIGNES);
+    const nb = LIGNES.filter((l) => l.Actif !== false && l.Organigramme !== false).length;
+    document.getElementById('compte').textContent = nb ? nb + ' structure' + (nb > 1 ? 's' : '') : '';
+    if (!racines.length) {
+      arbre.innerHTML = '<p class="vide">Aucune structure à dessiner : remplissez la table Gouv_Bureaux (Nom, Rattaché à).</p>';
+      return;
+    }
+    arbre.innerHTML = racines.map((n) => dessiner(n, 0)).join('');
+    requestAnimationFrame(tracer);
+  }
+
+  // un clic sur une case sélectionne la structure dans la table (pas sur le lien du courriel)
+  document.getElementById('arbre').addEventListener('click', (e) => {
+    const b = e.target.closest('.boite');
+    if (b && !e.target.closest('a')) grist.setCursorPos({ rowId: Number(b.dataset.id) }).catch(() => {});
+  });
+  document.getElementById('imprimer').addEventListener('click', () => window.print());
+  window.addEventListener('resize', () => requestAnimationFrame(tracer));
+  window.addEventListener('beforeprint', tracer);
+
+  grist.onRecords((lignes) => { LIGNES = lignes || []; afficher(); });
+</script>
+</body>
+</html>
