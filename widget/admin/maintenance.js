@@ -347,8 +347,31 @@ async function creerStructure(tables) {
     if (moi && vis && moi.visibleCol !== vis.id) a.push(['ModifyColumn', t.tableId, c.id, { visibleCol: vis.id }], ['SetDisplayFormula', t.tableId, null, moi.id, '$' + c.id + '.' + c.visibleCol]);
   }
   if (a.length) await agir(a);
+  await retablirReferences(tables);
   await rangerColonnes(tables);
   await retirerPagesBrutes(nouvelles);
+}
+
+/**
+ * Quand on supprime une table, Grist change en texte les colonnes qui y faisaient référence (ex. Gouv_Entites
+ * supprimée : Gouv_Utilisateurs.Entite devient le texte « BSSIOM »). Une fois la table recréée, on remet ces
+ * colonnes en référence et on retrouve chaque ligne par le nom affiché (colonne visibleCol de la norme).
+ * Un nom introuvable laisse la case vide : rien d'autre n'est modifié.
+ * @param {{tableId: string, columns: object[]}[]} tables
+ */
+async function retablirReferences(tables) {
+  await chargerStructure();
+  for (const t of tables) for (const c of t.columns) {
+    const cible = (/^Ref:(\w+)$/.exec(c.type || '') || [])[1];
+    const moi = colonne(t.tableId, c.id), vis = cible && c.visibleCol && colonne(cible, c.visibleCol);
+    if (!moi || !vis || moi.type !== 'Text' || moi.isFormula) continue;
+    const [lignes, lignesCible] = await Promise.all([lire(t.tableId), lire(cible)]);
+    if (!lignes || !lignesCible) continue;
+    const idDe = new Map(lignesCible.map((l) => [String(l[c.visibleCol] ?? '').trim(), l.id]));
+    await agir([['ModifyColumn', t.tableId, c.id, { type: c.type, visibleCol: vis.id }],
+      ['SetDisplayFormula', t.tableId, null, moi.id, '$' + c.id + '.' + c.visibleCol],
+      ['BulkUpdateRecord', t.tableId, lignes.map((l) => l.id), { [c.id]: lignes.map((l) => idDe.get(String(l[c.id] ?? '').trim()) || 0) }]]);
+  }
 }
 
 /**
