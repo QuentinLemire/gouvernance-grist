@@ -13,12 +13,17 @@ Gouvernance, Modèle DGOM, autres applications… (Gouv_Utilisateurs)
 
 ## Ce qu'il fait
 
+Chaque fiche créée par la synchro porte la case **« Ajouté par le maître »** (`Ajoute_par_maitre`, colonne de la norme dans
+Gouv_Utilisateurs). La synchro ne met à jour et ne désactive **que ces fiches** : une personne ajoutée à la main dans une application
+n'est jamais touchée, même si elle figure aussi dans l'annuaire.
+
 | Cas | Action |
 |---|---|
-| Agent présent dans le maître, absent de l'application | Ajouté : Nom (« Prénom NOM »), Courriel, Entité, Fonction (si la colonne existe), Actif. **Sans rôle** : il ne voit que l'accueil tant qu'un administrateur ne lui en donne pas un. |
-| Agent présent des deux côtés | Nom, Entité et Fonction mis à jour depuis le maître. **Le rôle n'est jamais touché.** |
-| Personne de l'application absente du maître (agent parti) | Désactivée, **seulement si c'est la synchro qui l'a créée** (`CreePar` = le compte de service). Les personnes ajoutées à la main ne sont jamais désactivées. |
-| Agent parti puis revenu | Sa fiche créée par la synchro est réactivée. |
+| Agent présent dans le maître, absent de l'application | Ajouté : Nom (« Prénom NOM »), Courriel, Entité, Fonction (si la colonne existe), Actif, **Ajouté par le maître** coché. **Sans rôle** : il ne voit que l'accueil tant qu'un administrateur ne lui en donne pas un. |
+| Fiche cochée, agent toujours présent | Nom, Entité et Fonction mis à jour depuis le maître. **Le rôle n'est jamais touché.** |
+| Fiche cochée, agent absent du maître (parti) | Désactivée (jamais supprimée). |
+| Fiche cochée et désactivée, agent revenu | Réactivée. |
+| Fiche non cochée (ajoutée à la main) | Rien. Décocher la case d'une fiche la sort de la synchro ; la cocher l'y fait entrer. |
 
 L'entité est cherchée par son nom dans `Gouv_Entites` : d'abord le bureau (ex. BSSIOM), sinon la direction (ex. DGOM).
 Introuvable : l'entité de la fiche n'est pas modifiée.
@@ -28,14 +33,14 @@ le résumé le signale ; mode **essai** (activé à l'import) → tout est calcu
 
 ## Mise en place
 
-1. **Compte de service Grist** : en créer un (le courriel finit par `@serviceaccounts.invalid`, c'est ce qui permet de
-   reconnaître les fiches créées par la synchro) et générer sa clé d'API.
-2. **Lui donner accès** :
+1. **Colonne « Ajouté par le maître »** : dans chaque application cible, Administration › Maintenance › Utilisateurs
+   « Installer » (ajoute la colonne qui manque). Sans elle, la synchro s'arrête avec un message pour cette application.
+2. **Compte Grist de la synchro** (de préférence un compte de service) et sa clé d'API. Lui donner accès :
    - au maître (Arrivées-Départs), en lecture de `Personnel_summary_Courriel` ;
    - à chaque application cible, comme **propriétaire** : les règles de la norme ne laissent voir que l'accueil
      à une personne non inscrite dans Gouv_Utilisateurs ; seuls les propriétaires passent outre.
    Arrivées-Départs applique la même garde : le compte doit y être propriétaire, ou inscrit avec un rôle qui lit tout le personnel.
-3. **n8n** : *Import from file* → `annuaire-n8n.json`. Créer un identifiant **Grist API** : la clé d'API du compte de service
+3. **n8n** : *Import from file* → `annuaire-n8n.json`. Créer un identifiant **Grist API** : la clé d'API du compte
    et l'adresse `https://grist.numerique.gouv.fr` (champ *Grist URL* ; sur une ancienne version de n8n, *Self-Hosted* puis
    *Self-Hosted URL*). Le choisir dans les 5 nœuds Grist.
 4. **Réglages** (premier nœud de code, le seul à modifier) : vérifier le maître, ajouter une ligne par application cible.
@@ -53,7 +58,7 @@ puis passer à la suivante. Le filtre « agents présents » est fait dans le co
 
 - **Maître** (`Personnel_summary_Courriel`) : `Courriel`, `Prenom`, `Nom`, `Bureau`, `Entite`, `Fonction`, `Present`.
   Sans colonne `Present` cochée, aucun agent n'est gardé et la synchro s'arrête ; un autre nom laisse le champ vide : adapter le nœud « Préparer les agents ».
-- **Cible** : la table `Gouv_Utilisateurs` de la norme (`Nom`, `Courriel`, `Entite`, `Actif`, `CreePar`) et `Gouv_Entites` (`Nom`).
+- **Cible** : la table `Gouv_Utilisateurs` de la norme (`Nom`, `Courriel`, `Entite`, `Actif`, `Ajoute_par_maitre`) et `Gouv_Entites` (`Nom`).
   `Fonction` est facultative : elle n'est remplie que si l'application a cette colonne.
 
 Si une application cible n'a pas ces tables, le nœud Grist échoue et la synchro s'arrête : installer le socle d'abord

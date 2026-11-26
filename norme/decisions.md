@@ -4,6 +4,12 @@ Une entrée par décision, la plus récente en haut. Format : date, décision, r
 
 ---
 
+### 2026-11-26 — Synchronisation de l'annuaire : colonne « Ajouté par le maître »
+**Décision** : Gouv_Utilisateurs reçoit la case `Ajoute_par_maitre` (structure 2.2). Le workflow n8n (`synchro/`) la coche sur les fiches
+qu'il crée depuis Arrivées-Départs, et ne met à jour ou ne désactive que celles-là.
+**Raison** : une personne ajoutée à la main dans une application ne doit jamais être modifiée ni désactivée par la synchro.
+Le repère précédent (`CreePar` = compte de service) dépendait du compte utilisé et ne se voyait pas dans le document.
+
 ### 2026-11-25 — Modèle DGOM reconstruit ; créer une application sans dupliquer Gouvernance
 **Fait** : le Grist « 🧩 Modèle DGOM » (même lien) a été vidé puis remonté avec la procédure « document vierge » : page Maintenance,
 « Installer » des trois sujets du socle, « Créer les pages du socle », droits standard appliqués (25 règles, garde comprise).
