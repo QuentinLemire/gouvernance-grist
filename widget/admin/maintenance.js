@@ -385,7 +385,11 @@ async function rangerColonnes(tables) {
     // Colonnes de la norme, puis celles de l'application, et la traçabilité toujours en dernier (P4).
     const trace = ['CreeLe', 'CreePar', 'ModifieLe', 'ModifiePar'];
     // Table « extension » (ex. Entites.Territoire, ajoutée par le sujet Territoires) : on ne reclasse que la traçabilité.
-    const norme = t.extension ? [] : t.columns.map((c) => c.id).filter((id) => !trace.includes(id));
+    // puis, juste après, les colonnes ajoutées par les modules installés (ex. Entites.Id_DGOM, Utilisateurs.Encadrement) :
+    // toutes les applications ont ainsi les mêmes colonnes dans le même ordre dans « Données source »
+    const deModules = t.extension || !etat.sujets ? [] : SUJETS.filter((o) => estExtension(o.fichier, t.tableId))
+      .flatMap((o) => colonnesDuSujet(o.fichier, t.tableId));
+    const norme = t.extension ? [] : [...new Set([...t.columns.map((c) => c.id), ...deModules])].filter((id) => !trace.includes(id));
     const rang = (colId) => { if (trace.includes(colId)) return norme.length + 1 + trace.indexOf(colId); const i = norme.indexOf(colId); return i < 0 ? norme.length : i; };
     const ordre = [...table.colonnes].sort((x, y) => rang(x.colId) - rang(y.colId)); // tri stable : le reste garde son ordre
     a.push(['BulkUpdateRecord', '_grist_Tables_column', ordre.map((c) => c.id), { parentPos: ordre.map((_, i) => i + 1) }]);
