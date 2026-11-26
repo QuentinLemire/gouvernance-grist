@@ -107,6 +107,13 @@ puis **« Enregistrer une copie »** dans l'espace voulu. La copie contient déj
 **Pour cacher les outils à certains rôles** (comme dans Arrivées-Départs) : poser le widget de la page Administration sur une table-verrou
 lisible des seuls administrateurs ; les outils créés ensuite s'y rattachent et en héritent.
 
+## Synchroniser l'annuaire (n8n)
+
+Le dossier [`synchro/`](synchro/README.md) contient un workflow n8n qui remplit chaque matin la table Gouv_Utilisateurs de
+toutes les applications dont son compte est propriétaire, à partir de l'annuaire d'Arrivées-Départs : nouveaux agents ajoutés sans rôle, noms et entités tenus à jour,
+fiches des agents partis supprimées. Elle ne touche qu'aux fiches qu'elle a créées (case « Ajouté par le maître » de Gouv_Utilisateurs) ;
+le rôle reste toujours géré dans l'application.
+
 ## Auditer une application
 
 - **Avec les outils d'administration** : page 🛡️ **Administration** (santé du document), puis « Copier le rapport ».

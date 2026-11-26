@@ -1,0 +1,566 @@
+{
+  "name": "Annuaire : Arrivées-Départs (maître) → Grist de la norme (esclaves)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "e754e6ee-3b5d-5822-a1aa-28ec490e14d1",
+      "name": "Chaque matin (6 h, jours ouvrés)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "7ad5d16a-1674-5dbb-afaf-fff6d633c979",
+      "name": "Lancer à la main",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ⚙️ RÉGLAGES : le seul endroit à modifier.\n// maitre : le document Arrivées-Départs (annuaire du personnel présent).\n// Les Grist « esclaves » ne sont pas listés : n8n prend tous les documents dont le compte de la synchro est PROPRIÉTAIRE\n// et qui ont la table Gouv_Utilisateurs avec la case « Ajouté par le maître ». Pour en ajouter un : y installer la colonne\n// et donner au compte l'accès propriétaire. exclure : documents à laisser de côté malgré tout (identifiants).\n// essai : true = calcule et affiche les changements (nœud « Résumé ») SANS rien écrire.\n//         Passer à false après avoir vérifié un premier lancement à la main.\n// suppressionsMax : au-delà, on ne supprime personne (une lecture ratée du maître ne vide pas l'annuaire).\n// grist : adresse du Grist, pour la recherche des documents (la même que dans l'identifiant « Grist API »).\nreturn [{ json: {\n  grist: 'https://grist.numerique.gouv.fr',\n  maitre: { nom: 'Arrivées-Départs MOM', docId: '7vFZ964YgDgJ', table: 'Personnel_summary_Courriel' },\n  exclure: [],   // ex. ['xxxxxxxxxxxx']\n  essai: true,\n  suppressionsMax: 10,\n} }];"
+      },
+      "id": "784e1cbc-5b94-53b5-8f41-c09c8b6388a9",
+      "name": "Réglages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.maitre.docId }}",
+        "tableId": "={{ $json.maitre.table }}",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "5c0dbd1b-26fb-508e-b89f-713f6cf51816",
+      "name": "Lire l'annuaire (maître)",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        440,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agents lus dans l'annuaire du maître (une ligne par agent présent : un agent parti n'y figure plus), mis au format des Grist esclaves.\n// Nom affiché : « Prénom NOM » ; entité : le bureau (ex. BSSIOM), sinon la direction (ex. DGOM).\n// Un courriel n'apparaît qu'une fois (le premier trouvé), même s'il est écrit avec des majuscules différentes.\nconst parCourriel = new Map();\nfor (const { json: f } of $input.all()) {\n  if (!f.Courriel) continue;\n  const courriel = String(f.Courriel).trim().toLowerCase();\n  if (parCourriel.has(courriel)) continue;\n  parCourriel.set(courriel, {\n    courriel,\n    nom: [f.Prenom, f.Nom].filter(Boolean).join(' ').trim(),\n    bureau: f.Bureau || '',\n    direction: f.Entite || '',\n    fonction: f.Fonction || '',\n  });\n}\nconst agents = [...parCourriel.values()];\nif (!agents.length) throw new Error(\"Annuaire vide : la synchronisation s'arrête (sécurité : on ne supprime personne sur une lecture ratée).\");\nreturn [{ json: { agents } }];"
+      },
+      "id": "d5a922d3-b000-57f3-a37e-ca3c253efa19",
+      "name": "Préparer les agents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "url": "={{ $('Réglages').first().json.grist }}/api/orgs"
+      },
+      "id": "305e24df-ef6f-548d-a860-0d5fa3d644a4",
+      "name": "Lire les organisations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "url": "={{ $('Réglages').first().json.grist }}/api/orgs/{{ $json.id }}/workspaces"
+      },
+      "id": "2aee87a3-16cd-5a7b-9a00-fb874ff576b9",
+      "name": "Lire les espaces",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tous les documents des espaces lus, où le compte de la synchro est propriétaire (access = owners).\n// Sont écartés : le maître, les documents à la corbeille et ceux de la liste « exclure ». Un document vu deux fois ne compte qu'une fois.\nconst r = $('Réglages').first().json;\nconst docs = new Map();\nfor (const { json: espace } of $input.all()) {\n  for (const d of espace.docs || []) {   // une organisation illisible donne une erreur sans docs : ignorée\n    if (d.access !== 'owners' || d.removedAt) continue;\n    if (d.id === r.maitre.docId || r.exclure.includes(d.id) || docs.has(d.id)) continue;\n    docs.set(d.id, { nom: d.name, docId: d.id });\n  }\n}\nreturn [...docs.values()].map((d) => ({ json: d }));"
+      },
+      "id": "63eaf388-e392-54a2-9b36-334b8873b977",
+      "name": "Documents dont il est propriétaire",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "url": "={{ $('Réglages').first().json.grist }}/api/docs/{{ $json.docId }}/tables/Gouv_Utilisateurs/columns"
+      },
+      "id": "2f918ac5-1583-57a4-8783-d2ff427e2a3e",
+      "name": "Lire les colonnes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ne garde que les Grist de la norme prêts pour la synchro : table Gouv_Utilisateurs avec la case « Ajouté par le maître ».\n// (Pas de table : la lecture des colonnes a échoué, le document est ignoré.) Ajoute les agents et les réglages utiles plus loin.\nconst r = $('Réglages').first().json;\nconst agents = $('Préparer les agents').first().json.agents;\nconst docs = $('Documents dont il est propriétaire').all();\nreturn $input.all()\n  .map((it, i) => ({ doc: docs[it.pairedItem?.item ?? i].json, colonnes: (it.json.columns || []).map((c) => c.id) }))\n  .filter((x) => x.colonnes.includes('Ajoute_par_maitre'))\n  .map((x) => ({ json: { ...x.doc, essai: r.essai, suppressionsMax: r.suppressionsMax, agents } }));"
+      },
+      "id": "98cb760e-df3c-5c84-a814-0b86299d420d",
+      "name": "Cibles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "2cc39d89-7a33-588b-817b-1d1a4611e6de",
+      "name": "Une cible à la fois",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1980,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Le Grist esclave traité dans ce tour de boucle (les nœuds suivants le relisent ici).\nreturn [$input.first()];"
+      },
+      "id": "39cc7696-ea8d-52be-a7ec-6607a05c960a",
+      "name": "Cible en cours",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Gouv_Entites",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "2391600f-35bc-5efa-bd6c-054800e11ae7",
+      "name": "Lire les entités",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        2420,
+        300
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "docId": "={{ $('Cible en cours').first().json.docId }}",
+        "tableId": "Gouv_Utilisateurs",
+        "returnAll": true,
+        "additionalOptions": {}
+      },
+      "id": "a32602ce-3529-5f77-a57c-09e9b10f4072",
+      "name": "Lire les utilisateurs (esclave)",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        300
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ce qu'il faut changer dans un Grist esclave (Gouv_Utilisateurs), en comparant au maître par courriel.\n// La colonne « Ajouté par le maître » (Ajoute_par_maitre) marque les fiches créées par cette synchro :\n// ce sont les SEULES qu'elle met à jour ou supprime. Une personne ajoutée à la main n'est jamais touchée.\n// Règles :\n//  - agent du maître absent de l'esclave : ajouté (Nom, Courriel, Entité, Fonction, Actif, Ajouté par le maître) ;\n//    SANS rôle : il ne voit que l'accueil tant qu'un administrateur de l'application ne lui en a pas donné un ;\n//  - fiche marquée d'un agent présent : Nom, Entité et Fonction mis à jour ; le Rôle et la case Actif ne sont JAMAIS touchés ;\n//  - fiche marquée d'un agent absent du maître (agent parti) : SUPPRIMÉE ;\n//  - fiche non marquée (ajoutée à la main) : rien, même si l'agent est dans le maître.\nconst cible = $('Cible en cours').first().json;\nconst entites = $('Lire les entités').all().map((i) => i.json).filter((e) => e.id);   // table vide ou absente : rien (l'entité n'est alors pas remplie)\nconst users = $input.all().map((i) => i.json).filter((u) => u.id);\nconst norm = (s) => String(s || '').trim().toLowerCase();\nconst idEntite = (nom) => (nom ? (entites.find((e) => norm(e.Nom) === norm(nom)) || {}).id : undefined);\nconst aFonction = users.some((u) => 'Fonction' in u);   // colonne facultative (hors norme)\n\nconst parCourriel = new Map(users.map((u) => [norm(u.Courriel), u]));\nconst ajouts = [], majs = [], suppressions = [];\nfor (const a of cible.agents) {\n  const entite = idEntite(a.bureau) || idEntite(a.direction);   // introuvable : on ne touche pas à l'entité\n  const champs = { Nom: a.nom, ...(entite ? { Entite: entite } : {}), ...(aFonction ? { Fonction: a.fonction } : {}) };\n  const u = parCourriel.get(a.courriel);\n  if (!u) { ajouts.push({ Courriel: a.courriel, Actif: true, Ajoute_par_maitre: true, ...champs }); continue; }\n  if (u.Ajoute_par_maitre !== true) continue;   // fiche faite à la main : on n'y touche pas\n  const diff = Object.fromEntries(Object.entries(champs).filter(([k, v]) => (u[k] ?? '') !== v));\n  if (Object.keys(diff).length) majs.push({ id: u.id, champs: diff });\n}\nconst presents = new Set(cible.agents.map((a) => a.courriel));\nconst departs = users.filter((u) => u.Ajoute_par_maitre === true && !presents.has(norm(u.Courriel)));\n// garde-fou : trop de départs d'un coup = sans doute une lecture incomplète du maître ; on ne supprime personne\nconst departsBloques = departs.length > cible.suppressionsMax;\nif (!departsBloques) for (const u of departs) suppressions.push(u.id);\n\nreturn [{ json: { nom: cible.nom, docId: cible.docId, essai: cible.essai, ajouts, majs, suppressions,\n  resume: `${cible.essai ? '[ESSAI, rien écrit] ' : ''}${cible.nom} : ${ajouts.length} ajout(s), ${majs.length} mise(s) à jour, ${suppressions.length} suppression(s)`\n    + (departsBloques ? ` ; ${departs.length} départs NON supprimés (plus de ${cible.suppressionsMax} : vérifier l'annuaire)` : '') } }];"
+      },
+      "id": "b4e5d7e5-fec3-53fe-b2be-2c8d1ccfc7bd",
+      "name": "Calculer les changements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Une ligne par agent à ajouter (aucune en mode essai). docId sert au nœud suivant et n'est pas écrit dans Grist.\nconst c = $input.first().json;\nreturn c.essai ? [] : c.ajouts.map((champs) => ({ json: { docId: c.docId, ...champs } }));"
+      },
+      "id": "0c62a7fe-597d-5a8f-bae3-f5d0caf820ec",
+      "name": "Ajouts à faire",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Gouv_Utilisateurs",
+        "dataToSend": "autoMapInputs",
+        "inputsToIgnore": "docId"
+      },
+      "id": "09cdb020-d50e-5ca0-8b3f-5322eac14703",
+      "name": "Ajouter les agents",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        3300,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Une ligne par fiche à mettre à jour (aucune en mode essai).\n// docId et _ligne servent au nœud suivant et ne sont pas écrits dans Grist.\nconst c = $input.first().json;\nreturn c.essai ? [] : c.majs.map((m) => ({ json: { docId: c.docId, _ligne: m.id, ...m.champs } }));"
+      },
+      "id": "4c4b6857-67fa-565a-8865-0a664f4b6a0f",
+      "name": "Mises à jour à faire",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Gouv_Utilisateurs",
+        "rowId": "={{ $json._ligne }}",
+        "dataToSend": "autoMapInputs",
+        "inputsToIgnore": "docId, _ligne"
+      },
+      "id": "2f2ec944-e505-5265-a654-b4bb8e9ff92f",
+      "name": "Mettre à jour les fiches",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        3300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Une ligne par fiche d'agent parti à supprimer (aucune en mode essai). Seules les fiches « Ajouté par le maître » y figurent.\nconst c = $input.first().json;\nreturn c.essai ? [] : c.suppressions.map((id) => ({ json: { docId: c.docId, _ligne: id } }));"
+      },
+      "id": "113dc76b-b44f-54a0-ac35-ba022e5a852d",
+      "name": "Départs à supprimer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "docId": "={{ $json.docId }}",
+        "tableId": "Gouv_Utilisateurs",
+        "rowId": "={{ $json._ligne }}"
+      },
+      "id": "edff6499-8e17-5f13-ad3d-8134bfbbe97b",
+      "name": "Supprimer les fiches",
+      "type": "n8n-nodes-base.grist",
+      "typeVersion": 1,
+      "position": [
+        3300,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fin : une ligne par Grist esclave traité, avec ce qui a été fait (ou serait fait en mode essai).\nreturn $input.all().map((i) => ({ json: { resume: i.json.resume } }));"
+      },
+      "id": "95dc824c-24c1-5140-933e-c787c136d363",
+      "name": "Résumé",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        900
+      ]
+    }
+  ],
+  "connections": {
+    "Chaque matin (6 h, jours ouvrés)": {
+      "main": [
+        [
+          {
+            "node": "Réglages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lancer à la main": {
+      "main": [
+        [
+          {
+            "node": "Réglages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Réglages": {
+      "main": [
+        [
+          {
+            "node": "Lire l'annuaire (maître)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire l'annuaire (maître)": {
+      "main": [
+        [
+          {
+            "node": "Préparer les agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer les agents": {
+      "main": [
+        [
+          {
+            "node": "Lire les organisations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les organisations": {
+      "main": [
+        [
+          {
+            "node": "Lire les espaces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les espaces": {
+      "main": [
+        [
+          {
+            "node": "Documents dont il est propriétaire",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Documents dont il est propriétaire": {
+      "main": [
+        [
+          {
+            "node": "Lire les colonnes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les colonnes": {
+      "main": [
+        [
+          {
+            "node": "Cibles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cibles": {
+      "main": [
+        [
+          {
+            "node": "Une cible à la fois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Une cible à la fois": {
+      "main": [
+        [
+          {
+            "node": "Résumé",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cible en cours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cible en cours": {
+      "main": [
+        [
+          {
+            "node": "Lire les entités",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les entités": {
+      "main": [
+        [
+          {
+            "node": "Lire les utilisateurs (esclave)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les utilisateurs (esclave)": {
+      "main": [
+        [
+          {
+            "node": "Calculer les changements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculer les changements": {
+      "main": [
+        [
+          {
+            "node": "Ajouts à faire",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mises à jour à faire",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Départs à supprimer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Une cible à la fois",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ajouts à faire": {
+      "main": [
+        [
+          {
+            "node": "Ajouter les agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mises à jour à faire": {
+      "main": [
+        [
+          {
+            "node": "Mettre à jour les fiches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Départs à supprimer": {
+      "main": [
+        [
+          {
+            "node": "Supprimer les fiches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris"
+  },
+  "pinData": {}
+}
