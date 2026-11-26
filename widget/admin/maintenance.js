@@ -486,6 +486,7 @@ async function creerPages(bouton, seulement = null) {
       await installerTablesSujet(sujet);
       await chargerStructure();
     }
+    if (aInstaller.length) etat.sujets = null;   // état des sujets à relire : l'affichage doit montrer « installé »
     const outils = await tableDesOutils(await sectionsWidgets());
     for (const page of PAGES.filter((x) => !presentes.has(x.cle) && x.table && tableRef(x.table) && voulue(x))) {
       if (page.native) await creerPageNative(page, tableRef(page.table));
@@ -668,7 +669,10 @@ async function fusionnerJeu(jeu) {
     const { Parent, ...champs } = r;
     const ici = parCle.get(norm(r[cle]));
     if (!ici) { ajouts.push(champs); continue; }
-    const aRemplir = Object.fromEntries(Object.entries(champs).filter(([k]) => colonne(jeu.tableId, k) && vide(ici[k])));
+    // première fusion de cette ligne (pas encore d'Id_DGOM) : une case à cocher tout juste ajoutée vaut « non »
+    // sur les lignes déjà là, elle compte donc comme vide ; aux fusions suivantes, un choix fait à la main est gardé
+    const premiere = vide(ici.Id_DGOM);
+    const aRemplir = Object.fromEntries(Object.entries(champs).filter(([k]) => colonne(jeu.tableId, k) && (vide(ici[k]) || (premiere && ici[k] === false))));
     if (Object.keys(aRemplir).length) maj.push(['UpdateRecord', jeu.tableId, ici.id, aRemplir]);
   }
   const cles = [...new Set(ajouts.flatMap(Object.keys))].filter((k) => colonne(jeu.tableId, k));
