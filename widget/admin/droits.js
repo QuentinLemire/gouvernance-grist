@@ -172,7 +172,7 @@ function ongletDroits() {
       <p class="aide">${R.parEntites
         ? 'Pour chaque table, choisissez ce que chaque <b>entité</b> peut faire. Un droit donné à une entité vaut pour toute personne qui y est rattachée, elle ou une entité en dessous (DGOM : tout le personnel de la DGOM ; BSSIOM : ce seul bureau). Si plusieurs entités s\'appliquent, le droit le plus large l\'emporte. L\'entité vient de la table Utilisateurs (via le courriel de connexion).'
         : 'Pour chaque table, choisissez ce que chaque rôle peut faire. Le rôle vient de la table Utilisateurs (via le courriel de connexion).'}
-        Une personne <b>inactive</b> n'a aucun droit. Les <b>propriétaires</b> gardent toujours tous les droits.</p>
+        ${R.actif ? 'Une personne <b>inactive</b> n\'a aucun droit. ' : ''}Les <b>propriétaires</b> gardent toujours tous les droits.</p>
       ${metier.size ? `<div class="encadre">⚙️ ${metier.size} table(s) ont des <b>règles métier</b> (${nbMetier} règles : droits selon l'entité, le bureau, l'étape…). Le panneau ne les modifie pas ; elles se gèrent dans <i>Permissions avancées</i>.</div>` : ''}
       ${m.proposees ? `<div class="encadre">✏️ ${m.proposees} case(s) n'avaient pas de droit écrit : la proposition standard y est mise. Vérifiez, puis « Appliquer ces droits ».</div>` : ''}
       ${ressourcesOrphelines().length ? `<div class="encadre">🧹 Règles d'accès sur des tables qui n'existent plus : ${ressourcesOrphelines().map((r) => '<code>' + esc(r.tableId) + '</code>').join(', ')}. Grist refuse tout changement de règles tant qu'elles sont là : elles seront retirées au prochain enregistrement des droits (elles ne protègent plus rien).</div>` : ''}

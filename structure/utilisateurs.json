@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "3.0",
+  "version": "3.1",
   "sujet": "UTILISATEURS",
   "description": "Utilisateurs (annuaire : identité, rattachement, statut) et arborescence des entités ; base des droits, donnés par entité (une entité vaut pour elle et toutes celles en dessous). MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
@@ -45,7 +45,7 @@
           "label": "Nb utilisateurs",
           "type": "Numeric",
           "isFormula": true,
-          "formula": "return len(Gouv_Utilisateurs.lookupRecords(Entite=rec.id, Actif=True))"
+          "formula": "# Nombre de personnes rattachées directement à l'entité\nreturn len(Gouv_Utilisateurs.lookupRecords(Entite=rec.id))"
         },
         {
           "id": "CreeLe",
@@ -121,13 +121,6 @@
           "label": "Entité",
           "type": "Ref:Gouv_Entites",
           "visibleCol": "Nom"
-        },
-        {
-          "id": "Actif",
-          "label": "Actif",
-          "type": "Bool",
-          "formula": "True",
-          "recalcWhen": 0
         },
         {
           "id": "MOM",
