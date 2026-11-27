@@ -295,15 +295,14 @@ const rolesDe = (u) => { const v = u?.Role; return Array.isArray(v) ? (v[0] === 
 /** Rôle générique qui reçoit tous les droits dans la proposition standard de la matrice. */
 const rolesAdmin = () => ['Administrateur'];
 /**
- * Référents du Grist (décision du 27/11/2026, remplace les Administrateurs) : jusqu'à 3 personnes choisies dans
- * Maintenance › Paramètres (clé « Referents », courriels séparés par des virgules). Ce sont les interlocuteurs du
+ * Référents du Grist (décision du 27/11/2026, remplace les Administrateurs) : autant de personnes que voulu, choisies
+ * dans Maintenance › Paramètres (clé « Referents », courriels séparés par des virgules). Ce sont les interlocuteurs du
  * BSSIOM : seuls eux peuvent faire des demandes au support Grist pour ce document (n8n les reporte dans le
  * document Support). Ils n'ont aucun droit de plus sur les données (les droits passent par les entités).
  */
-const MAX_REFERENTS = 3;
-const DESCRIPTION_REFERENTS = "Jusqu'à 3 référents du Grist : seuls eux peuvent faire des demandes au support Grist du BSSIOM pour ce document (aucun droit de plus sur les données)";
+const DESCRIPTION_REFERENTS = "Référents du Grist (autant que voulu) : seuls eux peuvent faire des demandes au support Grist du BSSIOM pour ce document (aucun droit de plus sur les données)";
 const referents = () => String((etat.d?.Gouv_Parametres || []).find((p) => p.Cle === 'Referents')?.Valeur || '')
-  .split(',').map((c) => c.trim().toLowerCase()).filter(Boolean).slice(0, MAX_REFERENTS);
+  .split(',').map((c) => c.trim().toLowerCase()).filter(Boolean);
 /** Formules Grist sur la personne connectée, écrites pour le registre de l'application. */
 const moi = () => 'user.' + registre().attribut;
 /** La personne connectée a le rôle r (test seul, sans la condition « active »). */
@@ -453,7 +452,7 @@ async function enregistrerChamp(el) {
       await agir([['UpdateRecord', 'Gouv_Parametres', Number(el.dataset.p), { Valeur: val }]]);
       etat.d.Gouv_Parametres.find((x) => x.id === Number(el.dataset.p)).Valeur = val;
     } else if (el.dataset.referent !== undefined) {
-      // un des 3 menus « Référents » : on réécrit la liste entière (sans doublon), la ligne est créée au besoin
+      // un des menus « Référents » : on réécrit la liste entière (sans doublon), la ligne est créée au besoin
       const liste = [...new Set([...document.querySelectorAll('[data-referent]')].map((x) => x.value.trim().toLowerCase()).filter(Boolean))].join(', ');
       const ligne = (etat.d.Gouv_Parametres || []).find((p) => p.Cle === 'Referents');
       if (ligne) { await agir([['UpdateRecord', 'Gouv_Parametres', ligne.id, { Valeur: liste }]]); ligne.Valeur = liste; }
@@ -462,6 +461,8 @@ async function enregistrerChamp(el) {
         etat.d.Gouv_Parametres.push({ id: r.retValues[0], Cle: 'Referents', Valeur: liste, Description: DESCRIPTION_REFERENTS });
       }
       await tracer('Référents', liste || 'aucun');
+      afficher();   // un menu vide de plus pour ajouter un autre référent (ou un de moins si on en a retiré un)
+      return;
     }
     message('✅ Enregistré.');
   } catch (e) { message('❌ ' + esc(e.message), true); }
@@ -471,7 +472,7 @@ async function enregistrerChamp(el) {
 // matrice des droits. La matrice n'est pas écrite ici : seul l'aperçu est mis à jour.
 document.addEventListener('change', async (e) => {
   const el = e.target;
-  if (el.dataset.t || el.dataset.p || el.dataset.cle || el.dataset.admin !== undefined) return enregistrerChamp(el);
+  if (el.dataset.t || el.dataset.p || el.dataset.cle || el.dataset.referent !== undefined) return enregistrerChamp(el);
   if (el.id === 'simu-personne') { etat.simulation = el.value; return afficher(); }
   if (el.dataset.matTable) { const t = el.dataset.matTable; (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {})[el.dataset.matRole] = el.value; return majApercu(); }
   // droits par entité : une entité de plus dans la matrice (elle part de « Lecture » partout, à ajuster)

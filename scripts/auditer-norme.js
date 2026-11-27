@@ -457,7 +457,7 @@
     if (!d.colonnesDe.get(R.table)) return [];
     const U = (await lireTable(R.table)) || [];
     const page = R.norme ? '👥 Utilisateurs' : `table ${R.table}`;
-    // référents : jusqu'à 3 personnes choisies dans les Paramètres (clé Referents, courriels)
+    // référents : autant que voulu, choisis dans les Paramètres (clé Referents, courriels)
     const reglage = ((await lireTable('Gouv_Parametres')) || []).find((p) => p.Cle === 'Referents');
     const choisis = String(reglage?.Valeur || '').split(',').map((c) => c.trim().toLowerCase()).filter(Boolean);
     const actifs = U.filter((u) => u.Actif !== false);   // pas de colonne Actif : tout le monde est actif
@@ -474,7 +474,7 @@
     return [
       { principe: 'Personnes', objet: 'Référents du Grist', etat: refs.length ? OK : PARTIEL, page,
         detail: refs.length ? `${refs.length} référent(s) : ${refs.map((u) => [u.Prenom, u.Nom].filter(Boolean).join(' ') || u.Courriel).join(', ')}`
-          : `Aucun référent : à choisir dans Maintenance › Paramètres (jusqu'à 3 personnes) ; sans référent, personne ne peut faire de demande au support Grist pour ce document`, elements: [] },
+          : `Aucun référent : à choisir dans Maintenance › Paramètres ; sans référent, personne ne peut faire de demande au support Grist pour ce document`, elements: [] },
       { principe: 'Personnes', objet: `Personnes actives sans ${quoi}`, etat: sansRole.length ? PARTIEL : OK, page,
         detail: sansRole.length ? `${sansRole.length} personne(s) active(s) sans ${quoi} : elles ne voient que l'accueil` : `Chaque personne active a ${R.parEntites ? 'une entité' : 'un rôle'}`, elements: sansRole },
       { principe: 'Personnes', objet: 'Courriels', etat: malFormes.length || doublons.length ? PARTIEL : OK, page,

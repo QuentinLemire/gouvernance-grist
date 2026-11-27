@@ -365,3 +365,7 @@ Table Utilisateurs dans un ordre logique : identité (Prénom, Nom, Courriel, Fo
 ## Référents du Grist au lieu des Administrateurs (2026-11-27)
 **Décision** : dans Maintenance › Paramètres, le panneau « Administrateurs » (3 personnes avec tous les droits) devient **« Référents »** (clé `Referents`, jusqu'à 3 courriels). Les référents sont les interlocuteurs du BSSIOM pour ce Grist : seuls eux peuvent faire des demandes au **support Grist** (document Support, alimenté par n8n qui lit les référents de chaque Grist de la liste Grist DGOM). Ils n'ont **aucun droit de plus** sur les données (les droits passent par les entités). La Santé signale un Grist sans référent. Aucun Grist n'utilisait les Administrateurs (Gouvernance, Arrivées-Départs, OPCOM : vides).
 **Raison** : demande de Quentin, pour un support inter-Grist réservé aux référents de chaque document.
+
+## Référents en nombre libre ; lien du support sur l'accueil (2026-11-27)
+**Décision** : on choisit **autant de référents que voulu** (Maintenance › Paramètres : un menu par référent et un menu vide pour en ajouter ; « — personne — » en retire un). La **page d'accueil** de la norme montre aux seuls référents du Grist un encart « Vous êtes référent de ce Grist » avec le lien du **support Grist DGOM** (paramètre `Lien_support_grist`, sinon l'adresse de la norme). L'accueil sait qui est connecté grâce à la colonne `Est_moi` ; la Maintenance (« Réparer » Utilisateurs) pose sa règle de colonne (`rec.Courriel != user.Email` → pas de lecture) si elle manque.
+**Raison** : demandes de Quentin.

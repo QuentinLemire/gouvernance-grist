@@ -350,6 +350,21 @@ async function creerStructure(tables) {
   await retablirReferences(tables);
   await rangerColonnes(tables);
   await retirerPagesBrutes(nouvelles);
+  await assurerRegleEstMoi();
+}
+
+/**
+ * Règle de la colonne Utilisateurs.Est_moi (norme Utilisateurs 3.7) : elle n'est lisible que sur la ligne de la personne
+ * connectée, ce qui dit aux widgets (accueil : lien du support pour les référents) qui est connecté. Posée une fois,
+ * avant les règles de la table ; rien n'est fait si la colonne manque ou si la règle existe déjà.
+ */
+async function assurerRegleEstMoi() {
+  if (!colonne('Gouv_Utilisateurs', 'Est_moi') || !colonne('Gouv_Utilisateurs', 'Courriel')) return;
+  const res = (await lire('_grist_ACLResources')) || [];
+  if (res.some((r) => r.tableId === 'Gouv_Utilisateurs' && r.colIds === 'Est_moi')) return;
+  await agir([['AddRecord', '_grist_ACLResources', -1, { tableId: 'Gouv_Utilisateurs', colIds: 'Est_moi' }],
+    ['AddRecord', '_grist_ACLRules', null, { resource: -1, aclFormula: 'rec.Courriel != user.Email', permissionsText: '-R',
+      rulePos: 0.1, memo: 'Est moi : vrai sur la seule ligne de la personne connectée' }]]);
 }
 
 /**
@@ -801,6 +816,7 @@ const PARAMETRES_STANDARD = {
   Direction: 'Direction propriétaire',
   Contact_support: "Courriel de contact affiché sur la page d'accueil et pour le support",
   Logo_DGOM: "Adresse (URL) d'une image du logo DGOM, affichée en haut des pages (facultatif)",
+  Lien_support_grist: "Adresse du support Grist DGOM : la page d'accueil la montre aux seuls référents de ce Grist (vide : celle de la norme)",
 };
 
 /**
@@ -809,7 +825,8 @@ const PARAMETRES_STANDARD = {
  * @returns {string} HTML de l'onglet
  */
 /**
- * Les 3 menus « Référents » : chacun propose les personnes actives du registre (nom et courriel).
+ * Les menus « Référents » : un par référent choisi, plus un menu vide pour en ajouter un autre (autant que voulu) ;
+ * « — personne — » retire le référent. Chaque menu propose les personnes actives du registre (nom et courriel).
  * La valeur enregistrée est la liste des courriels choisis (enregistrerChamp, data-referent).
  */
 function lignesReferents() {
@@ -820,7 +837,8 @@ function lignesReferents() {
     personnes.map((u) => { const c = String(u.Courriel).trim().toLowerCase();
       return `<option value="${esc(c)}"${choisis[i] === c ? ' selected' : ''}>${esc([u.Prenom, u.Nom].filter(Boolean).join(' ') || c)} · ${esc(c)}</option>`; }).join('') + '</select>';
   return `<tr><td style="width:220px"><b>Référents</b><br><small class="vide">${esc(DESCRIPTION_REFERENTS)}</small></td>
-    <td style="display:flex;flex-direction:column;gap:6px">${[...Array(MAX_REFERENTS).keys()].map(menu).join('')}</td></tr>`;
+    <td style="display:flex;flex-direction:column;gap:6px">${[...Array(choisis.length + 1).keys()].map(menu).join('')}
+      <small class="vide">${choisis.length} référent(s) ; choisir une personne dans le dernier menu pour en ajouter un.</small></td></tr>`;
 }
 
 function ongletParametres() {

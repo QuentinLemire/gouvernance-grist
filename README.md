@@ -81,7 +81,7 @@ Pour la première pose, l'adresse sans `?v=` convient ; ensuite, **Maintenance**
 Les anciennes adresses raw.githack (service tombé en panne le 2026-11-24) sont reconnues et remplacées par ce bouton.
 
 Le logo DGOM se règle dans **Parametres**, clé `Logo_DGOM` (adresse d'une image publique).
-Les **référents** du Grist : jusqu'à 3 personnes choisies dans Maintenance › Paramètres (3 menus déroulants,
+Les **référents** du Grist : autant de personnes que voulu, choisies dans Maintenance › Paramètres (un menu par référent, plus un pour en ajouter ;
 clé `Referents`). Ce sont les interlocuteurs du BSSIOM : seuls eux peuvent faire des demandes au support Grist pour ce document. Ils n'ont aucun droit de plus sur les données ; les pages d'administration restent aux propriétaires du document.
 
 ## Créer ou mettre à la norme une application
