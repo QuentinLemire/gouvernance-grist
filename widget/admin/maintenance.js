@@ -449,7 +449,7 @@ const PAGES = [
   { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: {
     titre: 'Annuaire', colonnes: ['Prenom', 'Nom', 'Courriel', 'Fonction', 'Direction', 'Sous_direction', 'Entite', 'MOM', 'Ajout_n8n'], tri: 'Nom', fiche: true,
     cachees: ['Courriel_cle', 'Courriel_valide', 'Doublon'] } },
-  { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
+  { ...OUTIL, cle: 'droits', nom: '🔐 Droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
   { cle: 'journal', nom: '📒 Journal', table: 'Gouv_Journal', sousPage: true, facultative: true, sujet: 'journal', native: {

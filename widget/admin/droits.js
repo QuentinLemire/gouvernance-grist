@@ -1,5 +1,5 @@
 /*
- * 🔐 Rôles et droits — module de la console d'administration (moteur : admin/gestion.js).
+ * 🔐 Droits — module de la console d'administration (moteur : admin/gestion.js).
  * Reprise de l'onglet correspondant de l'ancien panneau administration.html.
  *
  * Depuis le 27/11/2026, la norme donne les droits par ENTITÉ : la matrice a une colonne par entité (direction,

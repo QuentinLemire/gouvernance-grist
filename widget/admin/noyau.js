@@ -48,7 +48,7 @@ window.Console = (() => {
   const GESTION = [...NORME, 'admin/gestion.js'];
   const MODULES = [
     { cle: 'sante', titre: '🩺 Santé du document', rubrique: '', avec: NORME },   // page d'entrée (🛡️ Administration)
-    { cle: 'droits', titre: '🔐 Rôles et droits', rubrique: 'Personnes', avec: GESTION },
+    { cle: 'droits', titre: '🔐 Droits', rubrique: 'Personnes', avec: GESTION },
     { cle: 'explorateur', titre: '🔍 Explorateur', rubrique: 'Données' },
     { cle: 'atelier', titre: '🏗️ Atelier', rubrique: 'Données' },
     { cle: 'support', titre: '🆘 Support', rubrique: 'Support', avec: GESTION },

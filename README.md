@@ -61,7 +61,7 @@ Pour chacun : ajouter une page → **Personnalisée** → **URL personnalisée**
 | Page | `module` | Rôle |
 |---|---|---|
 | 🛡️ Administration | `sante` | Santé du document : conformité à la norme (P1 à P7), personnes (administrateurs, rôles, courriels), formules en erreur, colonnes inutilisées, sorties internet |
-| 🔐 Rôles et droits | `droits` | Qui peut faire quoi, table par table ; aperçu des règles ; « Voir en tant que » (simulation et lien vers le vrai mode Grist) |
+| 🔐 Droits | `droits` | Qui peut faire quoi, par entité et table par table ; aperçu des règles ; « Voir en tant que » (simulation et lien vers le vrai mode Grist) |
 | 🔍 Explorateur | `explorateur` | Schéma des tables (MLD), pages ↔ données, widgets (tables lues, sorties internet) |
 | 🏗️ Atelier | `atelier` | Créer et modifier tables et colonnes selon la norme |
 | 🆘 Support | `support` | Traiter les demandes (si le module Support est installé) |
@@ -90,7 +90,7 @@ clé `Administrateurs`). Ils ont tous les droits sur les données et le support 
 puis **« Enregistrer une copie »** dans l'espace voulu. La copie contient déjà le socle, les pages et les règles d'accès de base. Ensuite :
 1. 🧱 **Maintenance › Paramètres** : nom de l'application, contact, logo ;
 2. 👥 **Utilisateurs** : s'inscrire avec le rôle Administrateur (et les autres personnes) ;
-3. 🔐 **Rôles et droits** : « Proposition standard », ajuster, « Appliquer ces droits » ; puis partager le document dans Grist (colonne *Accès Grist*) ;
+3. 🔐 **Droits** : « Proposition standard », ajouter les entités utiles, ajuster, « Appliquer ces droits » ; puis partager le document dans Grist ;
 4. 🏗️ **Atelier** : créer les tables métier (noms, types, traçabilité selon la norme) ;
 5. 🛡️ **Administration** : la santé du document doit être au vert.
 

@@ -2,7 +2,7 @@
  * =====================================================================
  *  Moteur de l'administration — console d'administration (DGOM)
  * =====================================================================
- *  Partagé par les modules Rôles et droits, Support, Maintenance et
+ *  Partagé par les modules Droits, Support, Maintenance et
  *  Aide (chargé une seule fois, avant le premier d'entre eux) : configuration de la norme, état,
  *  outils, lecture du document, enregistrement des champs et réaction aux boutons (data-action).
  *  Chaque module n'apporte que sa vue (ongletXxx) et la déclare avec declarerVue().
