@@ -152,4 +152,4 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
   - **Chef de bureau / adjoint** : d'après la **Fonction** (`user.Profil.Fonction in ["Chef de bureau", "Adjoint au chef de bureau"]`) ; sinon « Agent ».
   - **Ouverture des comptes** : l'équipe **SI** du BSSIOM (`SI in user.Profil.Rattachements`).
 - Les équipes du BSSIOM s'appellent **SI** et **ASTROLAB** (noms complets BSSIOM/SI et BSSIOM/ASTROLAB), dans AD et dans Gouvernance.
-- Reste une colonne calculée propre à AD : **Est admin** (Administrateurs des Paramètres), avec Entités vues, Bureaux et Par bureau, calculées d'après l'entité et la fonction. Tests « Voir en tant que » refaits : chef du BCL et équipe SI OK.
+- Plus de colonne **Est admin** non plus : l'administrateur d'AD est le **propriétaire** du document (`user.Access == OWNER`). Restent seulement les colonnes calculées Entités vues, Bureaux et Par bureau, d'après l'entité et la fonction. Tests « Voir en tant que » refaits : chef du BCL et équipe SI OK.
