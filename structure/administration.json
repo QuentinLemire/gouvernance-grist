@@ -2,7 +2,7 @@
   "format": "grist-structure",
   "version": "2.1",
   "sujet": "ADMINISTRATION",
-  "description": "Verrou de l'administration : table vide, lisible par les seuls propriétaires du document. Les pages d'administration (Santé, Rôles et droits, Explorateur, Atelier, Maintenance, Aide) y sont rattachées : Grist les cache à tous les autres.",
+  "description": "Verrou de l'administration : table vide, lisible par les seuls propriétaires du document. Les pages d'administration (Santé, Droits, Explorateur, Atelier, Maintenance, Aide) y sont rattachées : Grist les cache à tous les autres.",
   "tables": [
     {
       "tableId": "Gouv_Administration",
