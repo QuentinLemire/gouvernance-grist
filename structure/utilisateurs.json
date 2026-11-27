@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "3.3",
+  "version": "3.4",
   "sujet": "UTILISATEURS",
   "description": "Utilisateurs (annuaire : identité, rattachement, statut) et arborescence des entités ; base des droits, donnés par entité (une entité vaut pour elle et toutes celles en dessous). MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
@@ -142,15 +142,15 @@
           "label": "Rattachements",
           "type": "RefList:Gouv_Entites",
           "isFormula": true,
-          "formula": "# L'entité de la personne et toutes celles au-dessus (BSSIOM, SDEPDE, DGOM, MOM). Les droits se donnent\n# par entité (🔐 Droits) : un droit donné à l'une d'elles vaut pour la personne.\nliste = []\ne = $Entite\nwhile e and len(liste) < 20:\n    liste.append(e.id)\n    e = e.Parent\nreturn liste",
+          "formula": "# L'entité de la personne et toutes celles au-dessus (BSSIOM, SDEPDE, DGOM, MOM). Les droits se donnent\n# par entité (🔐 Rôles et droits) : un droit donné à l'une d'elles vaut pour la personne.\nliste = []\ne = $Entite\nwhile e and len(liste) < 20:\n    liste.append(e.id)\n    e = e.Parent\nreturn liste",
           "visibleCol": "Nom"
         },
         {
           "id": "Entites_vues",
           "label": "Entités vues",
-          "type": "RefList:Gouv_Entites",
+          "type": "Any",
           "isFormula": true,
-          "formula": "# Entité de la personne avec toutes ses sous-entités (hiérarchie Parent). Les droits plus larges\n# (voir d'autres entités) se donnent dans les règles d'accès (🔐 Droits), pas ici.\nvues = set()\na_voir = [$Entite] if $Entite else []\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Gouv_Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
+          "formula": "# Entité de la personne avec toutes ses sous-entités (hiérarchie Parent). Les droits plus larges\n# (voir d'autres entités) se donnent dans les règles d'accès (🔐 Rôles et droits), pas ici.\nvues = set()\na_voir = [$Entite] if $Entite else []\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Gouv_Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
           "visibleCol": "Nom"
         },
         {
