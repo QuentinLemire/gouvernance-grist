@@ -274,3 +274,10 @@ Les lignes techniques de la source (« Tous », « · », « Direction ») et le
 n8n recopie les trois branches dans chaque Grist de la liste (`Grist_DGOM`). Arrivées-Départs ne reçoit pas les branches de Gouvernance. Les droits fins restent ceux de la norme : chacun voit son entité et ses sous-entités (`Entites_vues`).
 **Raison** : demande de Quentin : rattacher aussi les personnes hors DGOM, sans créer de « territoire DGOM » (la DGOM est nationale).
 **À savoir** : dans Arrivées-Départs, la sous-direction d'un agent se calcule maintenant à partir de sa direction et non du haut de l'arbre. La liste des bureaux d'une fiche sans direction exclut MOM et les directions.
+
+## Utilisateurs : cases MOM et « Ajouté par n8n » ; Téléphone, Pièce, Fonction dans la norme (2026-11-27)
+**Décision** : `Gouv_Utilisateurs` reçoit dans la norme Fonction, Téléphone, Pièce et deux cases :
+- **MOM** : personne du ministère, venue d'Arrivées-Départs ;
+- **Ajouté par n8n** (`Ajout_n8n`) : n8n ne modifie **que** ces lignes. Une ligne saisie à la main dans un Grist esclave n'est jamais modifiée ni supprimée, pas même son entité. Pour la confier à n8n, on coche sa case.
+Les agents qu'inscrit n8n ont les deux cases cochées et aucun rôle. Un agent parti est désactivé, jamais supprimé. La case remplace le test « Créé par = compte de service » et la colonne Agent DGOM de Gouvernance. Le type des accès recensés se lit dans MOM et Actif. Les colonnes de l'ancien organigramme (Id DGOM, Courriel, Couleur, Organigramme) sont retirées des entités de Gouvernance.
+**Raison** : demande de Quentin. On voit d'un coup d'œil qui est du ministère et ce que n8n a le droit de toucher. La norme publie des structures de tables (colonnes vides), jamais les données d'un document : c'est n8n qui remplit ces colonnes.

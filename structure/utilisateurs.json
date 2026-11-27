@@ -1,8 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "2.1",
+  "version": "2.2",
   "sujet": "UTILISATEURS",
-  "description": "Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur), arborescence des services ; base des droits.",
+  "description": "Utilisateurs (annuaire et rôles génériques : Administrateur, Gestionnaire, Contributeur, Lecteur) et arborescence des entités ; base des droits. MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
     {
       "tableId": "Gouv_Entites",
@@ -141,6 +141,31 @@
           "type": "Bool",
           "formula": "True",
           "recalcWhen": 0
+        },
+        {
+          "id": "Fonction",
+          "label": "Fonction",
+          "type": "Text"
+        },
+        {
+          "id": "Telephone",
+          "label": "Téléphone",
+          "type": "Text"
+        },
+        {
+          "id": "Piece",
+          "label": "Pièce",
+          "type": "Text"
+        },
+        {
+          "id": "MOM",
+          "label": "MOM",
+          "type": "Bool"
+        },
+        {
+          "id": "Ajout_n8n",
+          "label": "Ajouté par n8n",
+          "type": "Bool"
         },
         {
           "id": "Courriel_cle",
