@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "3.5",
+  "version": "3.6",
   "sujet": "UTILISATEURS",
   "description": "Utilisateurs (annuaire : identité, rattachement, statut) et arborescence des entités ; base des droits, donnés par entité (une entité vaut pour elle et toutes celles en dessous). MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
@@ -23,7 +23,7 @@
           "label": "Nom complet",
           "type": "Text",
           "isFormula": true,
-          "formula": "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom + \"/\" + nom\n    parent = parent.Parent\nreturn nom"
+          "formula": "nom = rec.Nom\nparent = rec.Parent\nwhile parent:\n    nom = parent.Nom + \"-\" + nom\n    parent = parent.Parent\nreturn nom"
         },
         {
           "id": "Actif",
@@ -118,7 +118,7 @@
           "label": "Direction",
           "type": "Ref:Gouv_Entites",
           "isFormula": true,
-          "formula": "# Direction : l'entité juste sous la tête de l'arbre (MOM/DGOM/SDAJI/BCL → DGOM ;\n# Territoires/Guadeloupe/Préfecture → Guadeloupe ; Externes/ADEME → ADEME), d'après l'Entité choisie.\nchaine = []\ne = $Entite\nwhile e and len(chaine) < 20:\n    chaine.insert(0, e)\n    e = e.Parent\n# Les têtes de l'arbre (MOM, Territoires, Externes) ne sont pas des directions : on commence juste dessous.\ndebut = 1 if chaine and chaine[0].Nom in (\"MOM\", \"Territoires\", \"Externes\") else 0\nreturn chaine[debut] if len(chaine) > debut else None",
+          "formula": "# Direction : la tête de l'arbre des entités (DGOM, SMA, CABMOM) au-dessus de l'Entité choisie\n# (DGOM-SDAJI-BCL → DGOM)\ne = $Entite\nwhile e and e.Parent:\n    e = e.Parent\nreturn e or None",
           "visibleCol": "Nom"
         },
         {
@@ -126,7 +126,7 @@
           "label": "Sous-direction",
           "type": "Ref:Gouv_Entites",
           "isFormula": true,
-          "formula": "# Sous-direction : l'entité juste sous la direction, quand la personne est dans une sous-direction\n# (MOM/DGOM/SDAJI/BCL → SDAJI ; MOM/DGOM/SDAJI → SDAJI) ; vide pour un bureau rattaché directement à la direction.\nchaine = []\ne = $Entite\nwhile e and len(chaine) < 20:\n    chaine.insert(0, e)\n    e = e.Parent\n# Les têtes de l'arbre (MOM, Territoires, Externes) ne sont pas des directions : on commence juste dessous.\ndebut = 1 if chaine and chaine[0].Nom in (\"MOM\", \"Territoires\", \"Externes\") else 0\ndessous = chaine[debut + 1:]\nif len(dessous) >= 2:\n    return dessous[0]\nif len(dessous) == 1 and Gouv_Entites.lookupOne(Parent=dessous[0].id):\n    return dessous[0]\nreturn None",
+          "formula": "# Sous-direction : l'entité juste sous la direction, quand la personne est dans une sous-direction\n# (DGOM-SDAJI-BCL → SDAJI ; DGOM-SDAJI → SDAJI) ; vide pour un bureau rattaché directement à la direction.\nchaine = []\ne = $Entite\nwhile e and len(chaine) < 20:\n    chaine.insert(0, e)\n    e = e.Parent\ndessous = chaine[1:]\nif len(dessous) >= 2:\n    return dessous[0]\nif len(dessous) == 1 and Gouv_Entites.lookupOne(Parent=dessous[0].id):\n    return dessous[0]\nreturn None",
           "visibleCol": "Nom"
         },
         {
@@ -150,7 +150,7 @@
           "label": "Rattachements",
           "type": "RefList:Gouv_Entites",
           "isFormula": true,
-          "formula": "# L'entité de la personne et toutes celles au-dessus (BSSIOM, SDEPDE, DGOM, MOM). Les droits se donnent\n# par entité (🔐 Droits) : un droit donné à l'une d'elles vaut pour la personne.\nliste = []\ne = $Entite\nwhile e and len(liste) < 20:\n    liste.append(e.id)\n    e = e.Parent\nreturn liste",
+          "formula": "# L'entité de la personne et toutes celles au-dessus (BSSIOM, SDEPDE, DGOM). Les droits se donnent\n# par entité (🔐 Droits) : un droit donné à l'une d'elles vaut pour la personne.\nliste = []\ne = $Entite\nwhile e and len(liste) < 20:\n    liste.append(e.id)\n    e = e.Parent\nreturn liste",
           "visibleCol": "Nom"
         },
         {
