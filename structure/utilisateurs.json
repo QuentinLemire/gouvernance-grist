@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "2.2",
+  "version": "2.3",
   "sujet": "UTILISATEURS",
   "description": "Utilisateurs (annuaire et rôles génériques : Administrateur, Gestionnaire, Contributeur, Lecteur) et arborescence des entités ; base des droits. MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
@@ -97,6 +97,22 @@
           "visibleCol": "Nom"
         },
         {
+          "id": "Direction",
+          "label": "Direction",
+          "type": "Ref:Gouv_Entites",
+          "isFormula": true,
+          "formula": "# Direction : l'entité juste sous la tête de l'arbre (MOM/DGOM/SDAJI/BCL → DGOM ;\n# Territoires/Guadeloupe/Préfecture → Guadeloupe ; Externes/ADEME → ADEME), d'après l'Entité choisie.\nchaine = []\ne = $Entite\nwhile e and len(chaine) < 20:\n    chaine.insert(0, e)\n    e = e.Parent\n# Les têtes de l'arbre (MOM, Territoires, Externes) ne sont pas des directions : on commence juste dessous.\ndebut = 1 if chaine and chaine[0].Nom in (\"MOM\", \"Territoires\", \"Externes\") else 0\nreturn chaine[debut] if len(chaine) > debut else None",
+          "visibleCol": "Nom"
+        },
+        {
+          "id": "Sous_direction",
+          "label": "Sous-direction",
+          "type": "Ref:Gouv_Entites",
+          "isFormula": true,
+          "formula": "# Sous-direction : l'entité juste sous la direction, quand la personne est dans une sous-direction\n# (MOM/DGOM/SDAJI/BCL → SDAJI ; MOM/DGOM/SDAJI → SDAJI) ; vide pour un bureau rattaché directement à la direction.\nchaine = []\ne = $Entite\nwhile e and len(chaine) < 20:\n    chaine.insert(0, e)\n    e = e.Parent\n# Les têtes de l'arbre (MOM, Territoires, Externes) ne sont pas des directions : on commence juste dessous.\ndebut = 1 if chaine and chaine[0].Nom in (\"MOM\", \"Territoires\", \"Externes\") else 0\ndessous = chaine[debut + 1:]\nif len(dessous) >= 2:\n    return dessous[0]\nif len(dessous) == 1 and Gouv_Entites.lookupOne(Parent=dessous[0].id):\n    return dessous[0]\nreturn None",
+          "visibleCol": "Nom"
+        },
+        {
           "id": "Entites_vues",
           "label": "Entités vues",
           "type": "RefList:Gouv_Entites",
@@ -187,29 +203,6 @@
           "type": "Bool",
           "isFormula": true,
           "formula": "return bool($Courriel_cle) and len(Gouv_Utilisateurs.lookupRecords(Courriel_cle=$Courriel_cle)) > 1"
-        },
-        {
-          "id": "Acces_Grist",
-          "label": "Accès Grist",
-          "type": "Choice",
-          "isFormula": true,
-          "formula": "if not $Actif or not $Role:\n  return \"\"\n# Le Lecteur lit ; les autres rôles (dont les rôles métier) modifient\nreturn \"Lecteur\" if $Role == \"Lecteur\" else \"Éditeur\"",
-          "widgetOptions": {
-            "choices": [
-              "Éditeur",
-              "Lecteur"
-            ],
-            "choiceOptions": {
-              "Éditeur": {
-                "fillColor": "#6A6AF4",
-                "textColor": "#FFFFFF"
-              },
-              "Lecteur": {
-                "fillColor": "#E3E3FD",
-                "textColor": "#000000"
-              }
-            }
-          }
         },
         {
           "id": "CreeLe",

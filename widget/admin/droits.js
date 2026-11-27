@@ -204,7 +204,7 @@ function simulation(courriel) {
   });
   return `<div class="defile" style="margin-top:12px"><table class="tableau"><tr><th>Table</th><th>${esc(sesRoles.join(', '))} : ce qu'elle peut faire</th></tr>
     ${lignes.map(([t, d]) => `<tr><td class="table">${esc(t)}</td><td>${d}</td></tr>`).join('')}</table></div>
-    <p class="aide">À condition que le document soit partagé avec elle dans Grist${u.Acces_Grist ? ` en <b>${esc(u.Acces_Grist)}</b> (colonne « Accès Grist »)` : ''} :
+    <p class="aide">À condition que le document soit partagé avec elle dans Grist :
     partagée en lecture, elle ne modifie rien. Un propriétaire du document voit tout, quelles que soient les règles.</p>`;
 }
 
