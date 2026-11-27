@@ -1,8 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "2.5",
+  "version": "3.0",
   "sujet": "UTILISATEURS",
-  "description": "Utilisateurs (annuaire et rôles génériques : Administrateur, Gestionnaire, Contributeur, Lecteur) et arborescence des entités ; base des droits. MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
+  "description": "Utilisateurs (annuaire : identité, rattachement, statut) et arborescence des entités ; base des droits, donnés par entité (une entité vaut pour elle et toutes celles en dessous). MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
     {
       "tableId": "Gouv_Entites",
@@ -81,8 +81,8 @@
       "tableId": "Gouv_Utilisateurs",
       "columns": [
         {
-          "id": "Courriel",
-          "label": "Courriel",
+          "id": "Prenom",
+          "label": "Prénom",
           "type": "Text"
         },
         {
@@ -91,8 +91,13 @@
           "type": "Text"
         },
         {
-          "id": "Prenom",
-          "label": "Prénom",
+          "id": "Courriel",
+          "label": "Courriel",
+          "type": "Text"
+        },
+        {
+          "id": "Fonction",
+          "label": "Fonction",
           "type": "Text"
         },
         {
@@ -118,9 +123,11 @@
           "visibleCol": "Nom"
         },
         {
-          "id": "Fonction",
-          "label": "Fonction",
-          "type": "Text"
+          "id": "Actif",
+          "label": "Actif",
+          "type": "Bool",
+          "formula": "True",
+          "recalcWhen": 0
         },
         {
           "id": "MOM",
@@ -133,42 +140,12 @@
           "type": "Bool"
         },
         {
-          "id": "Role",
-          "label": "Rôle",
-          "type": "Choice",
-          "widgetOptions": {
-            "choices": [
-              "Administrateur",
-              "Gestionnaire",
-              "Contributeur",
-              "Lecteur"
-            ],
-            "choiceOptions": {
-              "Administrateur": {
-                "fillColor": "#000091",
-                "textColor": "#FFFFFF"
-              },
-              "Gestionnaire": {
-                "fillColor": "#6A6AF4",
-                "textColor": "#FFFFFF"
-              },
-              "Contributeur": {
-                "fillColor": "#C3FAD5",
-                "textColor": "#000000"
-              },
-              "Lecteur": {
-                "fillColor": "#E3E3FD",
-                "textColor": "#000000"
-              }
-            }
-          }
-        },
-        {
-          "id": "Actif",
-          "label": "Actif",
-          "type": "Bool",
-          "formula": "True",
-          "recalcWhen": 0
+          "id": "Rattachements",
+          "label": "Rattachements",
+          "type": "RefList:Gouv_Entites",
+          "isFormula": true,
+          "formula": "# L'entité de la personne et toutes celles au-dessus (BSSIOM, SDEPDE, DGOM, MOM). Les droits se donnent\n# par entité (🔐 Rôles et droits) : un droit donné à l'une d'elles vaut pour la personne.\nliste = []\ne = $Entite\nwhile e and len(liste) < 20:\n    liste.append(e.id)\n    e = e.Parent\nreturn liste",
+          "visibleCol": "Nom"
         },
         {
           "id": "Entites_vues",

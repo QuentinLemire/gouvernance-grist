@@ -447,7 +447,7 @@ const PAGES = [
   { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'sante', sousPage: false, anciens: ['administration.html'] },
   // Utilisateurs et Journal : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
   { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: {
-    titre: 'Annuaire', colonnes: ['Courriel', 'Nom', 'Prenom', 'Direction', 'Sous_direction', 'Entite', 'Fonction', 'MOM', 'Ajout_n8n', 'Role', 'Actif'], tri: 'Nom', fiche: true,
+    titre: 'Annuaire', colonnes: ['Prenom', 'Nom', 'Courriel', 'Fonction', 'Direction', 'Sous_direction', 'Entite', 'Actif', 'MOM', 'Ajout_n8n'], tri: 'Nom', fiche: true,
     cachees: ['Courriel_cle', 'Courriel_valide', 'Doublon'] } },
   { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },

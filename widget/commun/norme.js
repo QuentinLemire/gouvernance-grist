@@ -167,7 +167,9 @@
     const a = attributs.find((x) => x.tableId === 'Gouv_Utilisateurs') || attributs.find((x) => x.name === 'Profil') || attributs[0];
     const table = a?.tableId || 'Gouv_Utilisateurs';
     const role = (colonnesDe.get(table) || []).find((c) => c.colId === 'Role');
-    return { table, attribut: a?.name || 'Profil', norme: table === 'Gouv_Utilisateurs', declare: !!a, multi: /^ChoiceList/.test(role?.type || '') };
+    // droits par entité (norme depuis le 27/11/2026) : pas de colonne Rôle, une colonne Rattachements
+    const parEntites = !role && (colonnesDe.get(table) || []).some((c) => c.colId === 'Rattachements');
+    return { table, attribut: a?.name || 'Profil', norme: table === 'Gouv_Utilisateurs', declare: !!a, multi: /^ChoiceList/.test(role?.type || ''), parEntites };
   }
   /** Rôles d'une personne : une liste (colonne Role à choix multiples, encodée ['L', …]) ou un seul rôle. */
   const rolesDe = (u) => { const v = u?.Role; return Array.isArray(v) ? (v[0] === 'L' ? v.slice(1) : v).filter(Boolean) : v ? [v] : []; };
@@ -278,7 +280,7 @@
       elements: [...new Set([...desordre, ...traceAilleurs])], outil: desordre.length ? 'maintenance' : 'atelier' }];
   }
 
-  /** P5 — Droits : attribut user.Profil, rôles génériques, accueil seul pour les non-inscrits, formules valides. */
+  /** P5 — Droits : attribut user.Profil, droits par entité (ou rôles génériques), accueil seul pour les non-inscrits, formules valides. */
   function droits(d) {
     if (!d.regles) return [{ principe: 'P5', objet: 'P5 Droits', etat: '❔', detail: 'Règles illisibles : seul un propriétaire du document peut les contrôler', elements: [], outil: 'droits' }];
     const attributs = d.regles.filter((r) => r.userAttributes).map((r) => json(r.userAttributes, {}));
@@ -287,15 +289,16 @@
     const autres = attributs.filter((a) => a.name !== R.attribut).map((a) => `user.${a.name}`);
     const roleCol = (d.colonnesDe.get(R.table) || []).find((c) => c.colId === 'Role' || c.colId === 'role');
     const roles = json(roleCol?.widgetOptions || '{}', {}).choices || [];
-    // rôles génériques exigés avec le registre de la norme ; une application qui garde le sien garde ses rôles
-    const manquants = R.norme ? ROLES_GENERIQUES.filter((r) => !roles.includes(r)) : [];
+    // droits par entité : plus de rôles ; sinon rôles génériques exigés avec le registre de la norme,
+    // une application qui garde le sien garde ses rôles
+    const manquants = R.norme && !R.parEntites ? ROLES_GENERIQUES.filter((r) => !roles.includes(r)) : [];
     const metier = roles.filter((r) => !ROLES_GENERIQUES.includes(r));
     const accueilSeul = d.regles.some((r) => (r.aclFormula || '').includes('not user.' + R.attribut));
     const enErreur = d.regles.filter((r) => r.aclFormula && !r.aclFormulaParsed).length;
     const points = [!!profil, !manquants.length, accueilSeul, !enErreur];
     const detail = [
       profil ? `attribut user.${R.attribut} (table ${R.table}) ✓` : `pas d'attribut user.${R.attribut}${autres.length ? ' (utilise ' + autres.join(', ') + ')' : ''}`,
-      !R.norme ? 'rôles de l\'application' : manquants.length ? `rôles génériques manquants : ${manquants.join(', ')}` : 'rôles génériques ✓',
+      R.parEntites ? 'droits par entité (colonne Rattachements) ✓' : !R.norme ? 'rôles de l\'application' : manquants.length ? `rôles génériques manquants : ${manquants.join(', ')}` : 'rôles génériques ✓',
       metier.length && `${R.norme ? 'rôles métier' : 'rôles'} : ${metier.join(', ')}`,
       accueilSeul ? 'non-inscrits limités à l\'accueil ✓' : 'pas de règle « non inscrits : accueil seulement »',
       `${d.regles.length} règles`,
@@ -423,7 +426,9 @@
     const choisis = String(reglage?.Valeur || '').split(',').map((c) => c.trim().toLowerCase()).filter(Boolean);
     const actifs = U.filter((u) => u.Actif !== false);   // pas de colonne Actif : tout le monde est actif
     const admins = actifs.filter((u) => choisis.includes(String(u.Courriel || '').trim().toLowerCase()));
-    const sansRole = actifs.filter((u) => !rolesDe(u).length).map((u) => u.Courriel || `ligne ${u.id}`);
+    // droits par entité : une personne active doit être rattachée à une entité ; sinon, avoir un rôle
+    const sansRole = actifs.filter((u) => (R.parEntites ? !u.Entite : !rolesDe(u).length)).map((u) => u.Courriel || `ligne ${u.id}`);
+    const quoi = R.parEntites ? 'entité' : 'rôle';
     // colonnes calculées de la norme (Courriel_valide, Doublon), ou le même calcul si elles manquent
     const cle = (c) => String(c || '').trim().toLowerCase();
     const valide = (u) => ('Courriel_valide' in u ? u.Courriel_valide : /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(cle(u.Courriel)));
@@ -434,8 +439,8 @@
       { principe: 'Personnes', objet: 'Administrateurs actifs', etat: admins.length ? OK : ABSENT, page,
         detail: admins.length ? `${admins.length} administrateur(s) actif(s) : ${admins.map((u) => u.Nom || u.Courriel).join(', ')}`
           : `Aucun administrateur actif : à choisir dans Maintenance › Paramètres (jusqu'à 3 personnes)`, elements: [] },
-      { principe: 'Personnes', objet: 'Personnes actives sans rôle', etat: sansRole.length ? PARTIEL : OK, page,
-        detail: sansRole.length ? `${sansRole.length} personne(s) active(s) sans rôle : elles ne voient que l'accueil` : 'Chaque personne active a un rôle', elements: sansRole },
+      { principe: 'Personnes', objet: `Personnes actives sans ${quoi}`, etat: sansRole.length ? PARTIEL : OK, page,
+        detail: sansRole.length ? `${sansRole.length} personne(s) active(s) sans ${quoi} : elles ne voient que l'accueil` : `Chaque personne active a ${R.parEntites ? 'une entité' : 'un rôle'}`, elements: sansRole },
       { principe: 'Personnes', objet: 'Courriels', etat: malFormes.length || doublons.length ? PARTIEL : OK, page,
         detail: [malFormes.length && `${malFormes.length} mal formé(s) (en rouge)`, doublons.length && `${doublons.length} en double (en orange)`].filter(Boolean).join(' ; ') || 'Tous bien formés et uniques',
         elements: [...malFormes, ...doublons] },

@@ -1,8 +1,32 @@
 /*
  * 🔐 Rôles et droits — module de la console d'administration (moteur : admin/gestion.js).
  * Reprise de l'onglet correspondant de l'ancien panneau administration.html.
+ *
+ * Depuis le 27/11/2026, la norme donne les droits par ENTITÉ : la matrice a une colonne par entité (direction,
+ * sous-direction, bureau…) ; un droit donné à une entité vaut pour toute personne rattachée à elle ou à une entité
+ * en dessous (colonne Utilisateurs.Rattachements). Une application qui garde une colonne Rôle (OPCOM,
+ * Arrivées-Départs) garde une colonne par rôle : le reste du panneau est le même (voir porteurs()).
  */
-// --- 7. Onglet « Droits » : matrice rôle × table → règles d'accès Grist --------------------------
+// --- 7. Onglet « Droits » : matrice porteur (entité ou rôle) × table → règles d'accès Grist ---------
+
+/**
+ * Entités en colonne de la matrice : celles qui ont déjà des droits (règles écrites ou ajoutées ici) ; au tout
+ * début, les directions où quelqu'un est inscrit (DGOM…), pour démarrer.
+ * @param {object} niveaux  niveaux[table][identifiant d'entité]
+ */
+function entitesPorteuses(niveaux) {
+  const ids = new Set(Object.values(niveaux || {}).flatMap((o) => Object.keys(o)));
+  if (!ids.size) for (const u of etat.d[registre().table] || []) if (u.Actif !== false && (u.Direction || u.Entite)) ids.add(String(u.Direction || u.Entite));
+  return [...ids].filter(nomEntite).sort((a, b) => nomEntite(a).localeCompare(nomEntite(b), 'fr'));
+}
+/** Colonnes de la matrice : des entités (identifiants) ou des rôles. */
+const porteurs = (niveaux = etat.droits?.niveaux) => (registre().parEntites ? entitesPorteuses(niveaux) : roles());
+/** Nom affiché d'un porteur. */
+const libellePorteur = (cle) => (registre().parEntites ? nomEntite(cle) : cle);
+/** Ajoute une entité à la matrice : « Lecture » sur chaque table, à ajuster avant d'appliquer. */
+function ajouterEntite(id) {
+  for (const t of tablesGerees()) { const n = (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {}); n[id] = n[id] || 'lire'; }
+}
 
 
 /**
@@ -18,14 +42,18 @@ function lireMatrice() {
   const m = { niveaux: {}, bloquerAutres: gardePresente() || !dejaEcrit, supportPrive: supportPrivePresent() || !dejaEcrit };
   for (const r of reglesDuPanneau()) {
     const t = ressource(r.resource)?.tableId; if (!t) continue;
-    // rôle de la règle : « user.X.Role == "r" » (un rôle par personne) ou « "r" in user.X.Role » (plusieurs)
-    const role = /user\.\w+\.Role == ("(?:[^"\\]|\\.)*")/.exec(r.aclFormula || '') || /("(?:[^"\\]|\\.)*") in user\.\w+\.Role/.exec(r.aclFormula || '');
-    if (role && !/rec\./.test(r.aclFormula)) (m.niveaux[t] = m.niveaux[t] || {})[JSON.parse(role[1])] = NIVEAU_DE_PERM[r.permissionsText] || '';
+    // porteur de la règle : « 12 in user.X.Rattachements » (une entité), « user.X.Role == "r" » (un rôle par personne)
+    // ou « "r" in user.X.Role » (plusieurs rôles)
+    const f = r.aclFormula || '';
+    const entite = /(\d+) in user\.\w+\.Rattachements/.exec(f);
+    const role = /user\.\w+\.Role == ("(?:[^"\\]|\\.)*")/.exec(f) || /("(?:[^"\\]|\\.)*") in user\.\w+\.Role/.exec(f);
+    const cle = entite ? entite[1] : role ? JSON.parse(role[1]) : null;
+    if (cle !== null && !/rec\./.test(f)) (m.niveaux[t] = m.niveaux[t] || {})[cle] = NIVEAU_DE_PERM[r.permissionsText] || '';
     if ((r.aclFormula || '').trim().startsWith('user.Access != OWNER')) m.bloquerAutres = true;
   }
   const standard = matriceStandard().niveaux;
   m.proposees = 0;
-  for (const t of tablesGerees()) for (const r of roles()) {
+  for (const t of tablesGerees()) for (const r of porteurs(m.niveaux)) {
     if ((m.niveaux[t] || {})[r]) continue;
     (m.niveaux[t] = m.niveaux[t] || {})[r] = standard[t]?.[r] || 'lire';
     m.proposees++;
@@ -34,10 +62,11 @@ function lireMatrice() {
 }
 
 /**
- * « Proposition standard » : une matrice raisonnable pour démarrer.
- * Administrateur : tout ; journal invisible aux autres rôles ; support : le Lecteur dépose,
- * les autres modifient ; tables de référence en lecture ; tables métier : Gestionnaire tout,
- * Contributeur modifie, Lecteur lit. Rien n'est écrit avant « Appliquer ces droits ».
+ * « Proposition standard » : une matrice raisonnable pour démarrer. Rien n'est écrit avant « Appliquer ces droits ».
+ * Par entité : chaque entité lit tout, dépose ses demandes de support, ne voit pas le journal (les administrateurs
+ * choisis ont tous les droits par leur propre règle).
+ * Par rôle : Administrateur tout ; journal invisible aux autres ; support : le Lecteur dépose, les autres modifient ;
+ * tables de référence en lecture ; tables métier : Gestionnaire tout, Contributeur modifie, Lecteur lit.
  * @returns {object} matrice, même forme que lireMatrice()
  */
 function matriceStandard() {
@@ -45,6 +74,12 @@ function matriceStandard() {
   const sensibles = [registre().table, 'Gouv_Entites', 'Gouv_Parametres', 'Gouv_Territoires'];
   for (const t of tablesGerees()) {
     m.niveaux[t] = {};
+    if (registre().parEntites) {
+      for (const e of porteurs(etat.droits?.niveaux)) {
+        m.niveaux[t][e] = t === 'Gouv_Journal' ? 'aucun' : (t === 'Gouv_Support' || t === 'Gouv_Support_commentaires') ? 'ajout' : 'lire';
+      }
+      continue;
+    }
     for (const r of roles()) {
       let n = 'lire';
       if (rolesAdmin().includes(r)) n = 'tout';
@@ -63,7 +98,7 @@ function matriceStandard() {
 const chaine = (s) => JSON.stringify(String(s));
 
 /** Condition Grist « la personne n'administre pas l'application (rôles du support) et n'est pas propriétaire ». */
-const pasSupport = () => rolesAdmin().map((r) => `not (${aLeRole(r)})`).join(' and ') + ' and user.Access != OWNER'
+const pasSupport = () => (registre().parEntites ? '' : rolesAdmin().map((r) => `not (${aLeRole(r)})`).join(' and ') + ' and ') + 'user.Access != OWNER'
   + (condAdministrateurs() ? ` and not (${condAdministrateurs()})` : '');
 /**
  * Règles de confidentialité du support, par table (toutes colonnes, sauf mention « cols »).
@@ -87,13 +122,13 @@ const SUPPORT_PRIVE = () => ({
  * Traduit la matrice (etat.droits) en règles Grist, dans l'ordre où Grist les évalue :
  * pour chaque permission, la première règle de la table qui s'applique à la personne l'emporte.
  * Ordre par table : propriétaires → jetons cachés (Parametres) → confidentialité du support
- * → une règle par rôle → blocage des personnes sans rôle reconnu.
+ * → une règle par entité (ou par rôle) → blocage des personnes sans rattachement reconnu.
  * @returns {{table: string, cols?: string, formule: string, perm: string}[]}
  */
 function construireRegles() {
   const m = etat.droits, out = [], prive = SUPPORT_PRIVE();
   for (const t of tablesGerees()) {
-    const lignes = Object.entries(m.niveaux[t] || {}).filter(([r, n]) => n && roles().includes(r));
+    const lignes = Object.entries(m.niveaux[t] || {}).filter(([r, n]) => n && porteurs().includes(r));
     if (!lignes.length && !m.bloquerAutres && !(m.supportPrive && prive[t]) && t !== 'Gouv_Parametres') continue;
     out.push({ table: t, formule: 'user.Access == OWNER', perm: '+CRUD' });
     // Les jetons d'accès (clés « …_jeton ») ne sont visibles que des propriétaires du document.
@@ -103,7 +138,7 @@ function construireRegles() {
     if (condAdministrateurs()) out.push({ table: t, formule: condAdministrateurs(), perm: '+CRUD' });
     // Support : chacun ne voit que ses propres demandes et seuls les administrateurs changent statut, priorité, assignation.
     if (m.supportPrive && prive[t]) for (const r of prive[t]) out.push({ table: t, ...r });
-    for (const [r, n] of lignes) out.push({ table: t, formule: condRole(r), perm: NIVEAUX.find((x) => x.code === n).perm });
+    for (const [r, n] of lignes) out.push({ table: t, formule: condPorteur(r), perm: NIVEAUX.find((x) => x.code === n).perm });
     if (m.bloquerAutres) {
       out.push({ table: t, formule: 'user.Access != OWNER', perm: '-CRUD' });
     }
@@ -118,16 +153,26 @@ function construireRegles() {
  */
 function ongletDroits() {
   if (!etat.acl.regles) return '<div class="encadre alerte">Seuls les <b>propriétaires</b> du document peuvent gérer les droits.</div>';
-  if (!aTable(registre().table) || !roles().length) return `<div class="encadre alerte">Il faut d'abord des utilisateurs avec des rôles (table ${esc(registre().table)}).</div>`;
+  const R = registre();
+  if (!aTable(R.table) || (R.parEntites ? !(etat.d.Gouv_Entites || []).length : !roles().length)) {
+    return `<div class="encadre alerte">Il faut d'abord ${R.parEntites ? 'des entités (table Gouv_Entites)' : 'des utilisateurs avec des rôles'} (table ${esc(R.table)}).</div>`;
+  }
   if (!etat.droits) etat.droits = lireMatrice();
-  const m = etat.droits;
+  const m = etat.droits, P = porteurs();
+  const titrePorteur = (r) => (R.parEntites ? ` title="${esc((etat.d.Gouv_Entites || []).find((e) => String(e.id) === r)?.Nom_complet || '')}"` : '');
+  // entités qu'on peut encore ajouter à la matrice, par ordre de l'arbre (Nom complet)
+  const ajoutables = R.parEntites ? (etat.d.Gouv_Entites || []).filter((e) => !P.includes(String(e.id)))
+    .sort((a, b) => String(a.Nom_complet || a.Nom).localeCompare(String(b.Nom_complet || b.Nom), 'fr')) : [];
   const metier = tablesMetier();
   const nbMetier = [...metier.values()].reduce((a, b) => a + b, 0);
   const garde = gardePresente();
   return `
     <section class="carte">
       <h2>🔐 Qui peut faire quoi ?</h2>
-      <p class="aide">Pour chaque table, choisissez ce que chaque rôle peut faire. Le rôle vient de la table Utilisateurs (via le courriel de connexion). Une personne <b>inactive</b> n'a aucun rôle. Les <b>propriétaires</b> gardent toujours tous les droits.</p>
+      <p class="aide">${R.parEntites
+        ? 'Pour chaque table, choisissez ce que chaque <b>entité</b> peut faire. Un droit donné à une entité vaut pour toute personne qui y est rattachée, elle ou une entité en dessous (DGOM : tout le personnel de la DGOM ; BSSIOM : ce seul bureau). Si plusieurs entités s\'appliquent, le droit le plus large l\'emporte. L\'entité vient de la table Utilisateurs (via le courriel de connexion).'
+        : 'Pour chaque table, choisissez ce que chaque rôle peut faire. Le rôle vient de la table Utilisateurs (via le courriel de connexion).'}
+        Une personne <b>inactive</b> n'a aucun droit. Les <b>propriétaires</b> gardent toujours tous les droits.</p>
       ${metier.size ? `<div class="encadre">⚙️ ${metier.size} table(s) ont des <b>règles métier</b> (${nbMetier} règles : droits selon l'entité, le bureau, l'étape…). Le panneau ne les modifie pas ; elles se gèrent dans <i>Permissions avancées</i>.</div>` : ''}
       ${m.proposees ? `<div class="encadre">✏️ ${m.proposees} case(s) n'avaient pas de droit écrit : la proposition standard y est mise. Vérifiez, puis « Appliquer ces droits ».</div>` : ''}
       ${ressourcesOrphelines().length ? `<div class="encadre">🧹 Règles d'accès sur des tables qui n'existent plus : ${ressourcesOrphelines().map((r) => '<code>' + esc(r.tableId) + '</code>').join(', ')}. Grist refuse tout changement de règles tant qu'elles sont là : elles seront retirées au prochain enregistrement des droits (elles ne protègent plus rien).</div>` : ''}
@@ -135,15 +180,16 @@ function ongletDroits() {
       ${!garde ? `<div class="encadre alerte">⚠️ Les personnes non inscrites ne sont pas bloquées. <button class="bouton petit" data-action="garde">Ne leur montrer que l'accueil</button></div>` : ''}
       <div class="barre-outils">
         <button class="bouton petit" data-action="standard">✨ Proposition standard</button>
-        <label><input type="checkbox" id="bloquer-autres" ${m.bloquerAutres ? 'checked' : ''}> Bloquer toute personne sans rôle reconnu</label>
-        ${aTable('Gouv_Support') ? `<label title="Seuls les rôles ${esc(rolesAdmin().join(', '))} voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
+        <label><input type="checkbox" id="bloquer-autres" ${m.bloquerAutres ? 'checked' : ''}> Bloquer toute personne sans ${R.parEntites ? 'entité' : 'rôle'} reconnu${R.parEntites ? 'e' : ''}</label>
+        ${R.parEntites ? `<select class="champ" id="ajout-entite"><option value="">➕ Ajouter une entité…</option>${ajoutables.map((e) => `<option value="${e.id}">${esc(e.Nom_complet || e.Nom)}</option>`).join('')}</select>` : ''}
+        ${aTable('Gouv_Support') ? `<label title="Seuls les ${R.parEntites ? 'administrateurs' : 'rôles ' + esc(rolesAdmin().join(', '))} voient toutes les demandes et peuvent les clore"><input type="checkbox" id="support-prive" ${m.supportPrive ? 'checked' : ''}> Support : chacun ne voit que ses demandes</label>` : ''}
       </div>
       <div class="defile"><table class="tableau matrice">
-        <tr><th>Table</th>${roles().map((r) => `<th>${esc(r)}</th>`).join('')}</tr>
+        <tr><th>Table</th>${P.map((r) => `<th${titrePorteur(r)}>${esc(libellePorteur(r))}</th>`).join('')}</tr>
         ${etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => metier.has(t.tableId)
-          ? `<tr class="metier"><td class="table">${esc(t.tableId)}</td><td colspan="${roles().length}" title="${metier.get(t.tableId)} règle(s) propres à l'application, dans Permissions avancées">⚙️ règles métier (${metier.get(t.tableId)})</td></tr>`
+          ? `<tr class="metier"><td class="table">${esc(t.tableId)}</td><td colspan="${P.length}" title="${metier.get(t.tableId)} règle(s) propres à l'application, dans Permissions avancées">⚙️ règles métier (${metier.get(t.tableId)})</td></tr>`
           : `<tr><td class="table">${esc(t.tableId)}</td>
-          ${roles().map((r) => `<td><select class="champ" data-mat-table="${esc(t.tableId)}" data-mat-role="${esc(r)}">${NIVEAUX.filter((n) => n.code).map((n) => `<option value="${n.code}" ${(m.niveaux[t.tableId] || {})[r] === n.code || (!(m.niveaux[t.tableId] || {})[r] && !n.code) ? 'selected' : ''}>${n.libelle}</option>`).join('')}</select></td>`).join('')}
+          ${P.map((r) => `<td><select class="champ" data-mat-table="${esc(t.tableId)}" data-mat-role="${esc(r)}">${NIVEAUX.filter((n) => n.code).map((n) => `<option value="${n.code}" ${(m.niveaux[t.tableId] || {})[r] === n.code || (!(m.niveaux[t.tableId] || {})[r] && !n.code) ? 'selected' : ''}>${n.libelle}</option>`).join('')}</select></td>`).join('')}
         </tr>`).join('')}
       </table></div>
     </section>
@@ -175,7 +221,7 @@ function carteSimulation() {
     <p class="aide">Ce qu'une personne peut faire, d'après les droits <b>appliqués</b>. Le lien ouvre le document avec ses droits, pour vérifier en vrai (réservé aux propriétaires).</p>
     <div class="barre-outils">
       <select class="champ" id="simu-personne" style="min-width:320px"><option value="">Choisir une personne…</option>
-        ${U.map((u) => `<option value="${esc(u.Courriel)}" ${cle(u.Courriel) === cle(choisi) ? 'selected' : ''}>${esc(u.Courriel)}${rolesDe(u).length ? ' — ' + esc(rolesDe(u).join(', ')) : ''}${u.Actif === false ? ' (inactif)' : ''}</option>`).join('')}
+        ${U.map((u) => `<option value="${esc(u.Courriel)}" ${cle(u.Courriel) === cle(choisi) ? 'selected' : ''}>${esc(u.Courriel)}${registre().parEntites ? (nomEntite(u.Entite) ? ' — ' + esc(nomEntite(u.Entite)) : '') : rolesDe(u).length ? ' — ' + esc(rolesDe(u).join(', ')) : ''}${u.Actif === false ? ' (inactif)' : ''}</option>`).join('')}
       </select>${lien}
     </div>
     ${choisi ? simulation(choisi) : ''}
@@ -186,9 +232,9 @@ function carteSimulation() {
 function simulation(courriel) {
   const u = (etat.d[registre().table] || []).find((x) => cle(x.Courriel) === cle(courriel));
   const encadre = (classe, texte) => `<div class="encadre ${classe}" style="margin-top:12px">${texte}</div>`;
-  const sesRoles = rolesDe(u);
+  const sesRoles = porteursDe(u);
   if (!u || u.Actif === false || !sesRoles.length) {
-    const pourquoi = !u ? 'absente de la table Utilisateurs' : u.Actif === false ? 'inactive' : 'sans rôle';
+    const pourquoi = !u ? 'absente de la table Utilisateurs' : u.Actif === false ? 'inactive' : registre().parEntites ? 'sans entité' : 'sans rôle';
     return gardePresente()
       ? encadre('', `🏠 Personne ${pourquoi} : elle <b>ne voit que la page d'accueil</b> (sauf si elle est propriétaire du document).`)
       : encadre('alerte', `⚠️ Personne ${pourquoi}, et les non-inscrits ne sont pas bloqués : elle a les droits par défaut du document.`);
@@ -197,12 +243,13 @@ function simulation(courriel) {
   const metier = tablesMetier();
   const lignes = etat.meta.tables.filter((t) => !HORS_MATRICE.includes(t.tableId)).map((t) => {
     if (metier.has(t.tableId)) return [t.tableId, '⚙️ Règles métier : à vérifier avec le lien « Ouvrir en tant que »'];
-    // plusieurs rôles : le plus large l'emporte (NIVEAUX va du plus restreint au plus large)
+    // plusieurs entités (ou rôles) : le droit le plus large l'emporte (NIVEAUX va du plus restreint au plus large)
     const rang = (c) => NIVEAUX.findIndex((x) => x.code === c);
     const code = sesRoles.map((r) => (m.niveaux[t.tableId] || {})[r] || '').sort((a, b) => rang(b) - rang(a))[0] || '';
     return [t.tableId, code ? esc(NIVEAUX.find((x) => x.code === code).libelle) : '— Règle par défaut du document'];
   });
-  return `<div class="defile" style="margin-top:12px"><table class="tableau"><tr><th>Table</th><th>${esc(sesRoles.join(', '))} : ce qu'elle peut faire</th></tr>
+  const qui = registre().parEntites ? sesRoles.map(nomEntite).join(' › ') : sesRoles.join(', ');
+  return `<div class="defile" style="margin-top:12px"><table class="tableau"><tr><th>Table</th><th>${esc(qui)} : ce qu'elle peut faire</th></tr>
     ${lignes.map(([t, d]) => `<tr><td class="table">${esc(t)}</td><td>${d}</td></tr>`).join('')}</table></div>
     <p class="aide">À condition que le document soit partagé avec elle dans Grist :
     partagée en lecture, elle ne modifie rien. Un propriétaire du document voit tout, quelles que soient les règles.</p>`;
@@ -238,7 +285,7 @@ async function appliquerDroits(bouton, retirer) {
     if (anciennes.length) plan.actions.push(['BulkRemoveRecord', '_grist_ACLRules', anciennes.map((r) => r.id)]);
     if (regles.length && !registre().declare) plan.regle('*', '*', { aclFormula: '', permissionsText: '', rulePos: pos++, memo: MARQUE + ' attribut', userAttributes: attributProfil() });
     for (const r of regles) plan.regle(r.table, r.cols, { aclFormula: r.formule, permissionsText: r.perm, rulePos: pos++, memo: MARQUE });
-    // « Bloquer toute personne sans rôle reconnu » : la garde du document (non inscrits, inactifs, sans rôle → accueil seulement)
+    // « Bloquer toute personne sans entité (rôle) reconnue » : la garde du document (non inscrits, inactifs, sans entité → accueil seulement)
     if (!retirer && etat.droits.bloquerAutres && !gardePresente()) planGarde(plan);
     if (!retirer) planDocumentation(plan);
     if (!retirer && aTable('Gouv_Administration') && !verrouAdminPresent()) REGLES_VERROU_ADMIN.forEach((r) => plan.regle('Gouv_Administration', '*', r));
@@ -297,7 +344,7 @@ const attributProfil = () => { const t = registre().table; return JSON.stringify
   lookupColId: colonne(t, 'Courriel_cle') ? 'Courriel_cle' : 'Courriel' }); };
 
 /**
- * Documentation : lecture pour les personnes inscrites (actives et avec un rôle), modification
+ * Documentation : lecture pour les personnes inscrites (actives, avec une entité ou un rôle), modification
  * réservée aux propriétaires du document (décision du 24/11/2026). Règles [Gouvernance] posées sur
  * la table elle-même, donc avant les règles générales ; les propriétaires passent ensuite par la
  * règle « Propriétaires : tous les droits ». Rien n'est ajouté au plan si elles sont déjà là.
@@ -342,7 +389,7 @@ function planGarde(plan) {
   }
   plan.regle('Gouv_Accueil', '*', { aclFormula: 'True', permissionsText: '+R-CUD', rulePos: 2, memo: '[Gouvernance] Accueil lisible par tous' });
   plan.regle('*', '*', { aclFormula: 'user.Access == OWNER', permissionsText: 'all', rulePos: 3, memo: '[Gouvernance] Propriétaires : tous les droits' });
-  plan.regle('*', '*', { aclFormula: condNonInscrit(), permissionsText: 'none', rulePos: 4, memo: '[Gouvernance] Non inscrits, inactifs ou sans rôle : Accueil seulement' });
+  plan.regle('*', '*', { aclFormula: condNonInscrit(), permissionsText: 'none', rulePos: 4, memo: `[Gouvernance] Non inscrits, inactifs ou sans ${registre().parEntites ? 'entité' : 'rôle'} : Accueil seulement` });
 }
 
 // Vue du module dans la console

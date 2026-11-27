@@ -265,7 +265,7 @@ function telecharger(nom, contenu, type = 'text/plain') {
 //   aTable  la table existe-t-elle dans le document ?
 //   colonne description d'une colonne (ligne de _grist_Tables_column), ou undefined
 //   choix   valeurs proposées par une colonne « liste de choix »
-//   roles   rôles définis dans les choix de la colonne Utilisateurs.Role
+//   roles   rôles définis dans les choix de la colonne Utilisateurs.Role (applications qui gardent des rôles)
 const aTable = (t) => !!etat.meta.parId[t];
 const colonne = (t, c) => (etat.meta.parId[t]?.colonnes || []).find((x) => x.colId === c);
 const choix = (t, c) => json(colonne(t, c)?.widgetOptions, {}).choices || [];
@@ -285,7 +285,10 @@ function registre() {
   const parametre = (etat.d?.Gouv_Parametres || []).find((p) => p.Cle === 'Table_utilisateurs')?.Valeur;
   const table = a?.tableId || (parametre && aTable(parametre) ? parametre : 'Gouv_Utilisateurs');
   return { table, attribut: a?.name || ATTRIBUT, norme: table === 'Gouv_Utilisateurs', declare: !!a,
-    multi: /^ChoiceList/.test(colonne(table, 'Role')?.type || ''), actif: !!colonne(table, 'Actif') };
+    multi: /^ChoiceList/.test(colonne(table, 'Role')?.type || ''), actif: !!colonne(table, 'Actif'),
+    // Droits par entité (norme depuis le 27/11/2026) : registre sans colonne Rôle, avec Rattachements (l'entité et
+    // toutes celles au-dessus). Une application qui garde une colonne Rôle (OPCOM, Arrivées-Départs) garde ses rôles.
+    parEntites: !colonne(table, 'Role') && !!colonne(table, 'Rattachements') };
 }
 /** Rôles d'une personne du registre : une liste (colonne Role à choix multiples), ou un seul rôle. */
 const rolesDe = (u) => { const v = u?.Role; return Array.isArray(v) ? (v[0] === 'L' ? v.slice(1) : v).filter(Boolean) : v ? [v] : []; };
@@ -308,10 +311,27 @@ const moi = () => 'user.' + registre().attribut;
 const aLeRole = (r) => (registre().multi ? `${JSON.stringify(String(r))} in ${moi()}.Role` : `${moi()}.Role == ${JSON.stringify(String(r))}`);
 /** La personne connectée a le rôle r et est active (si le registre a une colonne Actif). */
 const condRole = (r) => (registre().actif ? `${moi()}.Actif and ` : '') + aLeRole(r);
-/** La personne connectée est inscrite : présente, active (si la colonne existe) et avec un rôle. */
-const condInscrit = () => `${moi()}` + (registre().actif ? ` and ${moi()}.Actif` : '') + ` and ${moi()}.Role`;
-/** Contraire de condInscrit : absente du registre, inactive ou sans rôle. */
-const condNonInscrit = () => `not ${moi()}` + (registre().actif ? ` or not ${moi()}.Actif` : '') + ` or not ${moi()}.Role`;
+/** Ce qui fait d'une personne active un « inscrit » : une entité (droits par entité) ou un rôle. */
+const champInscription = () => (registre().parEntites ? 'Entite' : 'Role');
+/** La personne connectée est inscrite : présente, active (si la colonne existe) et rattachée à une entité (ou avec un rôle). */
+const condInscrit = () => `${moi()}` + (registre().actif ? ` and ${moi()}.Actif` : '') + ` and ${moi()}.${champInscription()}`;
+/** Contraire de condInscrit : absente du registre, inactive, ou sans entité (sans rôle). */
+const condNonInscrit = () => `not ${moi()}` + (registre().actif ? ` or not ${moi()}.Actif` : '') + ` or not ${moi()}.${champInscription()}`;
+
+/**
+ * « Porteurs » de droits : les colonnes de la matrice du panneau 🔐. Avec les droits par entité, ce sont des entités
+ * (clé = identifiant de l'entité) ; sinon, les rôles. Un droit donné à une entité vaut pour toute personne qui y est
+ * rattachée, elle ou une entité en dessous (DGOM → tout le personnel de la DGOM ; BSSIOM → le seul bureau).
+ */
+const nomEntite = (id) => (etat.d?.Gouv_Entites || []).find((e) => String(e.id) === String(id))?.Nom || '';
+/** La personne connectée relève du porteur (entité ou rôle) et est active. */
+const condPorteur = (cle) => (registre().parEntites
+  ? (registre().actif ? `${moi()}.Actif and ` : '') + `${Number(cle)} in ${moi()}.Rattachements`
+  : condRole(cle));
+/** Porteurs d'une personne du registre : ses rattachements (identifiants, en texte) ou ses rôles. */
+const porteursDe = (u) => (registre().parEntites ? listeRefs(u?.Rattachements).map(String) : rolesDe(u));
+/** Liste Grist (['L', 1, 2] ou [1, 2]) → [1, 2]. */
+const listeRefs = (v) => (Array.isArray(v) ? (v[0] === 'L' ? v.slice(1) : v) : []).filter(Boolean);
 
 /**
  * Lit la structure du document dans les tables techniques de Grist et la range dans etat.meta :
@@ -455,6 +475,8 @@ document.addEventListener('change', async (e) => {
   if (el.dataset.t || el.dataset.p || el.dataset.cle || el.dataset.admin !== undefined) return enregistrerChamp(el);
   if (el.id === 'simu-personne') { etat.simulation = el.value; return afficher(); }
   if (el.dataset.matTable) { const t = el.dataset.matTable; (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {})[el.dataset.matRole] = el.value; return majApercu(); }
+  // droits par entité : une entité de plus dans la matrice (elle part de « Lecture » partout, à ajuster)
+  if (el.id === 'ajout-entite' && el.value) { ajouterEntite(el.value); return afficher(); }
   if (el.id === 'bloquer-autres') { etat.droits.bloquerAutres = el.checked; return majApercu(); }
   if (el.id === 'support-prive') { etat.droits.supportPrive = el.checked; return majApercu(); }
 });
