@@ -630,7 +630,7 @@ async function ajouterBande(fichier, tableRef, liste) {
     ['UpdateRecord', '_grist_Views_section', b.sectionRef, { title: 'Relevé', options: JSON.stringify({ customView: JSON.stringify({
       mode: 'url', url: URL_WIDGET(VERSION_PAGE || GITHUB.branche, fichier), widgetDef: null, access: 'full', pluginId: '', sectionId: '',
       renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }) }],
-    ['UpdateRecord', '_grist_Views', liste.viewRef, { layoutSpec: JSON.stringify({ children: [{ size: 12, leaf: b.sectionRef }, { size: 88, leaf: liste.sectionRef }], collapsed: [] }) }],
+    ['UpdateRecord', '_grist_Views', liste.viewRef, { layoutSpec: JSON.stringify({ children: [{ size: 16, leaf: b.sectionRef }, { size: 84, leaf: liste.sectionRef }], collapsed: [] }) }],
   ]);
 }
 
