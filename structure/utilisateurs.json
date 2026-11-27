@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "3.2",
+  "version": "3.3",
   "sujet": "UTILISATEURS",
   "description": "Utilisateurs (annuaire : identité, rattachement, statut) et arborescence des entités ; base des droits, donnés par entité (une entité vaut pour elle et toutes celles en dessous). MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
@@ -45,7 +45,7 @@
           "label": "Nb utilisateurs",
           "type": "Numeric",
           "isFormula": true,
-          "formula": "# Nombre de personnes rattachées directement à l'entité\nreturn len(Gouv_Utilisateurs.lookupRecords(Entite=rec.id))"
+          "formula": "# Nombre de personnes de l'entité et de toutes celles en dessous (un parent fait le total de ses enfants)\nreturn len(Gouv_Utilisateurs.lookupRecords(Rattachements=CONTAINS(rec.id)))"
         },
         {
           "id": "Ajout_n8n",
