@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<!--
+  Relevé du journal — DGOM
+  RÔLE
+    Tient à jour le journal des modifications du document (table Gouv_Journal), sans n8n.
+    À chaque ouverture de la page 📒 Journal (et sur le bouton « Relever maintenant »), le widget demande à
+    Grist la différence entre l'état du document au dernier relevé et son état actuel, puis écrit une ligne
+    par changement :
+      - Ajout / Modification (colonne, avant, après) / Suppression d'une ligne de données ;
+      - Structure : table ou colonne ajoutée, supprimée, renommée ; formule ou type changé ; page ajoutée,
+        supprimée ou renommée ;
+      - Droits : règles d'accès modifiées.
+    Rien ne se perd entre deux ouvertures : le relevé reprend là où le précédent s'est arrêté (colonne Etat).
+
+  QUI ET QUAND
+    Grist donne les changements, pas leur auteur. Pour une ligne ajoutée ou modifiée : « Modifié par » et
+    « Modifié le » de la ligne (traçabilité de la norme) ; si plusieurs personnes l'ont modifiée entre deux
+    relevés, seule la dernière est nommée. Suppression, structure, droits : « inconnu », à l'heure du relevé.
+    L'historique exact (auteur et heure de chaque action) reste dans Grist : « Historique du document ».
+
+  INSTALLATION DANS GRIST
+    Créé par Maintenance › Modules facultatifs › Journal : bande en haut de la page 📒 Journal, liée à
+    Gouv_Journal, niveau d'accès « Accès complet au document » (il lit l'historique du document et toutes
+    les tables). Il faut être propriétaire du document : Grist ne donne la différence qu'à lui.
+
+  PLAN DU FICHIER
+    1. <head> : bibliothèques, styles ;
+    2. <body> : la bande (état du relevé, bouton) ;
+    3. Script : accès à l'API du document, calcul des lignes du journal, relevé, démarrage.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relevé du journal</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <script>
+    // Fichiers communs chargés avec la version de la page (?v=…) : jamais d'ancienne copie en cache.
+    const VERSION_PAGE = new URLSearchParams(location.search).get('v') || '';
+    const commun = (fichier) => 'commun/' + fichier + (VERSION_PAGE ? '?v=' + VERSION_PAGE : '');
+    document.write('<link rel="stylesheet" href="' + commun('dsfr-grist.css') + '">');
+  </script>
+  <style>
+    body { margin: 0; background: var(--fond, #f6f6f6); }
+    .bande { display: flex; align-items: center; gap: 16px; padding: 10px 16px; flex-wrap: wrap; }
+    .bande .etat { flex: 1; min-width: 240px; }
+    .bande small { color: var(--texte-doux, #666); }
+  </style>
+</head>
+<body>
+  <div class="bande">
+    <div class="etat"><b>📒 Journal des modifications</b><br><small id="etat">Relevé en cours…</small></div>
+    <button class="bouton petit" id="relever">🔄 Relever maintenant</button>
+  </div>
+<script>
+grist.ready({ requiredAccess: 'full' });
+
+const JOURNAL = 'Gouv_Journal';
+const MAXIMUM = 500;                // lignes écrites au plus par relevé (une grosse importation est résumée au-delà)
+const TRACE = ['CreeLe', 'CreePar', 'ModifieLe', 'ModifiePar', 'manualSort'];
+const $etat = document.getElementById('etat');
+const dire = (texte) => { $etat.textContent = texte; };
+
+// --- 1. API REST du document (historique et différences : la Plugin API ne les donne pas) ---------------
+async function api(chemin, parametres = {}) {
+  const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: true });
+  const q = new URLSearchParams({ ...parametres, auth: token });
+  const r = await fetch(`${baseUrl}${chemin}?${q}`);
+  if (!r.ok) throw new Error(`${chemin} : ${r.status}`);
+  return r.json();
+}
+
+/** Une table Grist (Plugin API) en liste de lignes { id, colonne: valeur… }. */
+async function lignesDe(table) {
+  const t = await grist.docApi.fetchTable(table);
+  return (t.id || []).map((id, i) => Object.fromEntries([['id', id], ...Object.keys(t).map((k) => [k, t[k][i]])]));
+}
+
+// --- 2. Valeurs lisibles ---------------------------------------------------------------------------------
+function lisible(v, type) {
+  if (v === null || v === undefined || v === '') return '';
+  if (Array.isArray(v)) {
+    if (v[0] === 'L') return v.slice(1).map((x) => lisible(x)).join(', ');
+    if (v[0] === 'E') return 'erreur';
+    return v.map((x) => lisible(x)).join(', ');
+  }
+  if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
+  if (typeof v === 'number' && /^Date/.test(type || '')) {
+    const d = new Date(v * 1000);
+    return /^DateTime/.test(type) ? d.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }) : d.toLocaleDateString('fr-FR', { timeZone: 'UTC' });
+  }
+  return String(v).slice(0, 300);
+}
+/** Valeur d'une cellule dans une différence Grist : [[avant], [après]] (null : la ligne n'existait pas). */
+const cellule = (delta, cote) => (delta && delta[cote] ? delta[cote][0] : null);
+
+// --- 3. Lignes du journal à partir de la différence entre deux états --------------------------------------
+async function lignesDuJournal(deltas, etat) {
+  const maintenant = Date.now() / 1000;
+  const lignes = [];
+  const note = (champs) => lignes.push({ Etat: etat, Date: maintenant, Auteur: 'inconnu', Action: '', Table: '', Ligne: 0,
+    Colonne: '', Avant: '', Apres: '', Detail: '', ...champs });
+
+  // Données : ajouts, modifications (une ligne par cellule), suppressions
+  for (const [table, x] of Object.entries(deltas)) {
+    if (table.startsWith('_grist') || table.startsWith('GristHidden') || table === JOURNAL) continue;
+    const cd = x.columnDeltas || {};
+    let colonnes = [], lignesTable = [];
+    try { colonnes = (await api(`/tables/${table}/columns`, { hidden: 'true' })).columns || []; } catch (e) { /* table supprimée depuis */ }
+    try { lignesTable = await lignesDe(table); } catch (e) { /* idem */ }
+    const col = new Map(colonnes.map((c) => [c.id, c.fields]));
+    const parRef = new Map(colonnes.map((c) => [c.fields.colRef, c.id]));
+    const parId = new Map(lignesTable.map((l) => [l.id, l]));
+    // colonnes saisies seulement : ni calculées, ni techniques, ni traçabilité, ni ajoutées/supprimées (« +X », « -X »)
+    const saisies = Object.keys(cd).filter((c) => !/^[+-]/.test(c) && !c.startsWith('gristHelper') && !TRACE.includes(c) && !col.get(c)?.isFormula);
+    const libelle = (c) => col.get(c)?.label || c;
+    // une référence s'affiche par sa colonne d'affichage (gristHelper_Display…), quand elle figure dans la différence
+    const affiche = (c, l, cote) => {
+      const aff = parRef.get(col.get(c)?.displayCol);
+      return aff && cd[aff]?.[l] ? lisible(cellule(cd[aff][l], cote)) : lisible(cellule(cd[c][l], cote), col.get(c)?.type);
+    };
+    const qui = (l) => { const f = parId.get(Number(l)) || {}; return { Auteur: f.ModifiePar || f.CreePar || 'inconnu', Date: f.ModifieLe || f.CreeLe || maintenant }; };
+    const resume = (l, cote) => saisies.filter((c) => cd[c][l]).map((c) => [libelle(c), affiche(c, l, cote)]).filter(([, v]) => v)
+      .slice(0, 6).map(([c, v]) => `${c} : ${v}`).join(' · ');
+    for (const l of x.addRows || []) note({ ...qui(l), Action: 'Ajout', Table: table, Ligne: l, Detail: resume(l, 1) });
+    for (const l of x.updateRows || []) {
+      for (const c of saisies) {
+        if (!cd[c][l]) continue;
+        const avant = affiche(c, l, 0), apres = affiche(c, l, 1);
+        if (avant !== apres) note({ ...qui(l), Action: 'Modification', Table: table, Ligne: l, Colonne: libelle(c), Avant: avant, Apres: apres });
+      }
+    }
+    for (const l of x.removeRows || []) note({ Action: 'Suppression', Table: table, Ligne: l, Detail: resume(l, 0) });
+  }
+
+  // Structure : tables, colonnes, pages ; droits
+  const tablesActuelles = (await api('/tables')).tables || [];
+  const nomTable = new Map(tablesActuelles.map((t) => [t.fields.tableRef, t.id]));
+  const T = deltas._grist_Tables, idT = T?.columnDeltas?.tableId || {};
+  const tableDe = (ref) => nomTable.get(ref) || (idT[ref] ? cellule(idT[ref], 0) : `table n°${ref}`);
+  const technique = (nom) => !nom || /^(gristHelper|GristHidden)/.test(String(nom)) || nom === 'manualSort';
+  if (T) {
+    for (const r of T.addRows || []) if (!technique(cellule(idT[r], 1))) note({ Action: 'Structure', Table: cellule(idT[r], 1), Detail: 'Table créée' });
+    for (const r of T.removeRows || []) if (!technique(cellule(idT[r], 0))) note({ Action: 'Structure', Table: cellule(idT[r], 0), Detail: 'Table supprimée' });
+    for (const r of T.updateRows || []) if (idT[r]) note({ Action: 'Structure', Table: cellule(idT[r], 1), Detail: 'Table renommée', Avant: cellule(idT[r], 0), Apres: cellule(idT[r], 1) });
+  }
+  const C = deltas._grist_Tables_column;
+  if (C) {
+    const v = C.columnDeltas || {}, val = (c, r, cote) => (v[c]?.[r] ? cellule(v[c][r], cote) : null);
+    for (const r of C.addRows || []) if (!technique(val('colId', r, 1))) note({ Action: 'Structure', Table: tableDe(val('parentId', r, 1)), Colonne: val('colId', r, 1), Detail: 'Colonne ajoutée' + (val('type', r, 1) ? ` (${val('type', r, 1)})` : '') });
+    for (const r of C.removeRows || []) if (!technique(val('colId', r, 0))) note({ Action: 'Structure', Table: tableDe(val('parentId', r, 0)), Colonne: val('colId', r, 0), Detail: 'Colonne supprimée' });
+    for (const r of C.updateRows || []) {
+      const nom = val('colId', r, 1);
+      if (v.colId?.[r] && !technique(nom)) note({ Action: 'Structure', Colonne: nom, Detail: 'Colonne renommée', Avant: val('colId', r, 0), Apres: nom });
+      if (v.formula?.[r] && !technique(nom)) note({ Action: 'Structure', Colonne: nom || `colonne n°${r}`, Detail: 'Formule changée', Avant: lisible(val('formula', r, 0)), Apres: lisible(val('formula', r, 1)) });
+      if (v.type?.[r] && !technique(nom)) note({ Action: 'Structure', Colonne: nom || `colonne n°${r}`, Detail: 'Type changé', Avant: val('type', r, 0), Apres: val('type', r, 1) });
+    }
+  }
+  const V = deltas._grist_Views, nomV = V?.columnDeltas?.name || {};
+  if (V) {
+    for (const r of V.addRows || []) note({ Action: 'Structure', Detail: `Page créée : ${cellule(nomV[r], 1) || r}` });
+    for (const r of V.removeRows || []) note({ Action: 'Structure', Detail: `Page supprimée : ${cellule(nomV[r], 0) || r}` });
+    for (const r of V.updateRows || []) if (nomV[r]) note({ Action: 'Structure', Detail: 'Page renommée', Avant: cellule(nomV[r], 0), Apres: cellule(nomV[r], 1) });
+  }
+  const A = deltas._grist_ACLRules;
+  if (A) note({ Action: 'Droits', Detail: `Règles d'accès modifiées : ${(A.addRows || []).length} ajoutée(s), ${(A.updateRows || []).length} changée(s), ${(A.removeRows || []).length} retirée(s)` });
+
+  if (lignes.length > MAXIMUM) {
+    const reste = lignes.length - MAXIMUM + 1;
+    lignes.splice(MAXIMUM - 1);
+    note({ Action: 'Résumé', Detail: `… et ${reste} autre(s) changement(s) : voir « Historique du document » dans Grist` });
+  }
+  return lignes;
+}
+
+// --- 4. Relevé : de l'état du dernier relevé à l'état actuel ----------------------------------------------
+let enCours = false;
+async function relever() {
+  if (enCours) return;
+  enCours = true;
+  try {
+    dire('Relevé en cours…');
+    const etats = (await api('/states')).states || [];   // le plus récent en premier
+    if (!etats.length) return dire("Historique du document illisible : il faut être propriétaire du document.");
+    const dernier = async () => Math.max(0, ...(await lignesDe(JOURNAL)).map((l) => l.Etat || 0));
+    const releve = await dernier(), actuel = etats[0];
+    const ecrire = async (lignes) => {
+      // juste avant d'écrire : si quelqu'un d'autre vient de relever, on ne double pas les lignes
+      if ((await dernier()) !== releve) return false;
+      const cles = Object.keys(lignes[0]);
+      await grist.docApi.applyUserActions([['BulkAddRecord', JOURNAL, lignes.map(() => null), Object.fromEntries(cles.map((k) => [k, lignes.map((l) => l[k])]))]]);
+      return true;
+    };
+    if (!releve) {
+      await ecrire([{ Etat: actuel.n, Date: Date.now() / 1000, Auteur: 'relevé', Action: 'Début du journal', Detail: `Modifications relevées à partir de l'état ${actuel.n} du document` }]);
+      return dire(`Journal commencé (état ${actuel.n}). Les modifications suivantes y seront notées.`);
+    }
+    // seul le journal a changé depuis (le relevé lui-même) : rien à noter
+    if (releve >= actuel.n - 1) return dire(`À jour (état ${releve}).`);
+    const depart = etats.find((e) => e.n === releve);
+    const debut = depart || etats[etats.length - 1];
+    const diff = await api('/compare', { left: debut.h, right: actuel.h });
+    let lignes = await lignesDuJournal(diff.details?.rightChanges?.tableDeltas || {}, actuel.n);
+    if (!depart) lignes.unshift({ Etat: actuel.n, Date: Date.now() / 1000, Auteur: 'relevé', Action: 'Résumé', Table: '', Ligne: 0, Colonne: '', Avant: '', Apres: '',
+      Detail: `Les états ${releve} à ${debut.n} ne sont plus dans l'historique de Grist : leurs changements manquent` });
+    if (!lignes.length) lignes = [{ Etat: actuel.n, Date: Date.now() / 1000, Auteur: 'relevé', Action: 'Relevé', Table: '', Ligne: 0, Colonne: '', Avant: '', Apres: '',
+      Detail: `États ${releve} à ${actuel.n} : pas de changement de données ni de structure` }];
+    const ok = await ecrire(lignes);
+    dire(ok ? `À jour (état ${actuel.n}) : ${lignes.length} ligne(s) ajoutée(s) au journal.` : 'Un autre relevé vient d\'être fait : à jour.');
+  } catch (e) {
+    dire('Relevé impossible : ' + e.message + (/40[13]/.test(e.message) ? ' (il faut être propriétaire du document)' : ''));
+  } finally {
+    enCours = false;
+  }
+}
+
+document.getElementById('relever').addEventListener('click', relever);
+relever();
+</script>
+</body>
+</html>

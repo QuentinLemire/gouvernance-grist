@@ -453,7 +453,9 @@ const PAGES = [
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
   { cle: 'journal', nom: '📒 Journal', table: 'Gouv_Journal', sousPage: true, facultative: true, sujet: 'journal', native: {
-    titre: 'Journal des modifications', colonnes: ['Date', 'Auteur', 'Action', 'Table', 'Ligne', 'Colonne', 'Avant', 'Apres', 'Detail'], tri: '-Date', fiche: false } },
+    titre: 'Journal des modifications', colonnes: ['Date', 'Auteur', 'Action', 'Table', 'Ligne', 'Colonne', 'Avant', 'Apres', 'Detail'], tri: '-Date', fiche: false,
+    // en haut de la page, le widget qui relève les modifications à chaque ouverture (sans n8n)
+    bande: 'journal.html' } },
   { ...OUTIL, cle: 'maintenance', nom: '🧱 Maintenance', module: 'maintenance' },
   { ...OUTIL, cle: 'aide', nom: '❓ Aide', module: 'aide' },
 ];
@@ -612,6 +614,23 @@ async function creerPageNative(page, tableRef) {
     ['UpdateRecord', '_grist_Views', r1.viewRef, { name: page.nom, ...(r2 ? { layoutSpec: JSON.stringify({ children: [{ children: [{ size: 125, leaf: r1.sectionRef }, { size: 75, leaf: r2.sectionRef }] }], collapsed: [] }) } : {}) }],
     ['UpdateRecord', '_grist_Views_section', r1.sectionRef, { title: n.titre, sortColRefs: JSON.stringify(tri ? [n.tri.startsWith('-') ? -tri : tri] : []) }],
     ...(r2 ? [['UpdateRecord', '_grist_Views_section', r2.sectionRef, { title: 'Fiche', linkSrcSectionRef: r1.sectionRef, linkSrcColRef: 0, linkTargetColRef: 0 }]] : []),
+  ]);
+  if (n.bande) await ajouterBande(n.bande, tableRef, r1);
+}
+
+/**
+ * Bande en haut d'une page native : un widget de la norme (ex. le relevé du journal), petit, au-dessus de la liste.
+ * @param {string} fichier  widget du dépôt
+ * @param {number} tableRef table de la page
+ * @param {{viewRef: number, sectionRef: number}} liste  la page et sa liste
+ */
+async function ajouterBande(fichier, tableRef, liste) {
+  const b = (await agir([['CreateViewSection', tableRef, liste.viewRef, 'custom', null, null]])).retValues[0];
+  await agir([
+    ['UpdateRecord', '_grist_Views_section', b.sectionRef, { title: 'Relevé', options: JSON.stringify({ customView: JSON.stringify({
+      mode: 'url', url: URL_WIDGET(VERSION_PAGE || GITHUB.branche, fichier), widgetDef: null, access: 'full', pluginId: '', sectionId: '',
+      renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }) }],
+    ['UpdateRecord', '_grist_Views', liste.viewRef, { layoutSpec: JSON.stringify({ children: [{ size: 12, leaf: b.sectionRef }, { size: 88, leaf: liste.sectionRef }], collapsed: [] }) }],
   ]);
 }
 

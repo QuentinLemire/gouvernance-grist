@@ -89,8 +89,8 @@
     { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins (ajoute aussi Entites.Territoire)', obligatoire: false },
     { fichier: 'support', nom: 'Support', obligatoire: false },
     { fichier: 'documentation', nom: 'Documentation', obligatoire: false },
-    // toutes les modifications du document (relevées par n8n) et les actions des outils d'administration
-    { fichier: 'journal', nom: 'Journal des modifications (relevé par n8n)', obligatoire: false },
+    // toutes les modifications du document (relevées par le widget de la page Journal) et les actions des outils d'administration
+    { fichier: 'journal', nom: 'Journal des modifications', obligatoire: false },
   ];
 
   /** Les 4 colonnes de traçabilité (P2) et leur recalcul : 0 = à la création, 2 = à chaque modification. */
@@ -100,7 +100,7 @@
   const ROLES_GENERIQUES = ['Administrateur', 'Gestionnaire', 'Contributeur', 'Lecteur'];
 
   /** Pages génériques chargées par adresse depuis le dépôt (P7) ; les deux dernières : avant la console. */
-  const WIDGETS_GENERIQUES = ['accueil.html', 'documentation.html', 'support.html', 'console.html', 'administration.html', 'boite-a-outils.html'];
+  const WIDGETS_GENERIQUES = ['accueil.html', 'documentation.html', 'support.html', 'journal.html', 'console.html', 'administration.html', 'boite-a-outils.html'];
 
   /** Sites de la norme et de Grist : les appeler n'est pas une sortie à surveiller. */
   const SITES_DE_CONFIANCE = ['quentinlemire.github.io', 'raw.githubusercontent.com', 'api.github.com', 'docs.getgrist.com',

@@ -2,7 +2,7 @@
   "format": "grist-structure",
   "version": "3.0",
   "sujet": "JOURNAL",
-  "description": "Journal de toutes les modifications du document : une ligne par changement (ajout, modification avec l'ancienne et la nouvelle valeur, suppression, structure), relevé par n8n toutes les 15 minutes, plus les actions des outils d'administration.",
+  "description": "Journal de toutes les modifications du document : une ligne par changement (ajout, modification avec l'ancienne et la nouvelle valeur, suppression, structure), relevé par le widget de la page 📒 Journal à chaque ouverture (sans n8n), plus les actions des outils d'administration.",
   "tables": [
     {
       "tableId": "Gouv_Journal",
