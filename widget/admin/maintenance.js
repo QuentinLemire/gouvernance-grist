@@ -453,7 +453,7 @@ const PAGES = [
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
   { cle: 'journal', nom: '📒 Journal', table: 'Gouv_Journal', sousPage: true, facultative: true, sujet: 'journal', native: {
-    titre: 'Journal d\'administration', colonnes: ['Date', 'Auteur', 'Action', 'Detail', 'Personne'], tri: '-Date', fiche: false } },
+    titre: 'Journal des modifications', colonnes: ['Date', 'Auteur', 'Action', 'Table', 'Ligne', 'Colonne', 'Avant', 'Apres', 'Detail'], tri: '-Date', fiche: false } },
   { ...OUTIL, cle: 'maintenance', nom: '🧱 Maintenance', module: 'maintenance' },
   { ...OUTIL, cle: 'aide', nom: '❓ Aide', module: 'aide' },
 ];

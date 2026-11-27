@@ -1,8 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "2.1",
+  "version": "3.0",
   "sujet": "JOURNAL",
-  "description": "Trace des actions des outils d'administration (droits appliqués, tables créées, demandes traitées…), pour une application qui a besoin d'un audit.",
+  "description": "Journal de toutes les modifications du document : une ligne par changement (ajout, modification avec l'ancienne et la nouvelle valeur, suppression, structure), relevé par n8n toutes les 15 minutes, plus les actions des outils d'administration.",
   "tables": [
     {
       "tableId": "Gouv_Journal",
@@ -15,16 +15,40 @@
           "recalcWhen": 0
         },
         {
-          "id": "Personne",
-          "label": "Auteur (fiche)",
-          "type": "Ref:Gouv_Utilisateurs",
-          "isFormula": true,
-          "formula": "Gouv_Utilisateurs.lookupOne(Courriel_cle=($Auteur or \"\").strip().lower()) or None",
-          "visibleCol": "Courriel"
+          "id": "Auteur",
+          "label": "Auteur",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
         },
         {
           "id": "Action",
           "label": "Action",
+          "type": "Text"
+        },
+        {
+          "id": "Table",
+          "label": "Table",
+          "type": "Text"
+        },
+        {
+          "id": "Ligne",
+          "label": "Ligne",
+          "type": "Int"
+        },
+        {
+          "id": "Colonne",
+          "label": "Colonne",
+          "type": "Text"
+        },
+        {
+          "id": "Avant",
+          "label": "Avant",
+          "type": "Text"
+        },
+        {
+          "id": "Apres",
+          "label": "Après",
           "type": "Text"
         },
         {
@@ -33,11 +57,17 @@
           "type": "Text"
         },
         {
-          "id": "Auteur",
-          "label": "Auteur",
-          "type": "Text",
-          "formula": "user.Email",
-          "recalcWhen": 0
+          "id": "Personne",
+          "label": "Auteur (fiche)",
+          "type": "Ref:Gouv_Utilisateurs",
+          "isFormula": true,
+          "formula": "Gouv_Utilisateurs.lookupOne(Courriel_cle=($Auteur or \"\").strip().lower()) or None",
+          "visibleCol": "Courriel"
+        },
+        {
+          "id": "Etat",
+          "label": "État du document",
+          "type": "Int"
         }
       ]
     }

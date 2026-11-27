@@ -53,8 +53,8 @@
     { fichier: 'referentiel_territoires', nom: 'Territoires ultramarins (ajoute aussi Entites.Territoire)', obligatoire: false },
     { fichier: 'support', nom: 'Support', obligatoire: false },
     { fichier: 'documentation', nom: 'Documentation', obligatoire: false },
-    // trace des actions des outils d'administration, pour une application qui a besoin d'un audit (ex. changements de droits)
-    { fichier: 'journal', nom: "Journal d'administration", obligatoire: false },
+    // toutes les modifications du document (relevées par n8n) et les actions des outils d'administration
+    { fichier: 'journal', nom: 'Journal des modifications (relevé par n8n)', obligatoire: false },
   ];
 
   /** Les 4 colonnes de traçabilité (P2) et leur recalcul : 0 = à la création, 2 = à chaque modification. */
