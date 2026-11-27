@@ -8,7 +8,7 @@ Inscrit dans la liste Grist DGOM de Gouvernance : GOUV_Utilisateur y inscrit tou
   Le flow n8n **GOUV_Referents** lit la liste Grist DGOM puis les référents de chaque Grist, et tient deux tables du Support :
   `Grist_suivis` (un Grist par ligne, avec ses référents) et `Referents` (une personne par ligne, avec ses Grist).
   Lignes « Ajouté par n8n » seulement ; une ligne saisie à la main n'est jamais touchée.
-- **BSSIOM** : les administrateurs Grist (case de la fiche d'arrivée, recopiée dans Utilisateurs) et les propriétaires.
+- **BSSIOM** : les administrateurs Grist (case de la fiche d'arrivée, recopiée dans Utilisateurs). Eux seuls voient toutes les demandes et répondent (statut, réponse) ; être propriétaire du document ne suffit pas.
 - **Tout inscrit** peut demander la création d'un Grist.
 
 ## Tables (hors norme)
