@@ -132,3 +132,16 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
 - Dans la bannette du BSSIOM (« Accès à ouvrir »), un choix **Équipe** apparaît pour un agent dont le bureau a des équipes. Le bureau de la fiche devient l'équipe choisie, et la sous-direction de l'agent reste juste (SDEPDE).
 - Règle d'accès : la colonne `Personnel.Bureau` a son propre groupe de règles. La RH garde sa règle d'origine, et le rôle BSSIOM peut changer le bureau d'une fiche envoyée dont l'agent n'est pas parti.
 - La propriété de tous les espaces de travail par le BSSIOM SI se règle dans le partage Grist (équipe, espaces), pas dans les entités.
+
+## Droits par entité, plus de rôles (2026-11-27)
+- `Gouv_Utilisateurs` d'AD n'a plus de colonnes Rôle, Actif, Périmètre, Qualité, Fait RH ni Accès Grist. Une sauvegarde complète a été faite juste avant : « Arrivées-Départs MOM – SAUVEGARDE avant droits par entité (27-11-2026) », même espace (`qEacKq5Gm118UvWZo5ZacR`).
+- La place de chacun dans le circuit vient de l'organisation, par des colonnes calculées propres à AD :
+  - **Est admin** : l'un des Administrateurs des Paramètres (les propriétaires du document ont tout de toute façon) ;
+  - **Est RH** : rattaché à une entité cochée « Fait la RH » (`Gouv_Entites.RH`) : BRC pour la DGOM, RH SMA, RH CABMOM ;
+  - **Est chef** : Fonction = Chef de bureau ou Adjoint au chef de bureau (venue d'AD par n8n) ;
+  - **Est BSSIOM** : rattaché à l'équipe BSSIOM SI ;
+  - **Entités vues** : la direction pour la RH et les chefs (l'Entité d'un agent, dans les fiches, est sa direction), tout le MOM pour le BSSIOM, sinon l'entité et ses sous-entités ;
+  - **Bureaux** (calculée) : l'entité du chef et ses équipes ; **Par bureau** : chef hors RH.
+- Règles d'accès : 150 règles réécrites sur ces colonnes (16 retirées : rôles Contributeur et Lecteur, que personne n'avait). Les anciennes règles du panneau passent en « [Arrivées-Départs] », pour que le panneau des droits ne les écrase pas. Garde : sans place dans le circuit (admin, RH, chef, BSSIOM) → accueil seulement.
+- Fiches et pilotage : `isAdmin`, `estRH`, `isChef`, `estBSSIOM` lisent ces colonnes. Testé en « Voir en tant que » : la RH de la DGOM voit les 6 agents de la DGOM ; le chef du BCL voit son agent ; le BSSIOM SI a sa bannette ; un simple agent ne voit que l'accueil.
+- Les 9 comptes de test saisis à la main ont été remis d'aplomb : Gestionnaires vers BRC, RH SMA, RH CABMOM ; chefs et adjoints avec leur Fonction et leur bureau ; compte BSSIOM vers BSSIOM SI.
