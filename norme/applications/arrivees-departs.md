@@ -145,3 +145,11 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
 - Règles d'accès : 150 règles réécrites sur ces colonnes (16 retirées : rôles Contributeur et Lecteur, que personne n'avait). Les anciennes règles du panneau passent en « [Arrivées-Départs] », pour que le panneau des droits ne les écrase pas. Garde : sans place dans le circuit (admin, RH, chef, BSSIOM) → accueil seulement.
 - Fiches et pilotage : `isAdmin`, `estRH`, `isChef`, `estBSSIOM` lisent ces colonnes. Testé en « Voir en tant que » : la RH de la DGOM voit les 6 agents de la DGOM ; le chef du BCL voit son agent ; le BSSIOM SI a sa bannette ; un simple agent ne voit que l'accueil.
 - Les 9 comptes de test saisis à la main ont été remis d'aplomb : Gestionnaires vers BRC, RH SMA, RH CABMOM ; chefs et adjoints avec leur Fonction et leur bureau ; compte BSSIOM vers BSSIOM SI.
+
+## Droits lus directement dans l'organisation (2026-11-27, suite)
+- Plus de colonnes « Est RH », « Est chef », « Est BSSIOM » ni de case « Fait la RH » sur les entités : les règles d'accès et le code lisent directement l'organisation.
+  - **RH** : la personne est rattachée directement au **BRC** (DGOM), au **SMA** ou au **CABMOM** (règle : `user.Profil.Entite in [BRC, SMA, CABMOM]`). Les entités « RH SMA » et « RH CABMOM » ont été retirées.
+  - **Chef de bureau / adjoint** : d'après la **Fonction** (`user.Profil.Fonction in ["Chef de bureau", "Adjoint au chef de bureau"]`) ; sinon « Agent ».
+  - **Ouverture des comptes** : l'équipe **SI** du BSSIOM (`SI in user.Profil.Rattachements`).
+- Les équipes du BSSIOM s'appellent **SI** et **ASTROLAB** (noms complets BSSIOM/SI et BSSIOM/ASTROLAB), dans AD et dans Gouvernance.
+- Reste une colonne calculée propre à AD : **Est admin** (Administrateurs des Paramètres), avec Entités vues, Bureaux et Par bureau, calculées d'après l'entité et la fonction. Tests « Voir en tant que » refaits : chef du BCL et équipe SI OK.
