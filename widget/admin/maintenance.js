@@ -809,30 +809,30 @@ const PARAMETRES_STANDARD = {
  * @returns {string} HTML de l'onglet
  */
 /**
- * Les 3 menus « Administrateurs » : chacun propose les personnes actives du registre (nom et courriel).
- * La valeur enregistrée est la liste des courriels choisis (enregistrerChamp, data-admin).
+ * Les 3 menus « Référents » : chacun propose les personnes actives du registre (nom et courriel).
+ * La valeur enregistrée est la liste des courriels choisis (enregistrerChamp, data-referent).
  */
-function lignesAdministrateurs() {
-  const R = registre(), choisis = administrateurs();
+function lignesReferents() {
+  const R = registre(), choisis = referents();
   const personnes = (etat.d[R.table] || []).filter((u) => u.Actif !== false && u.Courriel)
     .sort((a, b) => String(a.Nom || a.Courriel).localeCompare(String(b.Nom || b.Courriel), 'fr'));
-  const menu = (i) => `<select class="champ" data-admin="${i}" style="min-width:260px"><option value="">— personne —</option>` +
+  const menu = (i) => `<select class="champ" data-referent="${i}" style="min-width:260px"><option value="">— personne —</option>` +
     personnes.map((u) => { const c = String(u.Courriel).trim().toLowerCase();
-      return `<option value="${esc(c)}"${choisis[i] === c ? ' selected' : ''}>${esc(u.Nom || c)} · ${esc(c)}</option>`; }).join('') + '</select>';
-  return `<tr><td style="width:220px"><b>Administrateurs</b><br><small class="vide">${esc(DESCRIPTION_ADMINISTRATEURS)}</small></td>
-    <td style="display:flex;flex-direction:column;gap:6px">${[...Array(MAX_ADMINISTRATEURS).keys()].map(menu).join('')}</td></tr>`;
+      return `<option value="${esc(c)}"${choisis[i] === c ? ' selected' : ''}>${esc([u.Prenom, u.Nom].filter(Boolean).join(' ') || c)} · ${esc(c)}</option>`; }).join('') + '</select>';
+  return `<tr><td style="width:220px"><b>Référents</b><br><small class="vide">${esc(DESCRIPTION_REFERENTS)}</small></td>
+    <td style="display:flex;flex-direction:column;gap:6px">${[...Array(MAX_REFERENTS).keys()].map(menu).join('')}</td></tr>`;
 }
 
 function ongletParametres() {
-  // Administrateurs : 3 menus à part ; l'ancien paramètre Roles_administration n'est plus affiché (remplacé le 26/11/2026)
-  const lignes = (etat.d.Gouv_Parametres || []).filter((p) => !['Administrateurs', 'Roles_administration'].includes(p.Cle));
+  // Référents : 3 menus à part ; les anciens paramètres Administrateurs et Roles_administration ne sont plus affichés
+  const lignes = (etat.d.Gouv_Parametres || []).filter((p) => !['Referents', 'Administrateurs', 'Roles_administration'].includes(p.Cle));
   // Les paramètres standard sont toujours proposés : une case vide, la ligne est créée à la première saisie
   // (la norme ne livre plus de données, seulement la structure : décision du 27/11/2026)
   const P = [...lignes, ...Object.entries(PARAMETRES_STANDARD).filter(([cle]) => !lignes.some((p) => p.Cle === cle))
     .map(([Cle, Description]) => ({ id: '', Cle, Description, Valeur: '' }))];
   return `
     <section class="carte"><h2>⚙️ Paramètres de l'application</h2>
-      ${aTable('Gouv_Parametres') ? `<table class="tableau">${lignesAdministrateurs()}${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
+      ${aTable('Gouv_Parametres') ? `<table class="tableau">${lignesReferents()}${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
         <td><input class="champ" style="width:100%;max-width:none" ${p.id ? `data-p="${p.id}"` : `data-cle="${esc(p.Cle)}"`} value="${esc(p.Valeur)}" ${/_jeton$/.test(p.Cle) ? 'type="password" autocomplete="off"' : ''}>${p.Cle === 'Logo_DGOM' && p.Valeur ? `<img class="apercu-logo" src="${esc(p.Valeur)}" alt="">` : ''}</td></tr>`).join('')}</table>`
         : `<div class="encadre alerte">Pas de table Parametres : « Installer tout le socle » ci-dessus.</div>`}
     </section>`;

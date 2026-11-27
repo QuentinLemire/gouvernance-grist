@@ -295,16 +295,15 @@ const rolesDe = (u) => { const v = u?.Role; return Array.isArray(v) ? (v[0] === 
 /** Rôle générique qui reçoit tous les droits dans la proposition standard de la matrice. */
 const rolesAdmin = () => ['Administrateur'];
 /**
- * Administrateurs de l'application (décision du 26/11/2026, remplace le paramètre Roles_administration) :
- * jusqu'à 3 personnes choisies dans Maintenance › Paramètres (clé « Administrateurs », courriels séparés par des
- * virgules). Elles ont tous les droits sur les données et le support ; l'administration reste aux propriétaires.
+ * Référents du Grist (décision du 27/11/2026, remplace les Administrateurs) : jusqu'à 3 personnes choisies dans
+ * Maintenance › Paramètres (clé « Referents », courriels séparés par des virgules). Ce sont les interlocuteurs du
+ * BSSIOM : seuls eux peuvent faire des demandes au support Grist pour ce document (n8n les reporte dans le
+ * document Support). Ils n'ont aucun droit de plus sur les données (les droits passent par les entités).
  */
-const MAX_ADMINISTRATEURS = 3;
-const DESCRIPTION_ADMINISTRATEURS = "Jusqu'à 3 personnes qui ont tous les droits sur les données et le support (l'administration reste aux propriétaires du document)";
-const administrateurs = () => String((etat.d?.Gouv_Parametres || []).find((p) => p.Cle === 'Administrateurs')?.Valeur || '')
-  .split(',').map((c) => c.trim().toLowerCase()).filter(Boolean).slice(0, MAX_ADMINISTRATEURS);
-/** Condition Grist « la personne connectée est l'un des administrateurs » ('' s'il n'y en a aucun). */
-const condAdministrateurs = () => (administrateurs().length ? `user.Email in ${JSON.stringify(administrateurs())}` : '');
+const MAX_REFERENTS = 3;
+const DESCRIPTION_REFERENTS = "Jusqu'à 3 référents du Grist : seuls eux peuvent faire des demandes au support Grist du BSSIOM pour ce document (aucun droit de plus sur les données)";
+const referents = () => String((etat.d?.Gouv_Parametres || []).find((p) => p.Cle === 'Referents')?.Valeur || '')
+  .split(',').map((c) => c.trim().toLowerCase()).filter(Boolean).slice(0, MAX_REFERENTS);
 /** Formules Grist sur la personne connectée, écrites pour le registre de l'application. */
 const moi = () => 'user.' + registre().attribut;
 /** La personne connectée a le rôle r (test seul, sans la condition « active »). */
@@ -453,16 +452,16 @@ async function enregistrerChamp(el) {
     } else if (el.dataset.p) {
       await agir([['UpdateRecord', 'Gouv_Parametres', Number(el.dataset.p), { Valeur: val }]]);
       etat.d.Gouv_Parametres.find((x) => x.id === Number(el.dataset.p)).Valeur = val;
-    } else if (el.dataset.admin !== undefined) {
-      // un des 3 menus « Administrateurs » : on réécrit la liste entière (sans doublon), la ligne est créée au besoin
-      const liste = [...new Set([...document.querySelectorAll('[data-admin]')].map((x) => x.value.trim().toLowerCase()).filter(Boolean))].join(', ');
-      const ligne = (etat.d.Gouv_Parametres || []).find((p) => p.Cle === 'Administrateurs');
+    } else if (el.dataset.referent !== undefined) {
+      // un des 3 menus « Référents » : on réécrit la liste entière (sans doublon), la ligne est créée au besoin
+      const liste = [...new Set([...document.querySelectorAll('[data-referent]')].map((x) => x.value.trim().toLowerCase()).filter(Boolean))].join(', ');
+      const ligne = (etat.d.Gouv_Parametres || []).find((p) => p.Cle === 'Referents');
       if (ligne) { await agir([['UpdateRecord', 'Gouv_Parametres', ligne.id, { Valeur: liste }]]); ligne.Valeur = liste; }
       else {
-        const r = await agir([['AddRecord', 'Gouv_Parametres', null, { Cle: 'Administrateurs', Valeur: liste, Description: DESCRIPTION_ADMINISTRATEURS }]]);
-        etat.d.Gouv_Parametres.push({ id: r.retValues[0], Cle: 'Administrateurs', Valeur: liste, Description: DESCRIPTION_ADMINISTRATEURS });
+        const r = await agir([['AddRecord', 'Gouv_Parametres', null, { Cle: 'Referents', Valeur: liste, Description: DESCRIPTION_REFERENTS }]]);
+        etat.d.Gouv_Parametres.push({ id: r.retValues[0], Cle: 'Referents', Valeur: liste, Description: DESCRIPTION_REFERENTS });
       }
-      await tracer('Administrateurs', liste || 'aucun');
+      await tracer('Référents', liste || 'aucun');
     }
     message('✅ Enregistré.');
   } catch (e) { message('❌ ' + esc(e.message), true); }

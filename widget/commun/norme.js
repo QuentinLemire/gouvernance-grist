@@ -412,7 +412,7 @@
   }
 
   /**
-   * Personnes (table Gouv_Utilisateurs, lit les données) : au moins un administrateur actif, un rôle pour
+   * Personnes (table Gouv_Utilisateurs, lit les données) : au moins un référent, un rôle pour
    * chaque personne active, des courriels bien formés et uniques. À corriger dans la page 👥 Utilisateurs.
    * @param {Function} lireTable  async (tableId) → lignes { id, … } ou null
    */
@@ -421,11 +421,11 @@
     if (!d.colonnesDe.get(R.table)) return [];
     const U = (await lireTable(R.table)) || [];
     const page = R.norme ? '👥 Utilisateurs' : `table ${R.table}`;
-    // administrateurs : jusqu'à 3 personnes choisies dans les Paramètres (clé Administrateurs, courriels)
-    const reglage = ((await lireTable('Gouv_Parametres')) || []).find((p) => p.Cle === 'Administrateurs');
+    // référents : jusqu'à 3 personnes choisies dans les Paramètres (clé Referents, courriels)
+    const reglage = ((await lireTable('Gouv_Parametres')) || []).find((p) => p.Cle === 'Referents');
     const choisis = String(reglage?.Valeur || '').split(',').map((c) => c.trim().toLowerCase()).filter(Boolean);
     const actifs = U.filter((u) => u.Actif !== false);   // pas de colonne Actif : tout le monde est actif
-    const admins = actifs.filter((u) => choisis.includes(String(u.Courriel || '').trim().toLowerCase()));
+    const refs = actifs.filter((u) => choisis.includes(String(u.Courriel || '').trim().toLowerCase()));
     // droits par entité : une personne active doit être rattachée à une entité ; sinon, avoir un rôle
     const sansRole = actifs.filter((u) => (R.parEntites ? !u.Entite : !rolesDe(u).length)).map((u) => u.Courriel || `ligne ${u.id}`);
     const quoi = R.parEntites ? 'entité' : 'rôle';
@@ -436,9 +436,9 @@
     const malFormes = U.filter((u) => u.Courriel && !valide(u)).map((u) => u.Courriel);
     const doublons = [...new Set(U.filter(doublon).map((u) => cle(u.Courriel)))];
     return [
-      { principe: 'Personnes', objet: 'Administrateurs actifs', etat: admins.length ? OK : ABSENT, page,
-        detail: admins.length ? `${admins.length} administrateur(s) actif(s) : ${admins.map((u) => u.Nom || u.Courriel).join(', ')}`
-          : `Aucun administrateur actif : à choisir dans Maintenance › Paramètres (jusqu'à 3 personnes)`, elements: [] },
+      { principe: 'Personnes', objet: 'Référents du Grist', etat: refs.length ? OK : PARTIEL, page,
+        detail: refs.length ? `${refs.length} référent(s) : ${refs.map((u) => [u.Prenom, u.Nom].filter(Boolean).join(' ') || u.Courriel).join(', ')}`
+          : `Aucun référent : à choisir dans Maintenance › Paramètres (jusqu'à 3 personnes) ; sans référent, personne ne peut faire de demande au support Grist pour ce document`, elements: [] },
       { principe: 'Personnes', objet: `Personnes actives sans ${quoi}`, etat: sansRole.length ? PARTIEL : OK, page,
         detail: sansRole.length ? `${sansRole.length} personne(s) active(s) sans ${quoi} : elles ne voient que l'accueil` : `Chaque personne active a ${R.parEntites ? 'une entité' : 'un rôle'}`, elements: sansRole },
       { principe: 'Personnes', objet: 'Courriels', etat: malFormes.length || doublons.length ? PARTIEL : OK, page,

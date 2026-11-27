@@ -3,7 +3,7 @@
  *
  * Page d'entrée de l'administration (🛡️ Administration). Contrôle tout le document en une fois, en lecture seule :
  *   - la norme DGOM, principe par principe (P1 à P7) ;
- *   - les personnes : administrateurs, rôles, courriels ;
+ *   - les personnes : référents, rôles, courriels ;
  *   - les formules en erreur ;
  *   - les colonnes qui ne servent nulle part ;
  *   - les widgets : tables introuvables, appels vers internet, jetons d'accès.
