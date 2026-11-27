@@ -338,5 +338,5 @@ Table Utilisateurs dans un ordre logique : identité (Prénom, Nom, Courriel, Fo
 **Raison** : demande de Quentin : la même vue des utilisateurs dans Gouvernance, Arrivées-Départs et toute application de la norme.
 
 ## Nb utilisateurs d'une entité : total avec les entités en dessous (2026-11-27)
-**Décision** : Gouv_Entites.Nbre compte les personnes de l'entité **et de toutes celles en dessous** (`lookupRecords(Rattachements=CONTAINS(rec.id))`) : un parent affiche le total de ses enfants (BSSIOM = BSSIOM + SI + ASTROLAB, DGOM = toute la direction). « Membres » reste la liste des personnes rattachées directement. Utilisateurs 3.3.
+**Décision** : Gouv_Entites.Nbre compte les personnes de l'entité **et de toutes celles en dessous** (`lookupRecords(Rattachements=CONTAINS(rec.id))`) : un parent affiche le total de ses enfants (BSSIOM = BSSIOM + SI + ASTROLAB, DGOM = toute la direction). « Membres » suit la même règle : la liste des personnes de l'entité et de toutes celles en dessous. Utilisateurs 3.3.
 **Raison** : demande de Quentin, pour lire les effectifs à chaque niveau de l'organisation.

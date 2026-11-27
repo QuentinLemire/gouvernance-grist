@@ -37,7 +37,7 @@
           "label": "Membres",
           "type": "RefList:Gouv_Utilisateurs",
           "isFormula": true,
-          "formula": "Gouv_Utilisateurs.lookupRecords(Entite=$id, sort_by=\"Nom\")",
+          "formula": "# Personnes de l'entité et de toutes celles en dessous (comme « Nb utilisateurs »)\nreturn Gouv_Utilisateurs.lookupRecords(Rattachements=CONTAINS(rec.id), sort_by=\"Nom\")",
           "visibleCol": "Courriel"
         },
         {
