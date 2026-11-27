@@ -340,3 +340,7 @@ Table Utilisateurs dans un ordre logique : identité (Prénom, Nom, Courriel, Fo
 ## Nb utilisateurs d'une entité : total avec les entités en dessous (2026-11-27)
 **Décision** : Gouv_Entites.Nbre compte les personnes de l'entité **et de toutes celles en dessous** (`lookupRecords(Rattachements=CONTAINS(rec.id))`) : un parent affiche le total de ses enfants (BSSIOM = BSSIOM + SI + ASTROLAB, DGOM = toute la direction). « Membres » suit la même règle : la liste des personnes de l'entité et de toutes celles en dessous. Utilisateurs 3.4 (publiée le 27/11/2026).
 **Raison** : demande de Quentin, pour lire les effectifs à chaque niveau de l'organisation.
+
+## Fonction : liste fermée (2026-11-27)
+**Décision** : Gouv_Utilisateurs.Fonction devient un **menu déroulant** (Choice) : Chef de bureau, Adjoint au chef de bureau, Agent. Même liste pour Personnel.Fonction dans Arrivées-Départs (fiche d'arrivée : menu au lieu d'un champ libre). Valeurs existantes corrigées (« agent » → « Agent »).
+**Raison** : demande de Quentin : les droits lisent la fonction telle quelle (chef ou adjoint signe pour son bureau) ; une liste fermée garantit la même écriture (majuscules comprises) partout.
