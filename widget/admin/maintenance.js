@@ -711,51 +711,6 @@ async function etiqueterTables(fichiers) {
   if (actions.length) await agir(actions);
 }
 
-/**
- * Jeu de données « à fusionner » (bureaux de la DGOM dans les Entités) : la table a souvent déjà des lignes.
- * Une ligne de même nom (clé jeu.fusion, sans tenir compte de la casse) est complétée : seules ses cases vides
- * sont remplies ; les autres lignes sont ajoutées. Rien n'est supprimé ni écrasé.
- * Le rattachement (Parent) est donné par l'Id_DGOM de la ligne au-dessus : il est posé une fois toutes les lignes présentes.
- */
-async function fusionnerJeu(jeu, nouvelles = new Set()) {
-  const cle = jeu.fusion, norm = (v) => String(v || '').trim().toLowerCase();
-  // colonnes qu'on peut écrire : présentes et non calculées (l'identifiant DGOM, lui, est une formule)
-  const ecrivable = (k) => { const c = colonne(jeu.tableId, k); return c && !c.isFormula; };
-  const vide = (v) => v === null || v === undefined || v === '' || v === 0;
-  const lignes = (await lire(jeu.tableId)) || [];
-  const parCle = new Map(lignes.map((l) => [norm(l[cle]), l]));
-  const ajouts = [], maj = [];
-  for (const r of jeu.records) {
-    const { Parent, ...champs } = r;
-    const ici = parCle.get(norm(r[cle]));
-    if (!ici) { ajouts.push(champs); continue; }
-    // une case à cocher tout juste ajoutée (colonne créée par cette installation) vaut « non » sur les lignes déjà là :
-    // elle compte comme vide ; ensuite, un choix fait à la main est gardé
-    const neuve = (k) => nouvelles.has(jeu.tableId + '.' + k) && ici[k] === false;
-    const aRemplir = Object.fromEntries(Object.entries(champs).filter(([k]) => ecrivable(k) && (vide(ici[k]) || neuve(k))));
-    if (Object.keys(aRemplir).length) maj.push(['UpdateRecord', jeu.tableId, ici.id, aRemplir]);
-  }
-  const cles = [...new Set(ajouts.flatMap(Object.keys))].filter(ecrivable);
-  if (ajouts.length) maj.push(['BulkAddRecord', jeu.tableId, ajouts.map(() => null), Object.fromEntries(cles.map((k) => [k, ajouts.map((r) => r[k] ?? null)]))]);
-  if (maj.length) await agir(maj);
-  // rattachements : le jeu donne le nom de l'entité au-dessus ; seulement là où « Parent » est vide
-  const apres = (await lire(jeu.tableId)) || [];
-  const parNom = new Map(apres.map((l) => [norm(l[cle]), l.id]));
-  const liens = [];
-  for (const r of jeu.records) {
-    const ici = apres.find((l) => norm(l[cle]) === norm(r[cle]));
-    const parent = r.Parent ? parNom.get(norm(r.Parent)) : null;
-    if (ici && parent && parent !== ici.id && vide(ici.Parent)) liens.push(['UpdateRecord', jeu.tableId, ici.id, { Parent: parent }]);
-  }
-  if (liens.length) await agir(liens);
-}
-
-/** Trie la table dans « Données source » (ex. les Entités par identifiant DGOM). */
-async function trierTableBrute(tableId, colId) {
-  const t = etat.meta.parId[tableId], c = colId && colonne(tableId, colId);
-  if (t && c && t.rawViewSectionRef) await agir([['UpdateRecord', '_grist_Views_section', t.rawViewSectionRef, { sortColRefs: JSON.stringify([c.id]) }]]);
-}
-
 async function installerTablesSujet(fichier) {
   {
     // On installe aussi les sujets dont celui-ci dépend.
@@ -766,22 +721,9 @@ async function installerTablesSujet(fichier) {
       tables.push(...def.tables);
       (def.dependances || []).forEach((d) => aFaire.push(d.toLowerCase()));
     }
-    // colonnes créées par cette installation (pour la fusion des données : voir fusionnerJeu)
-    const nouvelles = new Set(tables.flatMap((t) => t.columns.filter((c) => !colonne(t.tableId, c.id)).map((c) => t.tableId + '.' + c.id)));
+    // La norme installe la structure seulement, jamais de données (décision du 27/11/2026).
     await creerStructure(tables);
     await etiqueterTables(vus);
-    // Données de référence publiques (territoires) si la table est encore vide.
-    for (const f of vus) {
-      if (!DONNEES[f]) continue;
-      const jeu = await lireDepot('donnees/' + DONNEES[f]);
-      if (jeu.fusion) { await fusionnerJeu(jeu, nouvelles); await trierTableBrute(jeu.tableId, jeu.tri); continue; }
-      if (!((await lire(jeu.tableId)) || []).length) {
-        // un jeu peut fixer les identifiants (« id ») : ses lignes se citent entre elles (Parent) et gardent
-        // les numéros de leur source (bureaux de la DGOM : ceux de l'Outil cabDG)
-        const cles = [...new Set(jeu.records.flatMap(Object.keys))].filter((k) => k !== 'id');
-        await agir([['BulkAddRecord', jeu.tableId, jeu.records.map((r) => r.id || null), Object.fromEntries(cles.map((k) => [k, jeu.records.map((r) => r[k] ?? null)]))]]);
-      }
-    }
     await tracer('Sujet installé', [...vus].join(', '));
     // En dernier (elle peut recharger cette page) : courriels invalides ou en double mis en forme.
     if (vus.has('utilisateurs')) await marquerCourriels('Gouv_Utilisateurs');
@@ -790,6 +732,14 @@ async function installerTablesSujet(fichier) {
 }
 
 // --- 10. Onglet « Paramètres » -------------------------------------------------------------------
+
+/** Paramètres lus par les pages de la norme (clé → description). Ils n'existent dans un document qu'une fois remplis. */
+const PARAMETRES_STANDARD = {
+  Nom_application: "Nom de l'application, affiché en haut des pages",
+  Direction: 'Direction propriétaire',
+  Contact_support: "Courriel de contact affiché sur la page d'accueil et pour le support",
+  Logo_DGOM: "Adresse (URL) d'une image du logo DGOM, affichée en haut des pages (facultatif)",
+};
 
 /**
  * Contenu de l'onglet « Paramètres » : valeurs modifiables directement (les jetons sont masqués
@@ -813,11 +763,15 @@ function lignesAdministrateurs() {
 
 function ongletParametres() {
   // Administrateurs : 3 menus à part ; l'ancien paramètre Roles_administration n'est plus affiché (remplacé le 26/11/2026)
-  const P = (etat.d.Gouv_Parametres || []).filter((p) => !['Administrateurs', 'Roles_administration'].includes(p.Cle));
+  const lignes = (etat.d.Gouv_Parametres || []).filter((p) => !['Administrateurs', 'Roles_administration'].includes(p.Cle));
+  // Les paramètres standard sont toujours proposés : une case vide, la ligne est créée à la première saisie
+  // (la norme ne livre plus de données, seulement la structure : décision du 27/11/2026)
+  const P = [...lignes, ...Object.entries(PARAMETRES_STANDARD).filter(([cle]) => !lignes.some((p) => p.Cle === cle))
+    .map(([Cle, Description]) => ({ id: '', Cle, Description, Valeur: '' }))];
   return `
     <section class="carte"><h2>⚙️ Paramètres de l'application</h2>
       ${aTable('Gouv_Parametres') ? `<table class="tableau">${lignesAdministrateurs()}${P.map((p) => `<tr><td style="width:220px"><b>${esc(p.Cle)}</b><br><small class="vide">${esc(p.Description)}</small></td>
-        <td><input class="champ" style="width:100%;max-width:none" data-p="${p.id}" value="${esc(p.Valeur)}" ${/_jeton$/.test(p.Cle) ? 'type="password" autocomplete="off"' : ''}>${p.Cle === 'Logo_DGOM' && p.Valeur ? `<img class="apercu-logo" src="${esc(p.Valeur)}" alt="">` : ''}</td></tr>`).join('')}</table>`
+        <td><input class="champ" style="width:100%;max-width:none" ${p.id ? `data-p="${p.id}"` : `data-cle="${esc(p.Cle)}"`} value="${esc(p.Valeur)}" ${/_jeton$/.test(p.Cle) ? 'type="password" autocomplete="off"' : ''}>${p.Cle === 'Logo_DGOM' && p.Valeur ? `<img class="apercu-logo" src="${esc(p.Valeur)}" alt="">` : ''}</td></tr>`).join('')}</table>`
         : `<div class="encadre alerte">Pas de table Parametres : « Installer tout le socle » ci-dessus.</div>`}
     </section>`;
 }

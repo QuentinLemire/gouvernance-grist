@@ -57,7 +57,7 @@
 // ===== 1. Réglages =====
 
 // Adresse publique du dépôt, d'où sont téléchargés les fichiers structure/*.json
-// et donnees/*.json (servis par jsDelivr depuis GitHub, branche main = dernière
+// (servis par jsDelivr depuis GitHub, branche main = dernière
 // version de la norme). Pour installer une version figée, passer une adresse
 // pointant sur un commit précis via l'option { depot } d'installerGouvernance.
 const DEPOT_PAR_DEFAUT = 'https://cdn.jsdelivr.net/gh/QuentinLemire/gouvernance-grist@main/';
@@ -66,12 +66,6 @@ const DEPOT_PAR_DEFAUT = 'https://cdn.jsdelivr.net/gh/QuentinLemire/gouvernance-
 // installerGouvernance(…, { docId }) permet d'en viser un autre.
 let DOC_CIBLE = null;
 
-// Jeux de données de référence livrés avec certains sujets (dossier donnees/ du dépôt),
-// sous la forme « sujet : fichier ». Ils ne sont chargés que si la table est vide.
-const DONNEES_DE_REFERENCE = {
-  referentiel_territoires: 'territoires.json',
-  documentation: 'documentation.json',   // une page modèle « à modifier », pour démarrer la documentation
-};
 
 // ===== 2. Accès à l'API Grist du document =====
 // Petites fonctions qui envoient les demandes au serveur Grist. Toutes passent
@@ -387,29 +381,6 @@ async function poserReglesDeBase() {
   return 'posées';
 }
 
-// ===== 5. Données de référence =====
-
-/**
- * Remplit une table vide avec un jeu de données de référence du dépôt
- * (ex. les 13 territoires ultramarins avec leur code COG).
- * Ne touche jamais une table qui contient déjà des lignes : les données
- * saisies dans l'application sont prioritaires.
- * @param {string} depot    adresse du dépôt (voir DEPOT_PAR_DEFAUT)
- * @param {string} fichier  nom du fichier dans donnees/, ex. 'territoires.json'
- * @returns {Promise<string>} une phrase de compte rendu pour le rapport
- * Action Grist : ajout des lignes par l'API REST (POST /records).
- */
-async function chargerDonnees(depot, fichier) {
-  const jeu = await (await fetch(`${depot}donnees/${fichier}`)).json();
-  const lignes = (await api(`/tables/${jeu.tableId}/records`)).records;
-  if (lignes.length) return `${jeu.tableId} : déjà rempli`;
-  await api(`/tables/${jeu.tableId}/records`, {
-    method: 'POST',
-    body: JSON.stringify({ records: jeu.records.map((fields) => ({ fields })) }),
-  });
-  return `${jeu.tableId} : ${jeu.records.length} lignes`;
-}
-
 // ===== 6. Point d'entrée =====
 
 /**
@@ -428,7 +399,7 @@ async function chargerDonnees(depot, fichier) {
  * @param {Object}   [options]
  * @param {string}   [options.docId]  autre document à viser (par défaut : celui ouvert)
  * @param {string}   [options.depot]  autre adresse du dépôt (par défaut : DEPOT_PAR_DEFAUT)
- * @returns {Promise<Object>} rapport { tables, colonnes, donnees, regles },
+ * @returns {Promise<Object>} rapport { tables, colonnes, regles },
  *          également affiché sous forme de tableau dans la console
  *
  * Exemples :
@@ -459,11 +430,7 @@ async function installerGouvernance(sujets, { docId = null, depot = DEPOT_PAR_DE
   const tables = [...lus.values()].flatMap((def) => def.tables);
   const rapport = await creerStructure(tables);
 
-  // 3. Données de référence (territoires…) si leur table est vide.
-  rapport.donnees = [];
-  for (const sujet of lus.keys()) {
-    if (DONNEES_DE_REFERENCE[sujet]) rapport.donnees.push(await chargerDonnees(depot, DONNEES_DE_REFERENCE[sujet]));
-  }
+  // La norme installe la structure seulement, jamais de données (décision du 27/11/2026).
 
   // 3 bis. Repérage des tables de la norme dans « Données source » : 🧱 socle, 🧩 module.
   await etiqueterTables(lus);

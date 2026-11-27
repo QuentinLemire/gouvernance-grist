@@ -59,10 +59,6 @@ const ADRESSE_WIDGET = new RegExp(`(?:/${GITHUB.proprietaire}/${GITHUB.depot}/([
 /** Sujets transverses de la norme (commun/norme.js) : fichier, nom, obligatoire (socle). */
 const SUJETS = Norme.SUJETS;
 
-/** Données de référence livrées avec certains sujets (dossier donnees/ du dépôt), chargées à l'installation si la table est vide. */
-// parametres et accueil_public : valeurs de départ d'un document neuf (nom, contact, message « accès réservé »)
-// documentation : une page modèle « à modifier »
-const DONNEES = { parametres: 'parametres.json', accueil_public: 'accueil.json', referentiel_territoires: 'territoires.json', documentation: 'documentation.json' };
 
 /**
  * Niveaux de droit proposés dans la matrice, et leur traduction en permissions Grist.
@@ -428,6 +424,12 @@ async function enregistrerChamp(el) {
   try {
     if (el.dataset.t) {
       await agir([['UpdateRecord', 'Gouv_Support', Number(el.dataset.t), { [el.dataset.col]: val }]]);
+    } else if (el.dataset.cle) {
+      // paramètre standard pas encore dans le document : la ligne est créée à la première saisie
+      const Description = (typeof PARAMETRES_STANDARD !== 'undefined' && PARAMETRES_STANDARD[el.dataset.cle]) || '';
+      const r = await agir([['AddRecord', 'Gouv_Parametres', null, { Cle: el.dataset.cle, Valeur: val, Description }]]);
+      etat.d.Gouv_Parametres.push({ id: r.retValues[0], Cle: el.dataset.cle, Valeur: val, Description });
+      el.removeAttribute('data-cle'); el.dataset.p = r.retValues[0];
     } else if (el.dataset.p) {
       await agir([['UpdateRecord', 'Gouv_Parametres', Number(el.dataset.p), { Valeur: val }]]);
       etat.d.Gouv_Parametres.find((x) => x.id === Number(el.dataset.p)).Valeur = val;
@@ -450,7 +452,7 @@ async function enregistrerChamp(el) {
 // matrice des droits. La matrice n'est pas écrite ici : seul l'aperçu est mis à jour.
 document.addEventListener('change', async (e) => {
   const el = e.target;
-  if (el.dataset.t || el.dataset.p || el.dataset.admin !== undefined) return enregistrerChamp(el);
+  if (el.dataset.t || el.dataset.p || el.dataset.cle || el.dataset.admin !== undefined) return enregistrerChamp(el);
   if (el.id === 'simu-personne') { etat.simulation = el.value; return afficher(); }
   if (el.dataset.matTable) { const t = el.dataset.matTable; (etat.droits.niveaux[t] = etat.droits.niveaux[t] || {})[el.dataset.matRole] = el.value; return majApercu(); }
   if (el.id === 'bloquer-autres') { etat.droits.bloquerAutres = el.checked; return majApercu(); }
