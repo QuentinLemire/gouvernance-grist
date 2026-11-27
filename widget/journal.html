@@ -42,14 +42,14 @@
   </script>
   <style>
     body { margin: 0; background: var(--fond, #f6f6f6); }
-    .bande { display: flex; align-items: center; gap: 16px; padding: 10px 16px; flex-wrap: wrap; }
+    .bande { display: flex; align-items: center; gap: 12px; padding: 4px 12px; flex-wrap: wrap; }
     .bande .etat { flex: 1; min-width: 240px; }
-    .bande small { color: var(--texte-doux, #666); }
+    .bande small { color: var(--texte-doux, #666); margin-left: 8px; }
   </style>
 </head>
 <body>
   <div class="bande">
-    <div class="etat"><b>📒 Journal des modifications</b><br><small id="etat">Relevé en cours…</small></div>
+    <div class="etat"><b>📒 Relevé</b><small id="etat">en cours…</small></div>
     <button class="bouton petit" id="relever">🔄 Relever maintenant</button>
   </div>
 <script>
@@ -62,8 +62,10 @@ const $etat = document.getElementById('etat');
 const dire = (texte) => { $etat.textContent = texte; };
 
 // --- 1. API REST du document (historique et différences : la Plugin API ne les donne pas) ---------------
+// Jeton avec les droits de la personne connectée : un jeton « lecture seule » la ferait passer pour un simple
+// lecteur, à qui Grist refuse l'historique (/compare) dès que le document a des règles d'accès.
 async function api(chemin, parametres = {}) {
-  const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: true });
+  const { token, baseUrl } = await grist.docApi.getAccessToken({ readOnly: false });
   const q = new URLSearchParams({ ...parametres, auth: token });
   const r = await fetch(`${baseUrl}${chemin}?${q}`);
   if (!r.ok) throw new Error(`${chemin} : ${r.status}`);
@@ -98,7 +100,7 @@ const cellule = (delta, cote) => (delta && delta[cote] ? delta[cote][0] : null);
 async function lignesDuJournal(deltas, etat) {
   const maintenant = Date.now() / 1000;
   const lignes = [];
-  const note = (champs) => lignes.push({ Etat: etat, Date: maintenant, Auteur: 'inconnu', Action: '', Table: '', Ligne: 0,
+  const note = (champs) => lignes.push({ Etat: etat, Date: maintenant, Auteur: 'inconnu', Action: '', Table: '', Ligne: null,
     Colonne: '', Avant: '', Apres: '', Detail: '', ...champs });
 
   // Données : ajouts, modifications (une ligne par cellule), suppressions
@@ -201,9 +203,9 @@ async function relever() {
     const debut = depart || etats[etats.length - 1];
     const diff = await api('/compare', { left: debut.h, right: actuel.h });
     let lignes = await lignesDuJournal(diff.details?.rightChanges?.tableDeltas || {}, actuel.n);
-    if (!depart) lignes.unshift({ Etat: actuel.n, Date: Date.now() / 1000, Auteur: 'relevé', Action: 'Résumé', Table: '', Ligne: 0, Colonne: '', Avant: '', Apres: '',
+    if (!depart) lignes.unshift({ Etat: actuel.n, Date: Date.now() / 1000, Auteur: 'relevé', Action: 'Résumé', Table: '', Ligne: null, Colonne: '', Avant: '', Apres: '',
       Detail: `Les états ${releve} à ${debut.n} ne sont plus dans l'historique de Grist : leurs changements manquent` });
-    if (!lignes.length) lignes = [{ Etat: actuel.n, Date: Date.now() / 1000, Auteur: 'relevé', Action: 'Relevé', Table: '', Ligne: 0, Colonne: '', Avant: '', Apres: '',
+    if (!lignes.length) lignes = [{ Etat: actuel.n, Date: Date.now() / 1000, Auteur: 'relevé', Action: 'Relevé', Table: '', Ligne: null, Colonne: '', Avant: '', Apres: '',
       Detail: `États ${releve} à ${actuel.n} : pas de changement de données ni de structure` }];
     const ok = await ecrire(lignes);
     dire(ok ? `À jour (état ${actuel.n}) : ${lignes.length} ligne(s) ajoutée(s) au journal.` : 'Un autre relevé vient d\'être fait : à jour.');
