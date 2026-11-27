@@ -449,8 +449,6 @@ const PAGES = [
   { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: {
     titre: 'Annuaire', colonnes: ['Nom', 'Courriel', 'Entite', 'Role', 'Actif', 'Acces_Grist'], tri: 'Nom', fiche: true,
     cachees: ['Courriel_cle', 'Courriel_valide', 'Doublon'] } },
-  // sous l'annuaire : qui est dans quel bureau, d'un coup d'œil (demande de Quentin, 26/11/2026)
-  { cle: 'organigramme', nom: '🏢 Organigramme', table: 'Gouv_Entites', fichier: 'organigramme.html', sousPage: true, facultative: true, sujet: 'bureaux_dgom' },
   { ...OUTIL, cle: 'droits', nom: '🔐 Rôles et droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
   { ...OUTIL, cle: 'atelier', nom: '🏗️ Atelier', module: 'atelier', anciens: ['atelier.html'] },
