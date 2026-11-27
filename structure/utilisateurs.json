@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "3.6",
+  "version": "3.7",
   "sujet": "UTILISATEURS",
   "description": "Utilisateurs (annuaire : identité, rattachement, statut) et arborescence des entités ; base des droits, donnés par entité (une entité vaut pour elle et toutes celles en dessous). MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
@@ -46,6 +46,13 @@
           "type": "Numeric",
           "isFormula": true,
           "formula": "# Nombre de personnes de l'entité et de toutes celles en dessous (un parent fait le total de ses enfants)\nreturn len(Gouv_Utilisateurs.lookupRecords(Rattachements=CONTAINS(rec.id)))"
+        },
+        {
+          "id": "Utilise",
+          "label": "Utilisée",
+          "type": "Bool",
+          "isFormula": true,
+          "formula": "# Vrai si l'entité sert : des personnes y sont rattachées ou elle a des entités en dessous.\n# Elle ne peut alors pas être supprimée (règle d'accès).\nreturn bool(Gouv_Utilisateurs.lookupOne(Entite=$id) or Gouv_Entites.lookupOne(Parent=$id))"
         },
         {
           "id": "Ajout_n8n",
@@ -146,6 +153,11 @@
           "type": "Bool"
         },
         {
+          "id": "Administrateur_Grist",
+          "label": "Administrateur Grist",
+          "type": "Bool"
+        },
+        {
           "id": "Rattachements",
           "label": "Rattachements",
           "type": "RefList:Gouv_Entites",
@@ -181,6 +193,13 @@
           "type": "Bool",
           "isFormula": true,
           "formula": "return bool($Courriel_cle) and len(Gouv_Utilisateurs.lookupRecords(Courriel_cle=$Courriel_cle)) > 1"
+        },
+        {
+          "id": "Est_moi",
+          "label": "Est moi",
+          "type": "Bool",
+          "isFormula": true,
+          "formula": "# Vrai sur la seule ligne de la personne connectée (les autres lignes cachent cette colonne : règle d'accès).\n# Permet aux widgets de savoir qui est connecté.\nreturn True"
         },
         {
           "id": "CreeLe",
