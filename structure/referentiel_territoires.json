@@ -1,8 +1,8 @@
 {
   "format": "grist-structure",
-  "version": "2.0",
+  "version": "3.0",
   "sujet": "REFERENTIEL_TERRITOIRES",
-  "description": "Table des territoires ultramarins (code COG, statut, bassin), livrée vide : la norme ne publie que des structures. Installé, ce sujet ajoute aussi la colonne Territoire aux Entités.",
+  "description": "Table des territoires ultramarins (code COG, statut, bassin), livrée vide : la norme ne publie que des structures. Installé, ce sujet ajoute aussi la colonne Territoire aux Utilisateurs (le territoire d'une personne hors MOM, saisi à la main), et les statistiques de Gouvernance comptent les utilisateurs par territoire.",
   "tables": [
     {
       "tableId": "Gouv_Territoires",
@@ -92,7 +92,7 @@
       ]
     },
     {
-      "tableId": "Gouv_Entites",
+      "tableId": "Gouv_Utilisateurs",
       "extension": true,
       "columns": [
         {

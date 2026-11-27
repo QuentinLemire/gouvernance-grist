@@ -10,7 +10,7 @@ Les règles écrites, le journal des décisions, la checklist d'audit et l'état
 | Fichier | Tables | Rôle |
 |---|---|---|
 | `utilisateurs.json` | Entites, Utilisateurs | Annuaire et rôles génériques (Administrateur, Gestionnaire, Contributeur, Lecteur) ; base des droits |
-| `referentiel_territoires.json` | Territoires *(hors socle)* | Table des territoires ultramarins (code COG, statut, bassin), livrée vide : la norme ne publie pas de données ; ajoute la colonne `Entites.Territoire` |
+| `referentiel_territoires.json` | Territoires *(hors socle)* | Table des territoires ultramarins (code COG, statut, bassin), livrée vide : la norme ne publie pas de données ; ajoute la colonne `Utilisateurs.Territoire` |
 | `parametres.json` | Parametres | Nom de l'application, contact, logo DGOM |
 | `accueil_public.json` | Accueil | Message affiché aux personnes sans droit |
 | `support.json` | Support, Support_commentaires *(hors socle)* | Demandes et conversation avec le support |
