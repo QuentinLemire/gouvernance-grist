@@ -126,3 +126,9 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
 - Règle d'accès « Pilotage pour le chef et l'adjoint du BRC » : le BRC est l'entité n° 4 (`4 in user.Profil.Bureaux`).
 - La RH (Gestionnaire, « Fait aussi la RH ») peut créer une entité depuis la fiche (bureau tapé à la main, rangé sous la direction de l'agent), comme avant avec les bureaux.
 - Vérifié en « Voir en tant que » : chef BCL (voit son agent), chef BRC (Pilotage, tous les agents), RH SMA (ne voit pas l'agent DGOM).
+
+## Équipes du BSSIOM (2026-11-27)
+- Deux entités sous BSSIOM : **BSSIOM SI** et **BSSIOM Astrolab** (veille documentaire). n8n les recopie dans les Grist esclaves, comme toutes les entités MOM.
+- Dans la bannette du BSSIOM (« Accès à ouvrir »), un choix **Équipe** apparaît pour un agent dont le bureau a des équipes. Le bureau de la fiche devient l'équipe choisie, et la sous-direction de l'agent reste juste (SDEPDE).
+- Règle d'accès : la colonne `Personnel.Bureau` a son propre groupe de règles. La RH garde sa règle d'origine, et le rôle BSSIOM peut changer le bureau d'une fiche envoyée dont l'agent n'est pas parti.
+- La propriété de tous les espaces de travail par le BSSIOM SI se règle dans le partage Grist (équipe, espaces), pas dans les entités.
