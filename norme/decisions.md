@@ -352,3 +352,7 @@ Table Utilisateurs dans un ordre logique : identité (Prénom, Nom, Courriel, Fo
 ## Plus d'entité MOM ; noms complets avec « - » (2026-11-27)
 **Décision** : l'arbre des entités a trois têtes, **DGOM, SMA et CABMOM** (plus de racine MOM). Direction = la tête de l'arbre au-dessus de l'entité ; Sous-direction = l'entité juste dessous. Les noms complets s'écrivent avec des tirets (DGOM-SDAJI-BCL). La case MOM des utilisateurs reste (personnes du ministère inscrites par n8n). Publié : Utilisateurs 3.6.
 **Raison** : demande de Quentin ; MOM n'apportait rien à l'arbre et les directions restent séparées.
+
+## Utilisateurs : Administrateur Grist, Est moi ; Entités : Utilisée (2026-11-27)
+**Décision** : la norme ajoute Gouv_Utilisateurs.**Administrateur_Grist** (case, recopiée par n8n depuis Arrivées-Départs : ouvre les comptes, propriétaire des Grist créés), Gouv_Utilisateurs.**Est_moi** (vrai sur la seule ligne de la personne connectée grâce à une règle de colonne : les widgets savent qui est connecté) et Gouv_Entites.**Utilise** (« Utilisée » : personnes rattachées ou entités en dessous ; protège de la suppression).
+**Raison** : Quentin veut les mêmes tables partout ; ces colonnes servaient dans Arrivées-Départs et sont utiles à toute application.

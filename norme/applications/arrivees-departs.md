@@ -166,3 +166,11 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
 - Gouv_Utilisateurs.Administrateur_Grist (formule propre à AD) relit la case sur la fiche de l'agent présent (par courriel) ; les règles d'accès utilisent `user.Profil.Administrateur_Grist`.
 - Un administrateur Grist voit **sa direction**, pas tout le MOM : DGOM, SMA et CABMOM restent séparés. Il n'est pas limité à son bureau (Par bureau faux), comme la RH.
 - Les 5 agents présents du BSSIOM ont la case cochée (état d'avant conservé).
+
+## Tables Gouv_ identiques à Gouvernance (2026-11-27)
+- **Gouv_Entites** et **Gouv_Utilisateurs** d'AD ont exactement les colonnes de la norme (même ordre, mêmes formules, mêmes libellés). Seule différence : Utilisateurs.Territoire, qui vient du module Territoires (non installé dans AD, choix de Quentin).
+- Ce qui était propre à AD est sorti des tables de la norme :
+  - **Entites_AD** (table d'AD) : par entité, Courriel du secrétariat, Émetteur (en-tête des fiches), Étape bureau. Personnel.Emetteur, Personnel.Etape et Signe_par_RH la lisent.
+  - **Droits** : plus de colonnes Bureaux / Par bureau ni de variante d'Entités vues. Les règles d'accès l'écrivent directement : une personne voit les fiches de ses entités (Entités vues, norme) ; la RH (rattachée au BRC, au SMA ou au CABMOM), les chefs et adjoints et les administrateurs Grist voient aussi celles de leur direction (l'Entité d'une fiche est la direction) ; un chef ou adjoint, hors RH et administrateur Grist, ne voit que ses bureaux.
+  - **Administrateur Grist** : case de la norme, recopiée par n8n depuis la fiche (Personnel, via la synthèse par courriel).
+- Colonnes supprimées car inutiles : Gouv_Entites Id_DGOM, Organigramme, Libellé, Couleur ; Gouv_Utilisateurs Utilise (et sa règle). L'audit de toutes les colonnes d'AD (formules, règles, pages, code, n8n) n'a rien trouvé d'autre d'inutile.
