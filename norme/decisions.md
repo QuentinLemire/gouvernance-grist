@@ -348,3 +348,7 @@ Table Utilisateurs dans un ordre logique : identité (Prénom, Nom, Courriel, Fo
 ## Compte de service : propriétaire, pas utilisateur (2026-11-27)
 **Décision** : le compte de service (n8n) n'a pas de ligne dans Gouv_Utilisateurs ; il est **propriétaire** des documents qu'il traite. Les propriétaires passent avant la règle « pas de profil » : il garde l'accès.
 **Raison** : demande de Quentin ; ce n'est pas une personne, il n'a ni entité ni fonction. Dans Gouvernance il n'était qu'éditeur (droit hérité de l'espace) : passé propriétaire du document, sinon la règle « pas de profil » l'aurait bloqué.
+
+## Plus d'entité MOM ; noms complets avec « - » (2026-11-27)
+**Décision** : l'arbre des entités a trois têtes, **DGOM, SMA et CABMOM** (plus de racine MOM). Direction = la tête de l'arbre au-dessus de l'entité ; Sous-direction = l'entité juste dessous. Les noms complets s'écrivent avec des tirets (DGOM-SDAJI-BCL). La case MOM des utilisateurs reste (personnes du ministère inscrites par n8n). Publié : Utilisateurs 3.6.
+**Raison** : demande de Quentin ; MOM n'apportait rien à l'arbre et les directions restent séparées.
