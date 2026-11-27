@@ -344,3 +344,7 @@ Table Utilisateurs dans un ordre logique : identité (Prénom, Nom, Courriel, Fo
 ## Fonction : liste fermée (2026-11-27)
 **Décision** : Gouv_Utilisateurs.Fonction devient un **menu déroulant** (Choice) : Chef de bureau, Adjoint au chef de bureau, Agent. Même liste pour Personnel.Fonction dans Arrivées-Départs (fiche d'arrivée : menu au lieu d'un champ libre). Valeurs existantes corrigées (« agent » → « Agent »).
 **Raison** : demande de Quentin : les droits lisent la fonction telle quelle (chef ou adjoint signe pour son bureau) ; une liste fermée garantit la même écriture (majuscules comprises) partout.
+
+## Compte de service : propriétaire, pas utilisateur (2026-11-27)
+**Décision** : le compte de service (n8n) n'a pas de ligne dans Gouv_Utilisateurs ; il est **propriétaire** des documents qu'il traite. Les propriétaires passent avant la règle « pas de profil » : il garde l'accès.
+**Raison** : demande de Quentin ; ce n'est pas une personne, il n'a ni entité ni fonction. Dans Gouvernance il n'était qu'éditeur (droit hérité de l'espace) : passé propriétaire du document, sinon la règle « pas de profil » l'aurait bloqué.
