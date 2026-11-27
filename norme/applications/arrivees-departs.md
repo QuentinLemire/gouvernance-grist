@@ -159,3 +159,10 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
 - **Bureaux** (calculée) : un chef ou un adjoint rattaché à une équipe reste chef de **tout son bureau** (BSSIOM, SI et ASTROLAB). Une équipe se reconnaît à ce que son parent n'est ni la direction ni la sous-direction de la personne.
 - **Par bureau** : faux pour l'équipe SI (elle voit tout le ministère pour ouvrir les comptes), comme pour la RH.
 - Vérifié : Florent BALLU (chef de bureau, SI) et Aurélien BOUTHIER (adjoint, SI) signent pour BSSIOM, SI et ASTROLAB.
+
+## Administrateur Grist au lieu des équipes SI / ASTROLAB (2026-11-27, remplace la section précédente)
+- Plus d'équipes SI et ASTROLAB : le bureau garde son vrai nom, **BSSIOM** (entités retirées d'AD et de Gouvernance).
+- La différence se fait par une case : **Personnel.Administrateur_Grist** (« Administrateur Grist »), une question Oui / Non posée sur la fiche d'arrivée **seulement si l'agent arrive au BSSIOM**. Elle servira à n8n (propriétaires des Grist créés) et donne l'ouverture des comptes.
+- Gouv_Utilisateurs.Administrateur_Grist (formule propre à AD) relit la case sur la fiche de l'agent présent (par courriel) ; les règles d'accès utilisent `user.Profil.Administrateur_Grist`.
+- Un administrateur Grist voit **sa direction**, pas tout le MOM : DGOM, SMA et CABMOM restent séparés. Il n'est pas limité à son bureau (Par bureau faux), comme la RH.
+- Les 5 agents présents du BSSIOM ont la case cochée (état d'avant conservé).
