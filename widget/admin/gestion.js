@@ -81,7 +81,18 @@ const NIVEAU_DE_PERM = Object.fromEntries(NIVEAUX.filter((n) => n.perm).map((n) 
  * la page d'accueil, lisible par tous, et la documentation, lisible par les inscrits et
  * modifiable par les seuls propriétaires du document (voir planDocumentation).
  */
-const HORS_MATRICE = ['Gouv_Accueil', 'Gouv_Documentation', 'Gouv_Administration'];
+const HORS_MATRICE = ['Gouv_Accueil', 'Gouv_Documentation', 'Gouv_Administration', 'Gouv_Visites'];
+/**
+ * Visites (décision du 27/11/2026) : chacun crée et met à jour sa seule ligne (la page d'accueil y note la dernière
+ * ouverture) ; seuls les propriétaires lisent la table (n8n compte les utilisateurs actifs).
+ */
+const REGLES_VISITES = [
+  { aclFormula: 'user.Access == OWNER', permissionsText: '+CRUD', rulePos: 9, memo: '[Gouvernance] Visites : propriétaires' },
+  { aclFormula: 'newRec.Courriel == user.Email', permissionsText: '+C', rulePos: 10, memo: '[Gouvernance] Visites : chacun crée sa ligne' },
+  { aclFormula: 'rec.Courriel == user.Email and newRec.Courriel == user.Email', permissionsText: '+RU', rulePos: 11, memo: '[Gouvernance] Visites : chacun lit et met à jour sa ligne' },
+  { aclFormula: 'user.Access != OWNER', permissionsText: '-CRUD', rulePos: 12, memo: '[Gouvernance] Visites : rien d\'autre' },
+];
+const reglesVisitesPresentes = () => (etat.acl.regles || []).some((r) => String(r.memo || '').startsWith('[Gouvernance] Visites'));
 /**
  * Tables qui ont des règles propres à l'application (ni [Admin] ni [Gouvernance]), par exemple les fiches
  * d'Arrivées-Départs (droits par entité, bureau, étape). Le panneau ne les modifie pas : ses règles passent

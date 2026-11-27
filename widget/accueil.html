@@ -65,6 +65,7 @@
     .acces-reserve { border-left: 6px solid var(--erreur); background: #fff; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,18,.12); }
     .acces-reserve h1 { font-size: 24px; }
     .carte.referent { border-left: 6px solid #000091; }
+    .mention { color: #666; font-size: 13px; margin: 0 0 16px; }
     /* Liste numérotée des étapes pour obtenir un accès. */
     .etapes { margin: 0 0 16px; padding-left: 22px; } .etapes li { margin: 8px 0; }
     /* Une entrée de la liste des nouveautés, séparée de la suivante par un filet. */
@@ -177,10 +178,31 @@ async function afficher() {
         <p>Une évolution, un problème, un accès à ouvrir ? Faites votre demande au BSSIOM sur le support Grist DGOM : vous y suivez
           aussi vos demandes et leurs réponses.</p>
         <p><a class="bouton primaire" href="${esc(lienSupport)}" target="_blank" rel="noopener">Faire une demande au support ↗</a></p></section>` : ''}
+      ${tables.includes('Gouv_Visites') ? `<p class="mention">ℹ️ La date de votre dernière ouverture de ce document est conservée (une seule date, pas d'historique) pour compter les utilisateurs actifs. Seuls les propriétaires du document la voient.</p>` : ''}
       ${N.length ? `<section class="carte"><h2>📰 Nouveautés</h2>${N.map((n) => `<div class="nouveaute"><small>${n.CreeLe ? new Date(n.CreeLe * 1000).toLocaleDateString('fr-FR') : ''}</small><br><b>${esc(n.Titre)}</b><div class="markdown">${markdown(n.Contenu)}</div></div>`).join('')}</section>` : ''}</main>`;
   }
   // Remplacement du contenu de la zone principale en une seule fois.
   document.getElementById('page').innerHTML = html;
+  if (Array.isArray(utilisateurs) && utilisateurs.length && tables.includes('Gouv_Visites')) noterVisite();
+}
+
+/**
+ * Note l'ouverture du document par la personne connectée (table Gouv_Visites, une ligne par personne : nombre
+ * d'ouvertures et date de la dernière). Les règles d'accès ne lui montrent que sa ligne ; l'adresse se remplit
+ * seule (formule user.Email à la création). Au plus une fois toutes les 6 heures, pour ne pas écrire à chaque clic.
+ * Une erreur (règles absentes, lecture seule) est ignorée : l'accueil s'affiche quand même.
+ */
+let visiteNotee = false;
+async function noterVisite() {
+  if (visiteNotee) return;
+  visiteNotee = true;
+  try {
+    const miennes = (await lire('Gouv_Visites')) || [];
+    const l = miennes[0];
+    if (!l) return void await grist.docApi.applyUserActions([['AddRecord', 'Gouv_Visites', null, { Visites: 1 }]]);
+    if (l.Derniere_visite && Date.now() / 1000 - l.Derniere_visite < 6 * 3600) return;
+    await grist.docApi.applyUserActions([['UpdateRecord', 'Gouv_Visites', l.id, { Visites: (l.Visites || 0) + 1 }]]);
+  } catch (e) { /* pas de droit d'écrire : rien à faire */ }
 }
 
 // ===== 3. Démarrage =====

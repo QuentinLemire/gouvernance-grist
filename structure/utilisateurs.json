@@ -2,7 +2,7 @@
   "format": "grist-structure",
   "version": "3.7",
   "sujet": "UTILISATEURS",
-  "description": "Utilisateurs (annuaire : identité, rattachement, statut) et arborescence des entités ; base des droits, donnés par entité (une entité vaut pour elle et toutes celles en dessous). MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
+  "description": "Utilisateurs (annuaire : identité, rattachement, statut) et arborescence des entités ; base des droits, donnés par entité (une entité vaut pour elle et toutes celles en dessous). MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs. Visites : la dernière ouverture du document par chaque personne (notée par la page d'accueil), pour compter les utilisateurs actifs.",
   "tables": [
     {
       "tableId": "Gouv_Entites",
@@ -228,6 +228,38 @@
           "type": "Text",
           "formula": "user.Email",
           "recalcWhen": 2
+        }
+      ]
+    },
+    {
+      "tableId": "Gouv_Visites",
+      "columns": [
+        {
+          "id": "Courriel",
+          "label": "Courriel",
+          "type": "Text",
+          "formula": "user.Email",
+          "recalcWhen": 0
+        },
+        {
+          "id": "Visites",
+          "label": "Ouvertures",
+          "type": "Int"
+        },
+        {
+          "id": "Derniere_visite",
+          "label": "Dernière ouverture",
+          "type": "DateTime:Europe/Paris",
+          "formula": "NOW()",
+          "recalcWhen": 2
+        },
+        {
+          "id": "Personne",
+          "label": "Personne",
+          "type": "Ref:Gouv_Utilisateurs",
+          "isFormula": true,
+          "formula": "# La ligne d'Utilisateurs de cette adresse\nreturn Gouv_Utilisateurs.lookupOne(Courriel_cle=($Courriel or \"\").strip().lower())",
+          "visibleCol": "Nom"
         }
       ]
     }

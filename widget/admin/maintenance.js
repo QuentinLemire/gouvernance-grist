@@ -351,6 +351,10 @@ async function creerStructure(tables) {
   await rangerColonnes(tables);
   await retirerPagesBrutes(nouvelles);
   await assurerRegleEstMoi();
+  if (aTable('Gouv_Visites') && !reglesVisitesPresentes()) {
+    etat.acl = { ressources: (await lire('_grist_ACLResources')) || [], regles: (await lire('_grist_ACLRules')) || [] };
+    if (!reglesVisitesPresentes()) await poserRegles('Gouv_Visites', REGLES_VISITES, 'Visites : chacun sa ligne, propriétaires seuls en lecture');
+  }
 }
 
 /**

@@ -105,7 +105,8 @@ async function lignesDuJournal(deltas, etat) {
 
   // Données : ajouts, modifications (une ligne par cellule), suppressions
   for (const [table, x] of Object.entries(deltas)) {
-    if (table.startsWith('_grist') || table.startsWith('GristHidden') || table === JOURNAL) continue;
+    // le journal ne se note pas lui-même ; les visites (ouvertures du document) ne sont pas des modifications
+    if (table.startsWith('_grist') || table.startsWith('GristHidden') || table === JOURNAL || table === 'Gouv_Visites') continue;
     const cd = x.columnDeltas || {};
     let colonnes = [], lignesTable = [];
     try { colonnes = (await api(`/tables/${table}/columns`, { hidden: 'true' })).columns || []; } catch (e) { /* table supprimée depuis */ }
