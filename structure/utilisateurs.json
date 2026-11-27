@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "2.3",
+  "version": "2.4",
   "sujet": "UTILISATEURS",
   "description": "Utilisateurs (annuaire et rôles génériques : Administrateur, Gestionnaire, Contributeur, Lecteur) et arborescence des entités ; base des droits. MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
@@ -81,20 +81,24 @@
       "tableId": "Gouv_Utilisateurs",
       "columns": [
         {
-          "id": "Nom",
-          "label": "Nom",
-          "type": "Text"
-        },
-        {
           "id": "Courriel",
           "label": "Courriel",
           "type": "Text"
         },
         {
-          "id": "Entite",
-          "label": "Entité",
-          "type": "Ref:Gouv_Entites",
-          "visibleCol": "Nom"
+          "id": "Nom",
+          "label": "Nom",
+          "type": "Text"
+        },
+        {
+          "id": "Prenom",
+          "label": "Prénom",
+          "type": "Text"
+        },
+        {
+          "id": "Telephone",
+          "label": "Téléphone",
+          "type": "Text"
         },
         {
           "id": "Direction",
@@ -113,12 +117,30 @@
           "visibleCol": "Nom"
         },
         {
-          "id": "Entites_vues",
-          "label": "Entités vues",
-          "type": "RefList:Gouv_Entites",
-          "isFormula": true,
-          "formula": "# Entité de la personne avec toutes ses sous-entités (hiérarchie Parent). Les droits plus larges\n# (voir d'autres entités) se donnent dans les règles d'accès (🔐 Rôles et droits), pas ici.\nvues = set()\na_voir = [$Entite] if $Entite else []\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Gouv_Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
+          "id": "Entite",
+          "label": "Entité",
+          "type": "Ref:Gouv_Entites",
           "visibleCol": "Nom"
+        },
+        {
+          "id": "Fonction",
+          "label": "Fonction",
+          "type": "Text"
+        },
+        {
+          "id": "Piece",
+          "label": "Pièce",
+          "type": "Text"
+        },
+        {
+          "id": "MOM",
+          "label": "MOM",
+          "type": "Bool"
+        },
+        {
+          "id": "Ajout_n8n",
+          "label": "Ajouté par n8n",
+          "type": "Bool"
         },
         {
           "id": "Role",
@@ -159,29 +181,12 @@
           "recalcWhen": 0
         },
         {
-          "id": "Fonction",
-          "label": "Fonction",
-          "type": "Text"
-        },
-        {
-          "id": "Telephone",
-          "label": "Téléphone",
-          "type": "Text"
-        },
-        {
-          "id": "Piece",
-          "label": "Pièce",
-          "type": "Text"
-        },
-        {
-          "id": "MOM",
-          "label": "MOM",
-          "type": "Bool"
-        },
-        {
-          "id": "Ajout_n8n",
-          "label": "Ajouté par n8n",
-          "type": "Bool"
+          "id": "Entites_vues",
+          "label": "Entités vues",
+          "type": "RefList:Gouv_Entites",
+          "isFormula": true,
+          "formula": "# Entité de la personne avec toutes ses sous-entités (hiérarchie Parent). Les droits plus larges\n# (voir d'autres entités) se donnent dans les règles d'accès (🔐 Rôles et droits), pas ici.\nvues = set()\na_voir = [$Entite] if $Entite else []\nwhile a_voir:\n    e = a_voir.pop()\n    if e.id not in vues:\n        vues.add(e.id)\n        a_voir.extend(Gouv_Entites.lookupRecords(Parent=e.id))\nreturn sorted(vues)",
+          "visibleCol": "Nom"
         },
         {
           "id": "Courriel_cle",
