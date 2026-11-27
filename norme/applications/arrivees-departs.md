@@ -153,3 +153,9 @@ Circuit complet rejoué par les comptes eux-mêmes ; 36 contrôles, tous conform
   - **Ouverture des comptes** : l'équipe **SI** du BSSIOM (`SI in user.Profil.Rattachements`).
 - Les équipes du BSSIOM s'appellent **SI** et **ASTROLAB** (noms complets BSSIOM/SI et BSSIOM/ASTROLAB), dans AD et dans Gouvernance.
 - Plus de colonne **Est admin** non plus : l'administrateur d'AD est le **propriétaire** du document (`user.Access == OWNER`). Restent seulement les colonnes calculées Entités vues, Bureaux et Par bureau, d'après l'entité et la fonction. Tests « Voir en tant que » refaits : chef du BCL et équipe SI OK.
+
+## Équipes : seulement pour n8n, pas pour la signature (2026-11-27)
+- Les équipes SI et ASTROLAB du BSSIOM servent à n8n (créer des Grist dont les propriétaires sont les agents de l'équipe SI, pas ceux d'ASTROLAB). Pour les fiches, elles comptent comme leur bureau.
+- **Bureaux** (calculée) : un chef ou un adjoint rattaché à une équipe reste chef de **tout son bureau** (BSSIOM, SI et ASTROLAB). Une équipe se reconnaît à ce que son parent n'est ni la direction ni la sous-direction de la personne.
+- **Par bureau** : faux pour l'équipe SI (elle voit tout le ministère pour ouvrir les comptes), comme pour la RH.
+- Vérifié : Florent BALLU (chef de bureau, SI) et Aurélien BOUTHIER (adjoint, SI) signent pour BSSIOM, SI et ASTROLAB.
