@@ -447,7 +447,8 @@ const PAGES = [
   { ...OUTIL, cle: 'administration', nom: '🛡️ Administration', module: 'sante', sousPage: false, anciens: ['administration.html'] },
   // Utilisateurs et Journal : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
   { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: {
-    titre: 'Annuaire', colonnes: ['Prenom', 'Nom', 'Courriel', 'Fonction', 'Direction', 'Sous_direction', 'Entite', 'MOM', 'Ajout_n8n'], tri: 'Nom', fiche: true,
+    // Territoire : seulement là où le module Territoires est installé (une colonne absente est ignorée)
+    titre: 'Annuaire', colonnes: ['Prenom', 'Nom', 'Courriel', 'Fonction', 'Direction', 'Sous_direction', 'Entite', 'Territoire', 'MOM', 'Ajout_n8n'], tri: 'Nom', fiche: true,
     cachees: ['Courriel_cle', 'Courriel_valide', 'Doublon'] } },
   { ...OUTIL, cle: 'droits', nom: '🔐 Droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
@@ -559,6 +560,7 @@ async function creerPages(bouton, seulement = null) {
       creees.push(page.nom);
     }
     await retirerChampsOrphelins();
+    await alignerPagesNatives();
     await rangerMenu();
     if (creees.length) await tracer('Pages standard créées', creees.join(', '));
     message(creees.length ? '✅ Pages créées : ' + esc(creees.join(', ')) : '✅ Menu remis dans l\'ordre de la norme.');
@@ -632,6 +634,45 @@ async function ajouterBande(fichier, tableRef, liste) {
       renderAfterReady: false, widgetId: null, widgetOptions: null, columnsMapping: null }) }) }],
     ['UpdateRecord', '_grist_Views', liste.viewRef, { layoutSpec: JSON.stringify({ children: [{ size: 16, leaf: b.sectionRef }, { size: 84, leaf: liste.sectionRef }], collapsed: [] }) }],
   ]);
+}
+
+/**
+ * Pages natives déjà présentes (Utilisateurs, Journal) : remises à la forme de la norme, pour être les mêmes dans toutes
+ * les applications (décision du 27/11/2026). Liste : les colonnes de la norme, dans l'ordre, triée et titrée ;
+ * fiche : toutes les colonnes de la table (colonnes propres à l'application comprises), dans l'ordre de la table,
+ * sans les colonnes techniques. Rien n'est supprimé dans les données : seul l'affichage change.
+ */
+async function alignerPagesNatives() {
+  await chargerStructure();
+  const pages = await lirePages();
+  const sections = (await lire('_grist_Views_section')) || [];
+  const lireChamps = async (sec) => ((await lire('_grist_Views_section_field')) || []).filter((f) => f.parentId === sec);
+  for (const p of pages) {
+    const def = PAGES.find((x) => x.cle === p.cle && x.native);
+    const table = def && etat.meta.parId[def.table];
+    if (!table) continue;
+    const n = def.native, cachees = [...(n.cachees || []), 'manualSort'];
+    const secs = sections.filter((s) => s.parentId === p.viewRef && s.tableRef === table.id);
+    const ref = (c) => colonne(def.table, c)?.id;
+    // colonnes voulues : la liste de la norme ; la fiche : toute la table, sauf les colonnes techniques
+    const voulues = (s) => (s.parentKey === 'record' ? n.colonnes.map(ref)
+      : table.colonnes.filter((c) => !cachees.includes(c.colId) && !c.colId.startsWith('gristHelper')).map((c) => c.id)).filter(Boolean);
+    for (const s of secs.filter((x) => ['record', 'single'].includes(x.parentKey))) {
+      const v = voulues(s), ici = await lireChamps(s.id);
+      const a = [];
+      const retirer = ici.filter((f) => !v.includes(f.colRef)).map((f) => f.id);
+      if (retirer.length) a.push(['BulkRemoveRecord', '_grist_Views_section_field', retirer]);
+      const ajouter = v.filter((c) => !ici.some((f) => f.colRef === c));
+      if (ajouter.length) a.push(['BulkAddRecord', '_grist_Views_section_field', ajouter.map(() => null), { parentId: ajouter.map(() => s.id), colRef: ajouter, parentPos: ajouter.map((_, i) => 1000 + i) }]);
+      if (s.parentKey === 'record') {
+        const tri = ref(n.tri.replace(/^-/, ''));
+        a.push(['UpdateRecord', '_grist_Views_section', s.id, { title: n.titre, sortColRefs: JSON.stringify(tri ? [n.tri.startsWith('-') ? -tri : tri] : []) }]);
+      }
+      if (a.length) await agir(a);
+      const ordre = (await lireChamps(s.id)).sort((x, y) => v.indexOf(x.colRef) - v.indexOf(y.colRef));
+      if (ordre.length) await agir([['BulkUpdateRecord', '_grist_Views_section_field', ordre.map((f) => f.id), { parentPos: ordre.map((_, i) => i + 1) }]]);
+    }
+  }
 }
 
 /** Mise en forme conditionnelle de la colonne Courriel : rouge si invalide, orange si en double (une seule fois). */
