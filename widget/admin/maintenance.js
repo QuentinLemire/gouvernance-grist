@@ -448,7 +448,8 @@ const PAGES = [
   // Utilisateurs et Journal : une table suffit (filtres, collage, export natifs de Grist) ; pas de widget
   { cle: 'utilisateurs', nom: '👥 Utilisateurs', table: 'Gouv_Utilisateurs', sousPage: true, native: {
     // Territoire : seulement là où le module Territoires est installé (une colonne absente est ignorée)
-    titre: 'Annuaire', colonnes: ['Prenom', 'Nom', 'Courriel', 'Fonction', 'Direction', 'Sous_direction', 'Entite', 'Territoire', 'MOM', 'Ajout_n8n'], tri: 'Nom', fiche: true,
+    // la vue de Gouvernance (27/11/2026) : une liste seule, sans fiche à droite
+    titre: 'Utilisateurs', colonnes: ['Prenom', 'Nom', 'Courriel', 'Fonction', 'Direction', 'Sous_direction', 'Entite', 'Territoire', 'MOM', 'Ajout_n8n'], tri: 'Nom', fiche: false,
     cachees: ['Courriel_cle', 'Courriel_valide', 'Doublon'] } },
   { ...OUTIL, cle: 'droits', nom: '🔐 Droits', module: 'droits' },
   { ...OUTIL, cle: 'explorateur', nom: '🔍 Explorateur', module: 'explorateur', anciens: ['explorateur.html', 'boite-a-outils.html'] },
@@ -638,9 +639,9 @@ async function ajouterBande(fichier, tableRef, liste) {
 
 /**
  * Pages natives déjà présentes (Utilisateurs, Journal) : remises à la forme de la norme, pour être les mêmes dans toutes
- * les applications (décision du 27/11/2026). Liste : les colonnes de la norme, dans l'ordre, triée et titrée ;
- * fiche : toutes les colonnes de la table (colonnes propres à l'application comprises), dans l'ordre de la table,
- * sans les colonnes techniques. Rien n'est supprimé dans les données : seul l'affichage change.
+ * les applications (décision du 27/11/2026 ; modèle : la page Utilisateurs de Gouvernance). Liste : les colonnes de la
+ * norme, dans l'ordre, triée et titrée ; fiche (si la norme en prévoit une) : toutes les colonnes de la table, dans
+ * l'ordre de la table, sans les colonnes techniques. Rien n'est supprimé dans les données : seul l'affichage change.
  */
 async function alignerPagesNatives() {
   await chargerStructure();
@@ -657,7 +658,8 @@ async function alignerPagesNatives() {
     // colonnes voulues : la liste de la norme ; la fiche : toute la table, sauf les colonnes techniques
     const voulues = (s) => (s.parentKey === 'record' ? n.colonnes.map(ref)
       : table.colonnes.filter((c) => !cachees.includes(c.colId) && !c.colId.startsWith('gristHelper')).map((c) => c.id)).filter(Boolean);
-    for (const s of secs.filter((x) => ['record', 'single'].includes(x.parentKey))) {
+    // la liste ; la fiche seulement si la norme en prévoit une (une fiche en trop n'est pas supprimée)
+    for (const s of secs.filter((x) => x.parentKey === 'record' || (n.fiche && x.parentKey === 'single'))) {
       const v = voulues(s), ici = await lireChamps(s.id);
       const a = [];
       const retirer = ici.filter((f) => !v.includes(f.colRef)).map((f) => f.id);
