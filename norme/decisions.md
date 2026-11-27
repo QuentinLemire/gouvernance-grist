@@ -265,3 +265,12 @@ Les lignes techniques de la source (« Tous », « · », « Direction ») et le
 **Décision** : la table hors norme `Utilisateurs_DGOM` est supprimée (elle était vide). Dans Gouvernance et dans Arrivées-Départs, n8n inscrit dans `Gouv_Utilisateurs` tous les agents présents d'Arrivées-Départs. Ils arrivent **sans rôle** : les droits se donnent toujours à la main. Les lignes créées par n8n suivent Arrivées-Départs (nom, entité, fonction…) et sont désactivées (« Actif » décoché) au départ de l'agent. Une ligne saisie à la main n'est reliée qu'à son entité, et marquée Agent DGOM = Présent / Parti si la colonne existe. Dans les autres Grist de la liste, n8n relie seulement les personnes déjà inscrites à leur entité. Gouvernance a trois colonnes propres, hors norme : Téléphone, Pièce, Agent DGOM. Le type des accès recensés (Interne, Ancien agent, Externe) se lit dans Agent DGOM. Ceci remplace la séparation annuaire / utilisateurs du 2026-11-26.
 **Raison** : demande de Quentin : une seule liste de personnes par Grist, tenue par la source RH.
 **À savoir** : une personne inscrite et active mais sans rôle n'a que les droits de base du document. Elle ne peut rien ouvrir si le Grist ne lui est pas partagé.
+
+## Entités : trois têtes, MOM, Territoires, Externes (2026-11-27)
+**Décision** : une seule arborescence d'entités pour toutes les personnes, internes ou non :
+- **MOM** (ministère des Outre-mer), puis DGOM, SMA, CABMOM et leurs sous-directions et bureaux : tenus dans Arrivées-Départs, la source RH ;
+- **Territoires**, puis les 13 territoires (et dessous, les services de chaque territoire) : tenus dans Gouvernance ;
+- **Externes**, puis chaque organisme (ADEME, AFD…) : tenu dans Gouvernance.
+n8n recopie les trois branches dans chaque Grist de la liste (`Grist_DGOM`). Arrivées-Départs ne reçoit pas les branches de Gouvernance. Les droits fins restent ceux de la norme : chacun voit son entité et ses sous-entités (`Entites_vues`).
+**Raison** : demande de Quentin : rattacher aussi les personnes hors DGOM, sans créer de « territoire DGOM » (la DGOM est nationale).
+**À savoir** : dans Arrivées-Départs, la sous-direction d'un agent se calcule maintenant à partir de sa direction et non du haut de l'arbre. La liste des bureaux d'une fiche sans direction exclut MOM et les directions.
