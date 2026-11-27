@@ -295,3 +295,7 @@ Les agents qu'inscrit n8n ont les deux cases cochées et aucun rôle. Un agent p
 ## Utilisateurs : même structure que l'annuaire d'Arrivées-Départs (2026-11-27)
 **Décision** : `Gouv_Utilisateurs` reprend l'ordre de l'annuaire du personnel présent d'Arrivées-Départs : Courriel, Nom, **Prénom** (nouvelle colonne), Téléphone, Direction (« Entité » dans AD), Sous-direction, Entité (« Bureau » dans AD : l'entité précise, qui sert aux droits), Fonction, Pièce. Viennent ensuite les deux cases MOM et Ajouté par n8n, puis ce qui sert aux droits (Rôle, Actif, Entités vues, contrôles du courriel) et la traçabilité. n8n écrit le nom et le prénom séparément.
 **Raison** : demande de Quentin : une seule forme de fiche personne, de la source RH jusqu'aux Grist esclaves.
+
+## Utilisateurs : plus de Téléphone ni de Pièce (2026-11-27)
+**Décision** : Téléphone et Pièce sont retirés de `Gouv_Utilisateurs` (norme et Gouvernance), et n8n ne les recopie plus. Utilisateurs : Courriel, Nom, Prénom, Direction, Sous-direction, Entité, Fonction, MOM, Ajouté par n8n, puis Rôle, Actif et le reste des droits.
+**Raison** : demande de Quentin : ces informations ne servent à rien dans les applications ; elles restent dans Arrivées-Départs.

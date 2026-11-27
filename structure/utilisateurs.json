@@ -1,6 +1,6 @@
 {
   "format": "grist-structure",
-  "version": "2.4",
+  "version": "2.5",
   "sujet": "UTILISATEURS",
   "description": "Utilisateurs (annuaire et rôles génériques : Administrateur, Gestionnaire, Contributeur, Lecteur) et arborescence des entités ; base des droits. MOM et « Ajouté par n8n » : personnes du ministère inscrites par n8n depuis Arrivées-Départs.",
   "tables": [
@@ -96,11 +96,6 @@
           "type": "Text"
         },
         {
-          "id": "Telephone",
-          "label": "Téléphone",
-          "type": "Text"
-        },
-        {
           "id": "Direction",
           "label": "Direction",
           "type": "Ref:Gouv_Entites",
@@ -125,11 +120,6 @@
         {
           "id": "Fonction",
           "label": "Fonction",
-          "type": "Text"
-        },
-        {
-          "id": "Piece",
-          "label": "Pièce",
           "type": "Text"
         },
         {
